@@ -1,0 +1,1194 @@
+"use client";
+
+import { useState } from "react";
+import { useSettings } from "@/stores/useSettings";
+import {
+  BRISTOL_TYPES,
+  POST_BOWEL_FEELINGS,
+  CYCLE_PHASES,
+  FLOW_LEVELS,
+  PAIN_SCALE_INFO,
+  PRODUCT_OPTIONS,
+  MEDICINE_CATEGORIES,
+} from "@/lib/constants";
+import type {
+  TimeValue,
+  BristolScaleType,
+  PostBowelFeeling,
+  CyclePhase,
+  SymptomEntry,
+  EntryFormData,  
+  ProductType,
+  ProductUsageEntry,
+  CustomProduct,
+  ProductTracking,
+  Medicine, 
+  MedicineTracking, 
+  MedicineLogEntry,
+  MedicineCategory,
+  MedicineSection
+} from "@/types";
+
+function getCurrentTime(is24Hour: boolean): TimeValue {
+  const now = new Date();
+  let hour = now.getHours();
+  const minute = now.getMinutes();
+  let period: "AM" | "PM" = "AM";
+
+  if (!is24Hour) {
+    period = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+  }
+
+  return { hour, minute, period };
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+// Sanitize text to prevent XSS
+function sanitizeText(input: string): string {
+  return input
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;")
+    .replace(/\//g, "&#x2F;")
+    .replace(/`/g, "&#96;")
+    .replace(/\(/g, "&#40;")
+    .replace(/\)/g, "&#41;");
+}
+
+// Validate notes - returns true if safe
+function isNoteSafe(input: string): boolean {
+  const dangerousPatterns = [
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    /<[^>]+on\w+\s*=/gi,
+    /javascript:/gi,
+    /<iframe/gi,
+    /<object/gi,
+    /<embed/gi,
+    /<link/gi,
+    /<style/gi,
+    /<img[^>]+onerror/gi,
+  ];
+  
+  return !dangerousPatterns.some(pattern => pattern.test(input));
+}
+
+function MedicineSection({
+  category,
+  medicines,
+  loggedMedicines,
+  onChange,
+  is24Hour,
+}: MedicineSection) {
+  // Filter medicines relevant to this category
+  const relevantMedicines = medicines.filter((m) => m.categories.includes(category));
+
+  if (relevantMedicines.length === 0) return null;
+
+  const toggleMedicine = (medicine: Medicine) => {
+    const exists = loggedMedicines.find((l) => l.medicineId === medicine.id);
+    if (exists) {
+      onChange(loggedMedicines.filter((l) => l.medicineId !== medicine.id));
+    } else {
+      onChange([
+        ...loggedMedicines,
+        {
+          medicineId: medicine.id,
+          medicineName: medicine.name,
+          dosage: medicine.dosage || "",
+          time: medicine.timeSensitive ? getCurrentTime(is24Hour) : undefined,
+        },
+      ]);
+    }
+  };
+
+  const updateLogEntry = (medicineId: string, updates: Partial<MedicineLogEntry>) => {
+    onChange(
+      loggedMedicines.map((l) =>
+        l.medicineId === medicineId ? { ...l, ...updates } : l
+      )
+    );
+  };
+
+  return (
+    <div className="pt-4 border-t border-app-border">
+      <p className="text-sm font-medium text-app-charcoal mb-2">Related Medicine?</p>
+      
+      {/* Medicine Selection Pills */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {relevantMedicines.map((medicine) => {
+          const isSelected = loggedMedicines.some((l) => l.medicineId === medicine.id);
+          return (
+            <button
+              key={medicine.id}
+              type="button"
+              onClick={() => toggleMedicine(medicine)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                isSelected
+                  ? "bg-app-taupe text-white"
+                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-taupe"
+              }`}
+            >
+              {medicine.name}
+              {medicine.timeSensitive && " ⏰"}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Details for Selected Medicines */}
+      {loggedMedicines
+        .filter((l) => relevantMedicines.some((m) => m.id === l.medicineId))
+        .map((entry) => {
+          const medicine = relevantMedicines.find((m) => m.id === entry.medicineId);
+          if (!medicine) return null;
+
+          return (
+            <div
+              key={entry.medicineId}
+              className="p-3 bg-app-taupe/5 rounded-lg border border-app-taupe/20 mb-2"
+            >
+              <p className="text-sm font-medium text-app-charcoal mb-2">
+                {medicine.name}
+              </p>
+
+              {/* Dosage Input */}
+              <div className="mb-2">
+                <label className="block text-xs text-app-gray mb-1">Dosage taken:</label>
+                <input
+                  type="text"
+                  value={entry.dosage}
+                  onChange={(e) =>
+                    updateLogEntry(entry.medicineId, { dosage: e.target.value })
+                  }
+                  placeholder={medicine.dosage || "e.g., 2 pills, 200mg..."}
+                  className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+                />
+              </div>
+
+              {/* Time Input (if time-sensitive) */}
+              {medicine.timeSensitive && (
+                <div>
+                  <label className="block text-xs text-app-gray mb-1">Time taken: *</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={is24Hour ? 0 : 1}
+                      max={is24Hour ? 23 : 12}
+                      value={entry.time?.hour ?? 12}
+                      onChange={(e) =>
+                        updateLogEntry(entry.medicineId, {
+                          time: { ...entry.time!, hour: Number(e.target.value) },
+                        })
+                      }
+                      className="w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
+                    />
+                    <span className="text-app-gray font-bold">:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={entry.time?.minute?.toString().padStart(2, "0") ?? "00"}
+                      onChange={(e) =>
+                        updateLogEntry(entry.medicineId, {
+                          time: { ...entry.time!, minute: Number(e.target.value) },
+                        })
+                      }
+                      className="w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
+                    />
+                    {!is24Hour && (
+                      <select
+                        value={entry.time?.period ?? "AM"}
+                        onChange={(e) =>
+                          updateLogEntry(entry.medicineId, {
+                            time: { ...entry.time!, period: e.target.value as "AM" | "PM" },
+                          })
+                        }
+                        className="px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+                      >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+    </div>
+  );
+}
+
+export default function EntryPage() {
+  const { timeFormat, symptoms, periodTracking, stoolTracking, medicineTracking} = useSettings();
+  const is24Hour = timeFormat === "24h";
+
+  // Safe access to settings
+  const safeSymptoms = symptoms ?? {
+    selected: [],
+    custom: [],
+    intensityTracking: { enabled: false, scaleType: "simple" },
+  };
+  const safePeriodTracking = periodTracking ?? {
+    enabled: false,
+    personalQuestions: false,
+    periodSymptoms: [],
+    customPeriodSymptoms: [],
+  };
+
+  const safeStoolTracking = stoolTracking ?? { enabled: false };
+  const intensityEnabled = safeSymptoms.intensityTracking?.enabled ?? false;
+  const painScaleType = safeSymptoms.intensityTracking?.scaleType ?? "simple";
+
+
+  const [bowelMedicines, setBowelMedicines] = useState<MedicineLogEntry[]>([]);
+  const [symptomMedicines, setSymptomMedicines] = useState<MedicineLogEntry[]>([]);
+  const [periodMedicines, setPeriodMedicines] = useState<MedicineLogEntry[]>([]);
+
+  const [productUsage, setProductUsage] = useState<ProductUsageEntry[]>([]);
+
+// Safe access
+const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: [] };
+
+  // Combined list of all period-related symptoms (selected + custom)
+  const periodSymptomsList = [
+    ...(safePeriodTracking.periodSymptoms ?? []),
+    ...(safePeriodTracking.customPeriodSymptoms ?? []),
+  ];
+
+  const [cyclePhase, setCyclePhase] = useState<CyclePhase | null>(null);
+  // Check if menstrual phase is selected
+  const isMenstrualPhase = cyclePhase === "menstrual";
+
+  const allSymptomsToShow = Array.from(
+    new Set([
+      ...safeSymptoms.selected,
+      ...(safePeriodTracking.periodSymptoms ?? []),
+      ...(safePeriodTracking.customPeriodSymptoms ?? []),
+    ])
+  );
+
+  // Form state
+  const [startTime, setStartTime] = useState<TimeValue>(getCurrentTime(is24Hour));
+  const [endTime, setEndTime] = useState<TimeValue>(getCurrentTime(is24Hour));
+  const [bristolType, setBristolType] = useState<BristolScaleType | null>(null);
+  const [postFeeling, setPostFeeling] = useState<PostBowelFeeling | null>(null);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<SymptomEntry[]>([]);
+  const [flowLevel, setFlowLevel] = useState<string | null>(null);
+  const [periodPainLevel, setPeriodPainLevel] = useState<number | null>(null);
+  const [notes, setNotes] = useState("");
+  const [notesWarning, setNotesWarning] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  // Toggle symptom selection
+  const toggleSymptom = (symptomName: string) => {
+    const exists = selectedSymptoms.find((s) => s.name === symptomName);
+    const isPeriodRelated = periodSymptomsList.includes(symptomName);
+
+    if (exists) {
+      setSelectedSymptoms(selectedSymptoms.filter((s) => s.name !== symptomName));
+    } else {
+      setSelectedSymptoms([
+        ...selectedSymptoms,
+        {
+          name: symptomName,
+          intensity: undefined,
+          isPeriodRelated: isMenstrualPhase && isPeriodRelated,
+        },
+      ]);
+    }
+  };
+
+  // Update symptom intensity
+  const updateSymptomIntensity = (symptomName: string, intensity: number) => {
+    setSelectedSymptoms(
+      selectedSymptoms.map((s) =>
+        s.name === symptomName ? { ...s, intensity } : s
+      )
+    );
+  };
+
+  // Handle notes change with security check
+  const handleNotesChange = (value: string) => {
+    setNotes(value);
+    if (!isNoteSafe(value)) {
+      setNotesWarning("⚠️ Some characters were detected that aren't allowed for security reasons.");
+    } else {
+      setNotesWarning(null);
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async () => {
+    if (safeStoolTracking.enabled && (!bristolType || !postFeeling)) {
+      alert("Please fill in the Bristol Stool Scale section");
+      return;
+    }
+
+    if (!isNoteSafe(notes)) {
+      alert("Please remove any code-like content from the notes field.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const formData: EntryFormData = {
+      date: new Date().toISOString(),
+      startTime,
+      endTime,
+      bristolType: safeStoolTracking.enabled ? bristolType : null,
+      postFeeling: safeStoolTracking.enabled ? postFeeling : null,
+      symptoms: selectedSymptoms,
+      periodData: safePeriodTracking.enabled
+        ? {
+            cyclePhase,
+            productUsage: safePeriodTracking.productTracking?.enabled ? productUsage : undefined,
+            personalData:
+              safePeriodTracking && isMenstrualPhase
+                ? {
+                    flowLevel: flowLevel as
+                      | "light"
+                      | "medium"
+                      | "heavy"
+                      | "spotting"
+                      | undefined,
+                    painLevel: periodPainLevel ?? undefined,
+                    notes: notes ? sanitizeText(notes) : undefined,
+                  }
+                : undefined,
+          }
+        : undefined,
+      notes: notes ? sanitizeText(notes) : undefined,
+    };
+
+    console.log("Submitting entry:", formData);
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    setIsSubmitting(false);
+    setSubmitSuccess(true);
+
+    setTimeout(() => {
+      resetForm();
+      setSubmitSuccess(false);
+    }, 2000);
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setStartTime(getCurrentTime(is24Hour));
+    setEndTime(getCurrentTime(is24Hour));
+    setBristolType(null);
+    setPostFeeling(null);
+    setSelectedSymptoms([]);
+    setCyclePhase(null);
+    setFlowLevel(null);
+    setPeriodPainLevel(null);
+    setNotes("");
+    setNotesWarning(null);
+    setProductUsage([]);
+  };
+
+  return (
+    <div className="space-y-6 pb-8">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-app-charcoal">New Entry</h1>
+          <p className="text-app-gray">{formatDate(new Date())}</p>
+        </div>
+        <div className="text-sm text-app-gray">📅 Today</div>
+      </div>
+
+      {/* Start Time Card */}
+      <section className="card">
+        <TimeInputSection
+          label="⏱️ Start Time"
+          value={startTime}
+          onChange={setStartTime}
+          is24Hour={is24Hour}
+        />
+      </section>
+
+      {/* Bristol Stool Scale - Conditional */}
+      {safeStoolTracking.enabled && (
+        <section className="card">
+          <h2 className="text-lg font-semibold text-app-charcoal mb-4">
+            💩 Bristol Stool Scale
+          </h2>
+
+          {safeMedicineTracking.enabled && (
+            <MedicineSection
+              category="bowel"
+              medicines={safeMedicineTracking.medicines}
+              loggedMedicines={bowelMedicines}
+              onChange={setBowelMedicines}
+              is24Hour={is24Hour}
+            />
+            )}
+          
+          {/* Bristol Type - Circular Buttons */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-app-charcoal mb-3">
+              What does it look like?
+            </label>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {BRISTOL_TYPES.map((type) => (
+                <button
+                  key={type.type}
+                  type="button"
+                  onClick={() => setBristolType(type.type as BristolScaleType)}
+                  className={`w-12 h-12 rounded-full text-lg font-semibold transition-all ${
+                    bristolType === type.type
+                      ? "bg-app-plumb text-white scale-110"
+                      : "bg-app-cream text-app-charcoal border-2 border-app-border hover:border-app-plumb"
+                  }`}
+                >
+                  {type.type}
+                </button>
+              ))}
+            </div>
+            {bristolType && (
+              <div className="mt-3 p-3 bg-app-cream rounded-lg">
+                <p className="text-sm font-medium text-app-charcoal">
+                  Type {bristolType}: {BRISTOL_TYPES.find((t) => t.type === bristolType)?.name}
+                </p>
+                <p className="text-sm text-app-gray mt-1">
+                  {BRISTOL_TYPES.find((t) => t.type === bristolType)?.description}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Post Feeling - Oval Chips */}
+          <div>
+            <label className="block text-sm font-medium text-app-charcoal mb-3">
+              How do you feel after?
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {POST_BOWEL_FEELINGS.map((feeling) => (
+                <button
+                  key={feeling.value}
+                  type="button"
+                  onClick={() => setPostFeeling(feeling.value)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    postFeeling === feeling.value
+                      ? "bg-app-plumb text-white"
+                      : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-plumb"
+                  }`}
+                >
+                  {feeling.label}
+                </button>
+              ))}
+            </div>
+            {postFeeling && (
+              <p className="mt-3 text-sm text-app-gray">
+                {POST_BOWEL_FEELINGS.find((f) => f.value === postFeeling)?.description}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Period Tracking - Conditional */}
+      {safePeriodTracking.enabled && (
+        <section className="card">
+          <h2 className="text-lg font-semibold text-app-charcoal mb-4">
+            🌸 Period Tracking
+          </h2>
+          
+          {/* Cycle Phase Selection */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-app-charcoal mb-2">
+              Where are you in your cycle?
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {CYCLE_PHASES.map((phase) => {
+                const isSelected = cyclePhase === phase.value;
+                const bgColor =
+                  phase.value === "menstrual"
+                    ? "#791D1E"
+                    : phase.value === "follicular"
+                    ? "#104B55"
+                    : phase.value === "ovulation"
+                    ? "#3F592E"
+                    : phase.value === "luteal"
+                    ? "#C4B7A6"
+                    : "#7A7A7A";
+                return (
+                  <button
+                    key={phase.value}
+                    type="button"
+                    onClick={() => setCyclePhase(phase.value)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      isSelected
+                        ? "text-white"
+                        : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-green"
+                    }`}
+                    style={isSelected ? { backgroundColor: bgColor } : {}}
+                  >
+                    {phase.label}
+                  </button>
+                );
+              })}
+            </div>
+            {cyclePhase && (
+              <p className="mt-2 text-sm text-app-gray">
+                {CYCLE_PHASES.find((p) => p.value === cyclePhase)?.description}
+              </p>
+            )}
+          </div>
+
+          {/* Flow Level - Only during Menstrual phase when enabled */}
+          {safePeriodTracking.trackFlow && isMenstrualPhase && (
+            <div className="pt-4 pb-4 border-t border-app-border">
+              <label className="block text-sm font-medium text-app-charcoal mb-2">
+                Flow Level
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {FLOW_LEVELS.map((level) => (
+                  <button
+                    key={level.value}
+                    type="button"
+                    onClick={() => setFlowLevel(level.value)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      flowLevel === level.value
+                        ? "bg-app-red text-white"
+                        : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-red"
+                    }`}
+                  >
+                    {level.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Product Usage - Only during Menstrual phase when enabled */}
+          {safePeriodTracking.productTracking?.enabled && isMenstrualPhase && (
+            <div className="pt-4 pb-4 border-t border-app-border">
+              <label className="block text-sm font-medium text-app-charcoal mb-3">
+                Products Used
+              </label>
+              <ProductUsageEntrySection
+                productTracking={safePeriodTracking.productTracking}
+                selectedProductUsage={productUsage}
+                onChange={setProductUsage}
+              />
+            </div>
+          )}
+
+          {safeMedicineTracking.enabled && isMenstrualPhase && (
+            <MedicineSection
+              category="period"
+              medicines={safeMedicineTracking.medicines}
+              loggedMedicines={periodMedicines}
+              onChange={setPeriodMedicines}
+              is24Hour={is24Hour}
+            />
+          )}
+        </section>
+      )}
+
+      {/* Symptoms Section */}
+      {allSymptomsToShow.length > 0 && (
+        <section className="card">
+          <h2 className="text-lg font-semibold text-app-charcoal mb-4">
+            🏷️ Symptoms
+          </h2>
+          <p className="text-sm text-app-gray mb-3">
+            Select any symptoms you&apos;re experiencing:
+          </p>
+
+          {/* Legend - only show during menstrual phase when there are period symptoms */}
+          {isMenstrualPhase && periodSymptomsList.length > 0 && (
+            <div className="flex flex-wrap gap-4 mb-4 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-app-red"></span>
+                <span className="text-app-gray">Period-related</span>
+              </div>
+            </div>
+          )}
+
+          {/* Symptom Chips */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {allSymptomsToShow.map((symptom) => {
+              const selected = selectedSymptoms.find((s) => s.name === symptom);
+              const isPeriodRelated = periodSymptomsList.includes(symptom);
+              const accentColor = isMenstrualPhase && isPeriodRelated ? "red" : "teal";
+              
+              const colorClasses = {
+                red: {
+                  selected: "bg-app-red text-white",
+                  unselected: "bg-app-cream text-app-charcoal border border-app-border hover:border-app-red",
+                },
+                teal: {
+                  selected: "bg-app-teal text-white",
+                  unselected: "bg-app-cream text-app-charcoal border border-app-border hover:border-app-teal",
+                },
+              };
+
+              return (
+                <button
+                  key={symptom}
+                  type="button"
+                  onClick={() => toggleSymptom(symptom)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selected
+                      ? colorClasses[accentColor].selected
+                      : colorClasses[accentColor].unselected
+                  }`}
+                >
+                  {symptom}
+                  {isMenstrualPhase && isPeriodRelated && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-app-red ml-1 inline-block"></span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Intensity Sliders for Selected Symptoms */}
+          {intensityEnabled && selectedSymptoms.length > 0 && (
+            <div className="space-y-3 pt-4 border-t border-app-border">
+              <p className="text-sm font-medium text-app-charcoal">Intensity levels:</p>
+              {selectedSymptoms.map((symptom) => {
+                const isPeriodRelated = periodSymptomsList.includes(symptom.name);
+                const accentColor = isMenstrualPhase && isPeriodRelated ? "red" : "teal";
+                const scaleInfo = PAIN_SCALE_INFO[painScaleType];
+                const maxValue = 10;
+
+                return (
+                  <div
+                    key={symptom.name}
+                    className={`p-3 rounded-lg ${
+                      accentColor === "red" ? "bg-app-red/5" : "bg-app-teal/5"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-app-charcoal">
+                        {symptom.name}
+                      </span>
+                      <span
+                        className={`text-xs font-medium ${
+                          accentColor === "red" ? "text-app-red" : "text-app-teal"
+                        }`}
+                      >
+                        {symptom.intensity ?? (painScaleType === "mankoski" ? 0 : 1)} / {maxValue}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={painScaleType === "mankoski" ? 0 : 1}
+                      max={maxValue}
+                      value={symptom.intensity ?? (painScaleType === "mankoski" ? 0 : 1)}
+                      onChange={(e) => updateSymptomIntensity(symptom.name, Number(e.target.value))}
+                      className={`w-full ${
+                        accentColor === "red" ? "accent-app-red" : "accent-app-teal"
+                      }`}
+                    />
+                    <div className="flex justify-between text-xs text-app-gray mt-1">
+                      <span>{scaleInfo.levels[0].label}</span>
+                      <span>{scaleInfo.levels[scaleInfo.levels.length - 1].label}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {/* Inside Symptoms section */}
+          {safeMedicineTracking.enabled && (
+            <MedicineSection
+              category="symptom"
+              medicines={safeMedicineTracking.medicines}
+              loggedMedicines={symptomMedicines}
+              onChange={setSymptomMedicines}
+              is24Hour={is24Hour}
+            />
+          )}
+        </section>
+      )}
+
+      {/* Notes Section */}
+      <section className="card">
+        <h2 className="text-lg font-semibold text-app-charcoal mb-4">📝 Notes</h2>
+        <p className="text-sm text-app-gray mb-3">
+          Optional — Add any additional thoughts or observations
+        </p>
+        <textarea
+          value={notes}
+          onChange={(e) => handleNotesChange(e.target.value)}
+          placeholder="How are you feeling today? Any additional details..."
+          rows={4}
+          className={`w-full px-4 py-3 rounded-lg border bg-app-white focus:outline-none focus:ring-2 resize-none text-app-charcoal ${
+            notesWarning
+              ? "border-app-red focus:ring-app-red"
+              : "border-app-border focus:ring-app-green"
+          }`}
+        />
+        {/* {notesWarning && (
+          <p className="mt-2 text-sm text-app-red">{notesWarning}</p>
+        )}
+        <p className="mt-2 text-xs text-app-gray">
+          🔒 For security, code-like content is not allowed in notes.
+        </p> */}
+      </section>
+
+      {/* End Time Card */}
+      <section className="card">
+        <TimeInputSection
+          label="⏱️ End Time"
+          value={endTime}
+          onChange={setEndTime}
+          is24Hour={is24Hour}
+        />
+      </section>
+
+      {/* Submit Button */}
+      <div className="pt-4">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isSubmitting || submitSuccess || !!notesWarning}
+          className={`w-full py-4 rounded-lg font-semibold text-white transition-all ${
+            submitSuccess
+              ? "bg-app-green"
+              : isSubmitting
+              ? "bg-app-teal/70 cursor-wait"
+              : notesWarning
+              ? "bg-app-gray cursor-not-allowed"
+              : "bg-app-teal hover:bg-app-teal"
+          }`}
+        >
+          {submitSuccess ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              Entry Saved!
+            </span>
+          ) : isSubmitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Saving...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              Submit Entry
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// Helper Components
+// ============================================
+
+interface TimeInputSectionProps {
+  label: string;
+  value: TimeValue;
+  onChange: (value: TimeValue) => void;
+  is24Hour: boolean;
+}
+
+function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSectionProps) {
+  const setNow = () => {
+    const now = new Date();
+    let hour = now.getHours();
+    const minute = now.getMinutes();
+    let period: "AM" | "PM" = "AM";
+
+    if (!is24Hour) {
+      period = hour >= 12 ? "PM" : "AM";
+      hour = hour % 12 || 12;
+    }
+
+    onChange({ hour, minute, period });
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold text-app-charcoal">{label}</h2>
+        <button
+          type="button"
+          onClick={setNow}
+          className="px-4 py-2 rounded-lg bg-app-green text-white text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          Now
+        </button>
+      </div>
+      <div className="flex items-center justify-center gap-2">
+        <div className="w-20">
+          <input
+            type="number"
+            min={is24Hour ? 0 : 1}
+            max={is24Hour ? 23 : 12}
+            value={value.hour}
+            onChange={(e) => onChange({ ...value, hour: Number(e.target.value) })}
+            className="w-full px-3 py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-lg font-medium text-app-charcoal"
+          />
+          <p className="text-xs text-app-gray text-center mt-1">Hour</p>
+        </div>
+        <span className="text-2xl text-app-gray font-bold pb-5">:</span>
+        <div className="w-20">
+          <input
+            type="number"
+            min={0}
+            max={59}
+            value={value.minute.toString().padStart(2, "0")}
+            onChange={(e) => onChange({ ...value, minute: Number(e.target.value) })}
+            className="w-full px-3 py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-lg font-medium text-app-charcoal"
+          />
+          <p className="text-xs text-app-gray text-center mt-1">Min</p>
+        </div>
+        {!is24Hour && (
+          <div className="w-20">
+            <select
+              value={value.period}
+              onChange={(e) => onChange({ ...value, period: e.target.value as "AM" | "PM" })}
+              className="w-full px-2 py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-lg font-medium text-app-charcoal"
+            >
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+            <p className="text-xs text-app-gray text-center mt-1 invisible">Period</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+interface ProductUsageEntryProps {
+  productTracking: ProductTracking;
+  selectedProductUsage: ProductUsageEntry[];
+  onChange: (usage: ProductUsageEntry[]) => void;
+}
+
+function ProductUsageEntry({ productTracking, selectedProductUsage, onChange }: ProductUsageEntryProps) {
+  const selectedProducts = productTracking.selectedProducts ?? [];
+  const customProducts = productTracking.customProducts ?? {};
+
+  const toggleProduct = (productType: ProductType) => {
+    const exists = selectedProductUsage.find((p) => p.productType === productType);
+    if (exists) {
+      onChange(selectedProductUsage.filter((p) => p.productType !== productType));
+    } else {
+      onChange([...selectedProductUsage, { productType }]);
+    }
+  };
+
+  const updateProductDetails = (
+    productType: ProductType,
+    updates: Partial<ProductUsageEntry>
+  ) => {
+    onChange(
+      selectedProductUsage.map((p) =>
+        p.productType === productType ? { ...p, ...updates } : p
+      )
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Product Selection Chips */}
+      <div className="flex flex-wrap gap-2">
+        {selectedProducts.map((productType) => {
+          const product = PRODUCT_OPTIONS.find((p) => p.type === productType);
+          const isSelected = selectedProductUsage.some((p) => p.productType === productType);
+          
+          if (!product) return null;
+          
+          return (
+            <button
+              key={productType}
+              type="button"
+              onClick={() => toggleProduct(productType)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                isSelected
+                  ? "bg-app-red text-white"
+                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-red"
+              }`}
+            >
+              {product.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Details for Selected Products */}
+      {selectedProductUsage.map((usage) => {
+        const product = PRODUCT_OPTIONS.find((p) => p.type === usage.productType);
+        if (!product) return null;
+
+        const hasCustomProducts =
+          product.allowCustomProducts &&
+          (customProducts[usage.productType]?.length ?? 0) > 0;
+
+        return (
+          <div
+            key={usage.productType}
+            className="p-3 bg-app-red/5 rounded-lg border border-app-red/20"
+          >
+            <p className="text-sm font-medium text-app-charcoal mb-2">
+              {product.label} details:
+            </p>
+
+            {/* Custom Product Selection (for cups, discs, etc.) */}
+            {hasCustomProducts && (
+              <div className="mb-3">
+                <p className="text-xs text-app-gray mb-2">Which one?</p>
+                <div className="flex flex-wrap gap-2">
+                  {customProducts[usage.productType]?.map((cp) => (
+                    <button
+                      key={cp.id}
+                      type="button"
+                      onClick={() =>
+                        updateProductDetails(usage.productType, {
+                          customProductId: usage.customProductId === cp.id ? undefined : cp.id,
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        usage.customProductId === cp.id
+                          ? "bg-app-red opacity-85 text-white"
+                          : "bg-app-white text-app-charcoal border border-app-border hover:border-app-red"
+                      }`}
+                    >
+                      {cp.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Size Selection */}
+            {product.hasSizes && product.sizes && (
+              <div>
+                <p className="text-xs text-app-gray mb-2">Size/Absorbency:</p>
+                <div className="flex flex-wrap gap-2">
+                  {product.sizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() =>
+                        updateProductDetails(usage.productType, {
+                          size: usage.size === size ? undefined : size,
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        usage.size === size
+                          ? "bg-app-red opacity-85 text-white"
+                          : "bg-app-white text-app-charcoal border border-app-border hover:border-app-red"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+interface ProductUsageEntrySectionProps {
+  productTracking: ProductTracking;
+  selectedProductUsage: ProductUsageEntry[];
+  onChange: (usage: ProductUsageEntry[]) => void;
+}
+
+function ProductUsageEntrySection({ 
+  productTracking, 
+  selectedProductUsage, 
+  onChange 
+}: ProductUsageEntrySectionProps) {
+  const selectedProducts: ProductType[] = productTracking.selectedProducts ?? [];
+  const customProducts: Partial<Record<ProductType, CustomProduct[]>> = productTracking.customProducts ?? {};
+
+  const toggleProduct = (productType: ProductType) => {
+    const exists = selectedProductUsage.find((p) => p.productType === productType);
+    if (exists) {
+      onChange(selectedProductUsage.filter((p) => p.productType !== productType));
+    } else {
+      onChange([...selectedProductUsage, { productType }]);
+    }
+  };
+
+  const updateProductDetails = (
+    productType: ProductType,
+    updates: Partial<ProductUsageEntry>
+  ) => {
+    onChange(
+      selectedProductUsage.map((p) =>
+        p.productType === productType ? { ...p, ...updates } : p
+      )
+    );
+  };
+
+  // Only show products that were selected in settings
+  if (selectedProducts.length === 0) {
+    return (
+      <p className="text-sm text-app-gray italic">
+        No products configured. Add products in Settings → Period Tracking.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Product Selection Chips */}
+      <div className="flex flex-wrap gap-2">
+        {selectedProducts.map((productType: ProductType) => {
+          const product = PRODUCT_OPTIONS.find((p) => p.type === productType);
+          const isSelected = selectedProductUsage.some((p) => p.productType === productType);
+          
+          if (!product) return null;
+          
+          return (
+            <button
+              key={productType}
+              type="button"
+              onClick={() => toggleProduct(productType)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                isSelected
+                  ? "bg-app-red text-white"
+                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-red"
+              }`}
+            >
+              {product.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Details for Selected Products */}
+      {selectedProductUsage.map((usage) => {
+        const product = PRODUCT_OPTIONS.find((p) => p.type === usage.productType);
+        if (!product) return null;
+
+        const productCustomItems = customProducts[usage.productType] ?? [];
+        const hasCustomProducts = product.allowCustomProducts && productCustomItems.length > 0;
+
+        return (
+          <div
+            key={usage.productType}
+            className="p-3 bg-app-red/5 rounded-lg border border-app-red/20"
+          >
+            <p className="text-sm font-medium text-app-charcoal mb-2">
+              {product.label} details:
+            </p>
+
+            {/* Custom Product Selection (for cups, discs, etc.) */}
+            {hasCustomProducts && (
+              <div className="mb-3">
+                <p className="text-xs text-app-gray mb-2">Which one?</p>
+                <div className="flex flex-wrap gap-2">
+                  {productCustomItems.map((cp: CustomProduct) => (
+                    <button
+                      key={cp.id}
+                      type="button"
+                      onClick={() =>
+                        updateProductDetails(usage.productType, {
+                          customProductId: usage.customProductId === cp.id ? undefined : cp.id,
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        usage.customProductId === cp.id
+                          ? "bg-app-red opacity-85 text-white"
+                          : "bg-app-white text-app-charcoal border border-app-border hover:border-app-red"
+                      }`}
+                    >
+                      {cp.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Size Selection */}
+            {product.hasSizes && product.sizes && (
+              <div>
+                <p className="text-xs text-app-gray mb-2">Size/Absorbency:</p>
+                <div className="flex flex-wrap gap-2">
+                  {product.sizes.map((size: string) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() =>
+                        updateProductDetails(usage.productType, {
+                          size: usage.size === size ? undefined : size,
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        usage.size === size
+                          ? "bg-app-red opacity-85 text-white"
+                          : "bg-app-white text-app-charcoal border border-app-border hover:border-app-red"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

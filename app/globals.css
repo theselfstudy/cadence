@@ -2,26 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS Custom Properties for easy theming */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --app-green: #3F592E;
+  --app-plumb:"#4A2E59";
+  --app-taupe: #C4B7A6;
+  --app-cream: #F8F6F3;
+  --app-white: #FFFFFF;
+  --app-charcoal: #59572E;
+  --app-gray: #7A7A7A;
+  --app-red: #791D1E;
+  --app-teal: #104B55;
+  --app-border: #E8E4DF;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Base styles */
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  
+  body {
+    @apply bg-app-cream text-app-charcoal;
+    @apply min-h-screen;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Remove tap highlight on mobile */
+  * {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+/* Component utilities */
+@layer components {
+  /* Card component base style */
+  .card {
+    @apply bg-app-white rounded-app shadow-app;
+    @apply border border-app-border;
+    @apply p-4;
+  }
+
+  /* Primary button style */
+  .btn-primary {
+    @apply bg-app-green text-white;
+    @apply px-6 py-3 rounded-app;
+    @apply font-medium;
+    @apply transition-colors duration-200;
+    @apply hover:bg-app-green-dark;
+    @apply focus:outline-none focus:ring-2 focus:ring-app-green focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Secondary button style */
+  .btn-secondary {
+    @apply bg-app-cream text-app-charcoal;
+    @apply px-6 py-3 rounded-app;
+    @apply font-medium;
+    @apply border border-app-border;
+    @apply transition-colors duration-200;
+    @apply hover:bg-app-border;
+    @apply focus:outline-none focus:ring-2 focus:ring-app-green focus:ring-offset-2;
+  }
 }
 
+/* Custom utilities */
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
