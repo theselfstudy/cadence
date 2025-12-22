@@ -17,8 +17,7 @@ import type {
   PostBowelFeeling,
   CyclePhase,
   SymptomEntry,
-  EntryFormData,  
-  ProductType,
+  EntryFormData,
   ProductUsageEntry,
   CustomProduct,
   ProductTracking,
@@ -506,7 +505,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       {safePeriodTracking.enabled && (
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
-            🌸 Period Tracking
+            🌸 Cycle Log
           </h2>
           
           {/* Cycle Phase Selection */}
@@ -606,7 +605,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       {allSymptomsToShow.length > 0 && (
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
-            🏷️ Symptoms
+            🏷️ General Symptoms
           </h2>
           <p className="text-sm text-app-gray mb-3">
             Select any symptoms you&apos;re experiencing:
@@ -723,7 +722,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
       {/* Notes Section */}
       <section className="card">
-        <h2 className="text-lg font-semibold text-app-charcoal mb-4">📝 Notes</h2>
+        <h2 className="text-lg font-semibold text-app-charcoal mb-4">📝 Additional Notes</h2>
         <p className="text-sm text-app-gray mb-3">
           Optional — Add any additional thoughts or observations
         </p>
@@ -911,17 +910,24 @@ function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSection
     </div>
   );
 }
-interface ProductUsageEntryProps {
+
+interface ProductUsageEntrySectionProps {
   productTracking: ProductTracking;
   selectedProductUsage: ProductUsageEntry[];
   onChange: (usage: ProductUsageEntry[]) => void;
 }
 
-function ProductUsageEntry({ productTracking, selectedProductUsage, onChange }: ProductUsageEntryProps) {
+function ProductUsageEntrySection({ 
+  productTracking, 
+  selectedProductUsage, 
+  onChange 
+}: ProductUsageEntrySectionProps) {
+  // Use string[] instead of ProductType[]
   const selectedProducts = productTracking.selectedProducts ?? [];
   const customProducts = productTracking.customProducts ?? {};
 
-  const toggleProduct = (productType: ProductType) => {
+  // productType is now string
+  const toggleProduct = (productType: string) => {
     const exists = selectedProductUsage.find((p) => p.productType === productType);
     if (exists) {
       onChange(selectedProductUsage.filter((p) => p.productType !== productType));
@@ -930,8 +936,9 @@ function ProductUsageEntry({ productTracking, selectedProductUsage, onChange }: 
     }
   };
 
+  // productType is now string
   const updateProductDetails = (
-    productType: ProductType,
+    productType: string,
     updates: Partial<ProductUsageEntry>
   ) => {
     onChange(
@@ -940,6 +947,14 @@ function ProductUsageEntry({ productTracking, selectedProductUsage, onChange }: 
       )
     );
   };
+
+  if (selectedProducts.length === 0) {
+    return (
+      <p className="text-sm text-app-gray italic">
+        No products configured. Add products in Settings → Period Tracking.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -973,154 +988,7 @@ function ProductUsageEntry({ productTracking, selectedProductUsage, onChange }: 
         const product = PRODUCT_OPTIONS.find((p) => p.type === usage.productType);
         if (!product) return null;
 
-        const hasCustomProducts =
-          product.allowCustomProducts &&
-          (customProducts[usage.productType]?.length ?? 0) > 0;
-
-        return (
-          <div
-            key={usage.productType}
-            className="p-3 bg-app-red/5 rounded-lg border border-app-red/20"
-          >
-            <p className="text-sm font-medium text-app-charcoal mb-2">
-              {product.label} details:
-            </p>
-
-            {/* Custom Product Selection (for cups, discs, etc.) */}
-            {hasCustomProducts && (
-              <div className="mb-3">
-                <p className="text-xs text-app-gray mb-2">Which one?</p>
-                <div className="flex flex-wrap gap-2">
-                  {customProducts[usage.productType]?.map((cp) => (
-                    <button
-                      key={cp.id}
-                      type="button"
-                      onClick={() =>
-                        updateProductDetails(usage.productType, {
-                          customProductId: usage.customProductId === cp.id ? undefined : cp.id,
-                        })
-                      }
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                        usage.customProductId === cp.id
-                          ? "bg-app-red opacity-85 text-white"
-                          : "bg-app-white text-app-charcoal border border-app-border hover:border-app-red"
-                      }`}
-                    >
-                      {cp.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Size Selection */}
-            {product.hasSizes && product.sizes && (
-              <div>
-                <p className="text-xs text-app-gray mb-2">Size/Absorbency:</p>
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() =>
-                        updateProductDetails(usage.productType, {
-                          size: usage.size === size ? undefined : size,
-                        })
-                      }
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                        usage.size === size
-                          ? "bg-app-red opacity-85 text-white"
-                          : "bg-app-white text-app-charcoal border border-app-border hover:border-app-red"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-interface ProductUsageEntrySectionProps {
-  productTracking: ProductTracking;
-  selectedProductUsage: ProductUsageEntry[];
-  onChange: (usage: ProductUsageEntry[]) => void;
-}
-
-function ProductUsageEntrySection({ 
-  productTracking, 
-  selectedProductUsage, 
-  onChange 
-}: ProductUsageEntrySectionProps) {
-  const selectedProducts: ProductType[] = productTracking.selectedProducts ?? [];
-  const customProducts: Partial<Record<ProductType, CustomProduct[]>> = productTracking.customProducts ?? {};
-
-  const toggleProduct = (productType: ProductType) => {
-    const exists = selectedProductUsage.find((p) => p.productType === productType);
-    if (exists) {
-      onChange(selectedProductUsage.filter((p) => p.productType !== productType));
-    } else {
-      onChange([...selectedProductUsage, { productType }]);
-    }
-  };
-
-  const updateProductDetails = (
-    productType: ProductType,
-    updates: Partial<ProductUsageEntry>
-  ) => {
-    onChange(
-      selectedProductUsage.map((p) =>
-        p.productType === productType ? { ...p, ...updates } : p
-      )
-    );
-  };
-
-  // Only show products that were selected in settings
-  if (selectedProducts.length === 0) {
-    return (
-      <p className="text-sm text-app-gray italic">
-        No products configured. Add products in Settings → Period Tracking.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Product Selection Chips */}
-      <div className="flex flex-wrap gap-2">
-        {selectedProducts.map((productType: ProductType) => {
-          const product = PRODUCT_OPTIONS.find((p) => p.type === productType);
-          const isSelected = selectedProductUsage.some((p) => p.productType === productType);
-          
-          if (!product) return null;
-          
-          return (
-            <button
-              key={productType}
-              type="button"
-              onClick={() => toggleProduct(productType)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                isSelected
-                  ? "bg-app-red text-white"
-                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-red"
-              }`}
-            >
-              {product.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Details for Selected Products */}
-      {selectedProductUsage.map((usage) => {
-        const product = PRODUCT_OPTIONS.find((p) => p.type === usage.productType);
-        if (!product) return null;
-
+        // Access custom products using string key
         const productCustomItems = customProducts[usage.productType] ?? [];
         const hasCustomProducts = product.allowCustomProducts && productCustomItems.length > 0;
 

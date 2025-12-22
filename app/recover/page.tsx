@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSettings } from '@/stores/useSettings';
 import Link from 'next/link';
 import { useGoogleLogin } from '@react-oauth/google';
+import { GOOGLE_SHEET_URL_PATTERN } from '@/lib/constants';
 
 // Helper function to extract ID from URL
 function getSpreadsheetIdFromUrl(url: string): string | null {
@@ -44,15 +45,23 @@ export default function RecoverPage() {
   });
 
   const handleRestore = () => {
-    setError(null);
-    if (!sheetUrl.trim()) {
-      setError("Please enter your Google Sheet URL first.");
-      return;
-    }
-    // This will trigger the Google login popup
-    restoreLogin();
+  setError(null);
+  
+  if (!sheetUrl.trim()) {
+    setError("Please enter your Google Sheet URL first.");
+    return;
+  }
+  
+  // Validate Google Sheets URL format
+  if (!GOOGLE_SHEET_URL_PATTERN.test(sheetUrl.trim())) {
+    setError("Please enter a valid Google Sheets URL");
+    return;
+  }
+  
+  // This will trigger the Google login popup
+  restoreLogin();
   };
-
+  
   return (
     <div className="flex items-center justify-center min-h-screen bg-app-cream">
       <div className="max-w-md w-full p-8 space-y-6 bg-app-white border border-app-border rounded-lg shadow-md">

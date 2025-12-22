@@ -14,32 +14,31 @@ const UserIcon = () => <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke
  * Home page - Entry point of the TrackWell app
  */
 export default function HomePage() {
-  const { 
-    setupComplete, 
-    symptoms, 
-    periodTracking,
-    timeFormat,
-    googleSheet,
-    stoolTracking,
-    isAuthenticated,
-    isGoogleSheetConnected,
-    completeSetup,
-    toggleSymptom,
-    setTimeFormat 
-  } = useSettings();
+const { 
+  setupComplete, 
+  symptoms, 
+  periodTracking,
+  timeFormat,
+  googleSheet,
+  stoolTracking,
+  isGoogleSheetConnected,
+  completeSetup,
+  toggleSymptom,
+  setTimeFormat 
+} = useSettings();
 
-  let mode = "Local-Only Mode";
-  let modeIcon = <LockIcon />;
-  let modeColorClass = "text-app-plumb";
+  let mode = "Anonymous Mode";
+  let modeIcon = <UserIcon />;
+  let modeColorClass = "text-app-grey";
+  let modeDescription = "Data stored locally on this device only";
 
-  if (isAuthenticated && isGoogleSheetConnected) {
+
+  if (isGoogleSheetConnected) {
     mode = "Signed In & Synced";
-    modeIcon = <UserIcon />;
-    modeColorClass = "text-app-green";
-  } else if (isGoogleSheetConnected) {
-    mode = "Anonymous Mode with Google Sheet";
     modeIcon = <CloudIcon />;
-    modeColorClass = "text-app-teal";
+    modeColorClass = "text-app-green";
+    modeDescription = "Data syncs to your Google Sheet";
+
   }
 
   const [showColorPalette, setShowColorPalette] = useState(false);
@@ -123,19 +122,19 @@ export default function HomePage() {
         </p>
 
         <div className="mt-4 p-3 bg-app-cream rounded-lg border border-app-border">
-          <div className="flex items-center gap-3">
-            <div className={modeColorClass}>{modeIcon}</div>
-            <div>
-              <p className={`font-semibold ${modeColorClass}`}>{mode}</p>
-              <p className="text-xs text-app-gray">
-                You can change your connection status in{" "}
-                <Link href="/settings" className="underline hover:text-app-green">
-                    Settings
-                </Link>.
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className={modeColorClass}>{modeIcon}</div>
+          <div>
+            <p className={`font-semibold ${modeColorClass}`}>{mode}</p>
+            <p className="text-xs text-app-gray">{modeDescription}</p>
+            <p className="text-xs text-app-gray mt-1">
+              <Link href="/settings" className="underline hover:text-app-green">
+                Change in Settings
+              </Link>
+            </p>
           </div>
         </div>
+      </div>
 
         {/* Different action call based on setup status */}
         {setupComplete ? (

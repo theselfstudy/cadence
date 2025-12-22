@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+import { existsCaseInsensitive, findSimilarItems } from "@/lib/stringUtils";
+
 import {
   getSettingsFromSheet,
   saveSettingsToSheet as apiSaveSettings,
@@ -41,29 +43,10 @@ export const useSettings = create<SettingsStore>()(
       // INITIAL STATE
       // =======================================================================
       ...DEFAULT_USER_SETTINGS,
-      userEmail: null,
-      isAuthenticated: false,
       isGoogleSheetConnected: false,
       isSyncing: false,
       hasUnsavedChanges: false,
       lastSavedSnapshot: null, // JSON snapshot of last saved state for reverting
-
-      // =======================================================================
-      // AUTH ACTIONS
-      // =======================================================================
-
-      signIn: (email: string) => {
-        if (get().isGoogleSheetConnected) {
-          console.log(`Simulating magic link sent to: ${email}`);
-          set({ isAuthenticated: true, userEmail: email });
-        } else {
-          console.error("Attempted to sign in without a Google Sheet connected.");
-        }
-      },
-
-      signOut: () => {
-        set({ isAuthenticated: false, userEmail: null });
-      },
 
       // =======================================================================
       // GOOGLE SHEET ACTIONS
@@ -155,8 +138,29 @@ export const useSettings = create<SettingsStore>()(
 
         try {
           const loadedSettings = JSON.parse(settingsJson);
-          set({
+          
+          // If settings exist in a sheet, the user has clearly completed setup.
+          // Force these to true to prevent re-prompting setup/tutorial on recovery.
+          // This handles the case where settings were saved before these flags were set.
+          const recoveredSettings = {
             ...loadedSettings,
+            setupComplete: true,
+            tutorialComplete: true,
+          };
+          
+          // Update the snapshot to reflect the corrected flags
+          const correctedSnapshot = JSON.stringify({
+            timeFormat: recoveredSettings.timeFormat,
+            symptoms: recoveredSettings.symptoms,
+            periodTracking: recoveredSettings.periodTracking,
+            stoolTracking: recoveredSettings.stoolTracking,
+            medicineTracking: recoveredSettings.medicineTracking,
+            setupComplete: true,
+            tutorialComplete: true,
+          });
+          
+          set({
+            ...recoveredSettings,
             isGoogleSheetConnected: true,
             googleSheet: {
               url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
@@ -165,7 +169,7 @@ export const useSettings = create<SettingsStore>()(
             },
             isSyncing: false,
             hasUnsavedChanges: false,
-            lastSavedSnapshot: settingsJson, // Store snapshot from loaded settings
+            lastSavedSnapshot: correctedSnapshot,
           });
           return true;
         } catch (error) {
@@ -206,9 +210,10 @@ export const useSettings = create<SettingsStore>()(
         const { symptoms } = get();
         const trimmedSymptom = symptom.trim();
 
+        // Case-insensitive duplicate check
         if (
-          symptoms.custom.includes(trimmedSymptom) ||
-          symptoms.selected.includes(trimmedSymptom)
+          existsCaseInsensitive(trimmedSymptom, symptoms.custom) ||
+          existsCaseInsensitive(trimmedSymptom, symptoms.selected)
         ) {
           return;
         }
@@ -287,10 +292,11 @@ export const useSettings = create<SettingsStore>()(
         const { symptoms, periodTracking } = get();
         const trimmedSymptom = symptom.trim();
 
+        // Case-insensitive duplicate check
         if (
-          periodTracking.customPeriodSymptoms.includes(trimmedSymptom) ||
-          periodTracking.periodSymptoms.includes(trimmedSymptom) ||
-          symptoms.selected.includes(trimmedSymptom)
+          existsCaseInsensitive(trimmedSymptom, periodTracking.customPeriodSymptoms) ||
+          existsCaseInsensitive(trimmedSymptom, periodTracking.periodSymptoms) ||
+          existsCaseInsensitive(trimmedSymptom, symptoms.selected)
         ) {
           return;
         }
@@ -374,17 +380,16 @@ export const useSettings = create<SettingsStore>()(
       // =======================================================================
 
       completeSetup: () => {
-        set({ setupComplete: true, hasUnsavedChanges: true });
+        set({ setupComplete: true });
       },
 
       completeTutorial: () => {
-        set({ tutorialComplete: true, hasUnsavedChanges: true });
+        set({ tutorialComplete: true });
       },
 
       resetSettings: () => {
         set({
           ...DEFAULT_USER_SETTINGS,
-          isAuthenticated: false,
           isGoogleSheetConnected: false,
           googleSheet: { url: null, name: null, addedAt: null },
           timeFormat: "12h",
@@ -427,8 +432,6 @@ export const useSettings = create<SettingsStore>()(
         googleSheet: state.googleSheet,
         setupComplete: state.setupComplete,
         tutorialComplete: state.tutorialComplete,
-        userEmail: state.userEmail,
-        isAuthenticated: state.isAuthenticated,
         isGoogleSheetConnected: state.isGoogleSheetConnected,
       }),
     }

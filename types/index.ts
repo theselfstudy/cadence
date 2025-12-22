@@ -2,8 +2,6 @@
 // TrackWell Type Definitions
 // ============================================
 
-import { useState } from 'react';
-
 /**
  * Time format preference for displaying times throughout the app
  */
@@ -13,6 +11,12 @@ export type TimeFormat = "12h" | "24h";
  * Pain scale type options
  */
 export type PainScaleType = "simple" | "mankoski";
+
+/** 
+ * Medicine category (tags)
+ */
+
+export type MedicineCategory = "bowel" | "symptom" | "period" | "other";
 
 /**
  * Symptom intensity tracking configuration
@@ -26,24 +30,24 @@ export interface IntensityTrackingConfig {
 
 export type ProductType = "pad" | "tampon" | "cup" | "disc" | "liner" | "period-underwear" | "other";
 
-export interface ProductOption {
-  type: ProductType;
-  label: string;
-  hasSizes: boolean;
-  sizes?: string[];
-  allowCustomProducts: boolean;
-  maxCustomProducts?: number;
-}
-
 export interface CustomProduct {
   id: string;
   name: string;
 }
 
+export interface ProductOption {
+  type: ProductType;
+  label: string;
+  hasSizes: boolean;
+  sizes?: string[];
+  allowCustomProducts?: boolean;
+  maxCustomProducts?: number;
+}
+
 export interface ProductTracking {
   enabled: boolean;
-  selectedProducts: ProductType[];
-  customProducts: Partial<Record<ProductType, CustomProduct[]>>; // Add Partial<>
+  selectedProducts: string[];
+  customProducts: Record<string, CustomProduct[]>;
 }
 
 /**
@@ -86,8 +90,8 @@ export interface MedicineTracking {
 export interface MedicineLogEntry {
   medicineId: string;
   medicineName: string;
-  dosage: string;
-  time?: TimeValue;
+  dosage: string; // What they actually took
+  time?: TimeValue; // Required if medicine is time-sensitive
 }
 
 /**
@@ -172,7 +176,7 @@ export interface SettingsActions {
   setIntensityTracking: (config: Partial<IntensityTrackingConfig>) => void;
   
   /** Update period tracking settings */
-  setPeriodTracking: (config: Partial<Omit<PeriodTrackingConfig, 'periodSymptoms' | 'customPeriodSymptoms'>>) => void;
+  setPeriodTracking: (config: Partial<PeriodTrackingConfig>) => void;
   
   /** Toggle a period-related symptom */
   togglePeriodSymptom: (symptom: string) => void;
@@ -339,12 +343,10 @@ export interface BristolType {
  * Product usage entry definition
  */
 export interface ProductUsageEntry {
-  productType: ProductType;
-  customProductId?: string; // For cups/discs with custom products
+  productType: string;
+  customProductId?: string;
   size?: string;
 }
-
-export type MedicineCategory = "bowel" | "symptom" | "period";
 
 export interface Medicine {
   id: string;
@@ -354,26 +356,9 @@ export interface Medicine {
   timeSensitive: boolean; // Requires time logging
 }
 
-export interface MedicineTracking {
-  enabled: boolean;
-  medicines: Medicine[];
-}
-
-export interface MedicineLogEntry {
-  medicineId: string;
-  medicineName: string;
-  dosage: string; // What they actually took
-  time?: TimeValue; // Required if medicine is time-sensitive
-}
-
 export interface GoogleSettings {
-  userEmail: string | null;
-  isAuthenticated: boolean;
   isGoogleSheetConnected: boolean;
   isSyncing: boolean;
-  signIn: (email:string) => void;
-  signOut: () => void;
-  // connectGoogleSheet: () => void;
   disconnectGoogleSheet: () => void;
   saveSettingsToSheet: (accessToken: string) => Promise<boolean>;
   loadSettingsFromSheet: (spreadsheetId: string, accessToken: string) => Promise<boolean>;
