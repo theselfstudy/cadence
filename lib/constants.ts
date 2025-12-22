@@ -225,6 +225,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   },
   setupComplete: false,
   tutorialComplete: false,
+  hasUnsavedChanges: false,
+  lastSavedSnapshot: null,
 };
 
 // ============================================
@@ -261,7 +263,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
 // ============================================
 
 export const APP_CONFIG = {
-  name: "TrackWell",
+  name: "Cadence",
   description: "Understand you better",
   version: "1.0.0",
 } as const;
@@ -328,4 +330,5 @@ export const MEDICINE_CATEGORIES: { value: MedicineCategory; label: string; icon
   { value: "bowel", label: "Bowel", icon: "💩" },
   { value: "symptom", label: "Symptom", icon: "🏷️" },
   { value: "period", label: "Period", icon: "🌸" },
+  { value: "other", label: "Other", icon: "✨" },
 ];
