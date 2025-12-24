@@ -49,6 +49,9 @@ Cadence is built around a few core principles:
         layout.tsx
         page.tsx
     /components
+        /entry
+            index.ts
+            LogSelectionModal.tsx
        /Layout
             AppShell.tsx
             Header.tsx 
