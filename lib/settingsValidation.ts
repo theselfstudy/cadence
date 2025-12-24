@@ -1,7 +1,7 @@
 // /lib/settingsValidation.ts
 import { PRODUCT_OPTIONS } from "@/lib/constants";
-import type { PeriodTrackingConfig, MedicineTracking } from "@/types";
 
+import type { PeriodTrackingConfig, MedicineTracking, SymptomsConfig, StoolTrackingConfig } from "@/types";
 // =============================================================================
 // CONSTANTS
 // =============================================================================
@@ -16,6 +16,10 @@ const PRODUCTS_REQUIRING_CUSTOM_ITEMS = ["cup", "disc", "other"];
 export interface SettingsValidation {
   /** Overall settings validity */
   isValid: boolean;
+  /** Whether at least one section is enabled */
+  anySectionEnabled: boolean;
+  /** Whether at least one symptom is selected (if symptom tracking enabled) */
+  symptomsValid: boolean;
   /** Whether product tracking has at least one product selected (if enabled) */
   productTrackingValid: boolean;
   /** Whether cup/disc/other products have custom items added */
@@ -29,8 +33,10 @@ export interface SettingsValidation {
 }
 
 interface ValidationInput {
+  symptoms?: SymptomsConfig | null;
   periodTracking?: PeriodTrackingConfig | null;
   medicineTracking?: MedicineTracking | null;
+  stoolTracking?: StoolTrackingConfig | null;
 }
 
 // =============================================================================
@@ -52,7 +58,33 @@ export function validateSettings(state: ValidationInput): SettingsValidation {
     trackFlow: false,
   };
 
+  // ---------------------------------------------------------------------------
+  // Symptoms Validation
+  // ---------------------------------------------------------------------------
+  
   const medicineTracking = state.medicineTracking ?? { enabled: false, medicines: [] };
+  const symptoms = state.symptoms ?? { selected: [], custom: [], intensityTracking: { enabled: false, scaleType: "simple" } };
+  const stoolTracking = state.stoolTracking ?? { enabled: false };
+
+  // ---------------------------------------------------------------------------
+  // Section Enabled Validation
+  // ---------------------------------------------------------------------------
+  
+  const symptomTrackingEnabled = symptoms.selected.length > 0;
+  const periodTrackingEnabled = periodTracking.enabled;
+  const stoolTrackingEnabled = stoolTracking.enabled;
+  const medicineTrackingEnabled = medicineTracking.enabled;
+  
+  // At least one main section must be enabled
+  const anySectionEnabled = symptomTrackingEnabled || periodTrackingEnabled || stoolTrackingEnabled || medicineTrackingEnabled;
+
+  // ---------------------------------------------------------------------------
+  // Symptoms Validation
+  // ---------------------------------------------------------------------------
+  
+  // If symptom tracking is enabled (has selected symptoms), it's valid
+  // This is always true now since we check anySectionEnabled separately
+  const symptomsValid = true;
 
   // ---------------------------------------------------------------------------
   // Product Tracking Validation
@@ -109,20 +141,24 @@ export function validateSettings(state: ValidationInput): SettingsValidation {
   // Overall Validation
   // ---------------------------------------------------------------------------
   
-  const isValid = productTrackingValid && customProductsValid && medicineTrackingValid;
+  const isValid = anySectionEnabled && productTrackingValid && customProductsValid && medicineTrackingValid;
 
   // Build human-readable validation message
   let validationMessage: string | null = null;
-  if (!productTrackingValid) {
+  if (!anySectionEnabled) {
+    validationMessage = "Please select at least one section to start logging.";
+  } else if (!productTrackingValid) {
     validationMessage = "Please select at least one product for Product Usage tracking, or disable it.";
   } else if (!customProductsValid) {
     validationMessage = `Please add at least one product name for: ${productsMissingCustomItems.join(", ")}`;
   } else if (!medicineTrackingValid) {
-    validationMessage = "Please add at least one medicine to Medicine Logging, or disable it.";
+    validationMessage = "Please add at least one medicine for Medicine Tracking, or disable it.";
   }
 
   return {
     isValid,
+    symptomsValid,
+    anySectionEnabled,
     productTrackingValid,
     customProductsValid,
     medicineTrackingValid,

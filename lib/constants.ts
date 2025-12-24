@@ -198,7 +198,7 @@ export const FLOW_LEVELS: readonly { value: string; label: string }[] = [
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   timeFormat: "12h",
   symptoms: {
-    selected: [...DEFAULT_SYMPTOMS],
+    selected: [],
     custom: [],
     intensityTracking: {
       enabled: false,

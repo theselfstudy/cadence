@@ -489,3 +489,21 @@ export interface SheetColumn {
   section: 'metadata' | 'symptoms' | 'periodSymptoms' | 'period' | 'products' | 'stool' | 'medicines' | 'closing';
   getValue: (entry: StoredEntry) => string | number;
 }
+
+// ============================================
+// Entry Log Section Selection
+// ============================================
+
+/**
+ * Sections available for logging in the entry form
+ * Used by the pre-entry modal to let users choose what to log
+ */
+export type LogSection = "symptoms" | "bowel" | "period" | "medicine";
+
+/**
+ * Configuration for the log selection modal
+ */
+export interface LogSelectionConfig {
+  /** Which sections the user wants to log for this entry */
+  selectedSections: LogSection[];
+}
