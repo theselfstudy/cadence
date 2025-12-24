@@ -5,9 +5,6 @@ import React, { useState, useEffect } from "react";
 import { useSettings } from "@/stores/useSettings";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useEntries } from "@/stores/useEntries";
-import { getSpreadsheetIdFromUrl } from "@/lib/googleSheets";
-// import type {  } from "@/types";
-
 
 import {
   BRISTOL_TYPES,
@@ -25,7 +22,6 @@ import type {
   PostBowelFeeling,
   CyclePhase,
   SymptomEntry,
-  EntryFormData,
   ProductUsageEntry,
   CustomProduct,
   ProductTracking,
@@ -383,11 +379,9 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [cyclePhase, setCyclePhase] = useState<CyclePhase | null>(null);
   // Check if menstrual phase is selected
   const isMenstrualPhase = cyclePhase === "menstrual";
-
   const allSymptomsToShow = Array.from(
     new Set([
-      // General symptoms - always show
-      // BUT exclude custom period symptoms (they should ONLY show when menstrual)
+      // General symptoms - always show BUT exclude custom period symptoms (they should ONLY show when menstrual)
       ...safeSymptoms.selected.filter(
         (symptom) => !(safePeriodTracking.customPeriodSymptoms ?? []).includes(symptom)
       ),
@@ -456,7 +450,6 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     };
 
   syncPendingEntry();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAccessToken, pendingEntryId]);
 
   // Toggle symptom selection
@@ -487,7 +480,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     );
   };
 
-    // Handle notes change with security check
+  // Handle notes change with security check
   const handleNotesChange = (value: string) => {
     setNotes(value);
     if (!isNoteSafe(value)) {
