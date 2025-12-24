@@ -5,8 +5,8 @@ import React, { useState, useEffect } from "react";
 import { useSettings } from "@/stores/useSettings";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useEntries } from "@/stores/useEntries";
-// import { getSpreadsheetIdFromUrl } from "@/lib/googleSheets";
-import type { MedicineCategory } from "@/types";
+import type { MedicineCategory, LogSection } from "@/types";
+import { LogSelectionModal } from "@/components/entry/LogSelectionModal";
 
 
 import {
@@ -363,6 +363,9 @@ export default function EntryPage() {
 
   const [productUsage, setProductUsage] = useState<ProductUsageEntry[]>([]);
 
+  // Log section selection - null means modal is open, array means user has selected
+  const [selectedLogSections, setSelectedLogSections] = useState<LogSection[] | null>(null);
+
 // Safe access
 const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: [] };
 
@@ -375,6 +378,25 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [cyclePhase, setCyclePhase] = useState<CyclePhase | null>(null);
   // Check if menstrual phase is selected
   const isMenstrualPhase = cyclePhase === "menstrual";
+
+  // Helper to check if a section should be displayed
+  const shouldShowSection = (section: LogSection): boolean => {
+    if (!selectedLogSections) return false;
+    return selectedLogSections.includes(section);
+  };
+
+  // Compute available sections based on settings
+  const availableSections = {
+    symptoms: safeSymptoms.selected.length > 0,
+    bowel: safeStoolTracking.enabled,
+    period: safePeriodTracking.enabled,
+    medicine: safeMedicineTracking.enabled && safeMedicineTracking.medicines.length > 0,
+  };
+
+  // Handle modal confirmation
+  const handleLogSelectionConfirm = (sections: LogSection[]) => {
+    setSelectedLogSections(sections);
+  };
 
   const allSymptomsToShow = Array.from(
     new Set([
@@ -429,19 +451,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         setIsSubmitting(false);
         setSubmitSuccess(true);
 
-                setTimeout(() => {
-          setStartTime(getCurrentTime(is24Hour));
-          setEndTime(getCurrentTime(is24Hour));
-          setBristolType(null);
-          setPostFeeling(null);
-          setSelectedSymptoms([]);
-          setCyclePhase(null);
-          setFlowLevel(null);
-          setPeriodPainLevel(null);
-          setNotes("");
-          setNotesWarning(null);
-          setProductUsage([]);
-          setLoggedMedicines([]);
+        setTimeout(() => {
+          resetForm();
           setSubmitSuccess(false);
         }, 2000);
       }
@@ -500,18 +511,13 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   // Handle form submission
     const handleSubmit = async () => {
     // Validation
-    if (safeStoolTracking.enabled && (!bristolType || !postFeeling)) {
-      alert("Please fill in the Bristol Stool Scale section");
-      return;
-    }
-
     if (!isNoteSafe(notes)) {
       alert("Please remove any code-like content from the notes field.");
       return;
     }
 
-    // Validate product usage completeness (only if in menstrual phase with products selected)
-    if (isMenstrualPhase && safePeriodTracking.productTracking?.enabled && productUsage.length > 0) {
+    // Validate product usage completeness (only if period section selected and in menstrual phase)
+    if (shouldShowSection("period") && isMenstrualPhase && safePeriodTracking.productTracking?.enabled && productUsage.length > 0) {
       const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
       const incompleteProducts = productUsage.filter((usage) => {
         const validation = isProductUsageComplete(usage, PRODUCT_OPTIONS, customProducts);
@@ -606,10 +612,20 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     setNotesWarning(null);
     setProductUsage([]);
     setLoggedMedicines([]);
+    // Reset to show modal again for next entry
+    setSelectedLogSections(null);
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <>
+      {/* Log Selection Modal - shows when no sections selected yet */}
+      {selectedLogSections === null && (
+        <LogSelectionModal
+          availableSections={availableSections}
+          onConfirm={handleLogSelectionConfirm}
+        />
+      )}
+      <div className="space-y-6 pb-8">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -630,7 +646,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       </section>
 
       {/* Bristol Stool Scale - Conditional */}
-      {safeStoolTracking.enabled && (
+      {safeStoolTracking.enabled && shouldShowSection("bowel") && (
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             💩 Bristol Stool Scale
@@ -700,7 +716,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       )}
 
       {/* Period Tracking - Conditional */}
-      {safePeriodTracking.enabled && (
+      {safePeriodTracking.enabled && shouldShowSection("period") && (
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             🌸 Cycle Log
@@ -790,7 +806,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       )}
 
       {/* Symptoms Section */}
-      {allSymptomsToShow.length > 0 && (
+      {allSymptomsToShow.length > 0 && shouldShowSection("symptoms") && (
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             🏷️ General Symptoms
@@ -899,7 +915,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       )}
 
       {/* Medicine Log - Consolidated */}
-      {safeMedicineTracking.enabled && safeMedicineTracking.medicines.length > 0 && (
+      {safeMedicineTracking.enabled && safeMedicineTracking.medicines.length > 0 && shouldShowSection("medicine") && (
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             💊 Medicine Log
@@ -1024,6 +1040,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         </button>
       </div>
     </div>
+    </>
   );
 }
 
