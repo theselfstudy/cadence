@@ -132,7 +132,7 @@ Does Cadence track users?
 - No. There are no analytics, ads, or tracking scripts.
 
 Can I export my data?
-- Yes — users can export data from their Google Sheet or download CSV files in local mode. (Coming soon!)
+- Yes — users can export data from their Google Sheet or download CSV files in local mode. (*coming soon!*)
 
 # 🧑‍💻 About the Creator
 - Cadence is an independent project built with care and intention.
