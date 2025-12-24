@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { checkForExistingSettings, deleteSettingsSheet } from "@/lib/googleSheets";
 import { useSettings } from "@/stores/useSettings";
+import { validateSettings } from "@/lib/settingsValidation";
+
 import {
   DEFAULT_SYMPTOMS,
   GOOGLE_SHEET_URL_PATTERN,
@@ -177,53 +179,21 @@ function SettingsPageContent() {
   });
 
   // Validation checks
-  const productTrackingValid =
-    !safePeriodTracking.productTracking?.enabled ||
-    (safePeriodTracking.productTracking?.selectedProducts?.length ?? 0) > 0;
-
-  // Products that require custom product entries (Cup, Disc, Other)
-  const productsRequiringCustomItems = ["cup", "disc", "other"];
+    // ---------------------------------------------------------------------------
+  // VALIDATION (using shared utility)
+  // ---------------------------------------------------------------------------
   
-  // Check if any selected products that require custom items are missing them
-  const customProductsValid = (() => {
-    if (!safePeriodTracking.productTracking?.enabled) return true;
-    
-    const selectedProducts = safePeriodTracking.productTracking.selectedProducts ?? [];
-    const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
-    
-    // For each product type that requires custom items, check if it's selected and has at least one
-    for (const productType of productsRequiringCustomItems) {
-      if (selectedProducts.includes(productType)) {
-        const items = customProducts[productType] ?? [];
-        if (items.length === 0) {
-          return false;
-        }
-      }
-    }
-    return true;
-  })();
+  const settingsValidation = validateSettings({
+    periodTracking: safePeriodTracking,
+    medicineTracking: safeMedicineTracking,
+  });
 
-  // Get list of products missing custom items (for error message)
-  const productsMissingCustomItems = (() => {
-    if (!safePeriodTracking.productTracking?.enabled) return [];
-    
-    const selectedProducts = safePeriodTracking.productTracking.selectedProducts ?? [];
-    const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
-    
-    return productsRequiringCustomItems
-      .filter((productType) => {
-        if (!selectedProducts.includes(productType)) return false;
-        const items = customProducts[productType] ?? [];
-        return items.length === 0;
-      })
-      .map((type) => {
-        const product = PRODUCT_OPTIONS.find((p) => p.type === type);
-        return product?.label ?? type;
-      });
-  })();
-
-  const medicineTrackingValid =
-    !safeMedicineTracking.enabled || safeMedicineTracking.medicines.length > 0;
+  const {
+    productTrackingValid,
+    customProductsValid,
+    medicineTrackingValid,
+    productsMissingCustomItems,
+  } = settingsValidation;
 
   const allOptionalFeaturesEnabled =
     intensityTracking.enabled &&
@@ -457,6 +427,26 @@ function SettingsPageContent() {
     setSheetUrl("");
     setSheetName("");
     setIsEditingSheet(false);
+  };
+
+    // ---------------------------------------------------------------------------
+  // SAVE SETTINGS HANDLER
+  // ---------------------------------------------------------------------------
+
+  const handleSaveSettings = () => {
+    // Validate before allowing save
+    const validation = validateSettings({
+      periodTracking: safePeriodTracking,
+      medicineTracking: safeMedicineTracking,
+    });
+
+    if (!validation.isValid) {
+      alert(validation.validationMessage);
+      return;
+    }
+
+    // Proceed with OAuth and save
+    saveLogin();
   };
 
   // ---------------------------------------------------------------------------
@@ -736,7 +726,7 @@ function SettingsPageContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => saveLogin()}
+                  onClick={handleSaveSettings}
                   disabled={isSyncing}
                   className="px-4 py-2 rounded-lg bg-app-teal text-white font-medium hover:opacity-90 transition-colors text-sm disabled:bg-app-gray disabled:cursor-wait"
                 >
@@ -1222,7 +1212,7 @@ function SettingsPageContent() {
             </p>
             <button
               type="button"
-              onClick={() => saveLogin()}
+              onClick={handleSaveSettings}
               disabled={isSyncing}
               className="w-full py-3 px-6 rounded-lg bg-app-teal text-white font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-wait"
             >
