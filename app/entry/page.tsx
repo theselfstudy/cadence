@@ -30,10 +30,8 @@ import type {
   CustomProduct,
   ProductTracking,
   Medicine, 
-  // MedicineTracking, 
   MedicineLogEntry,
-  // MedicineCategory,
-  MedicineSection,
+  MedicineCategory,
   StoredEntry, 
   PainScaleType,
 } from "@/types";
@@ -122,17 +120,41 @@ function isNoteSafe(input: string): boolean {
   return !dangerousPatterns.some(pattern => pattern.test(input));
 }
 
-function MedicineSection({
-  category,
+// =============================================================================
+// MEDICINE CATEGORY COLORS
+// =============================================================================
+
+const MEDICINE_CATEGORY_COLORS: Record<MedicineCategory, { bg: string; text: string }> = {
+  bowel: { bg: "bg-app-plumb", text: "text-app-plumb" },
+  period: { bg: "bg-app-red", text: "text-app-red" },
+  symptom: { bg: "bg-app-teal", text: "text-app-teal" },
+  other: { bg: "bg-app-gray", text: "text-app-gray" },
+};
+
+// =============================================================================
+// CONSOLIDATED MEDICINE LOG COMPONENT
+// =============================================================================
+
+interface ConsolidatedMedicineLogProps {
+  medicines: Medicine[];
+  loggedMedicines: MedicineLogEntry[];
+  onChange: (entries: MedicineLogEntry[]) => void;
+  is24Hour: boolean;
+}
+
+function ConsolidatedMedicineLog({
   medicines,
   loggedMedicines,
   onChange,
   is24Hour,
-}: MedicineSection) {
-  // Filter medicines relevant to this category
-  const relevantMedicines = medicines.filter((m) => m.categories.includes(category));
-
-  if (relevantMedicines.length === 0) return null;
+}: ConsolidatedMedicineLogProps) {
+  if (medicines.length === 0) {
+    return (
+      <p className="text-sm text-app-gray italic">
+        No medicines configured. Add medicines in Settings → Medicine Log.
+      </p>
+    );
+  }
 
   const toggleMedicine = (medicine: Medicine) => {
     const exists = loggedMedicines.find((l) => l.medicineId === medicine.id);
@@ -160,24 +182,46 @@ function MedicineSection({
   };
 
   return (
-    <div className="pt-4 border-t border-app-border">
-      <p className="text-sm font-medium text-app-charcoal mb-2">Related Medicine?</p>
-      
-      {/* Medicine Selection Pills */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {relevantMedicines.map((medicine) => {
+    <div className="space-y-4">
+      {/* Category Legend */}
+      <div className="flex flex-wrap gap-3 text-xs">
+        {MEDICINE_CATEGORIES.filter((cat) => 
+          medicines.some((m) => m.categories.includes(cat.value))
+        ).map((cat) => (
+          <div key={cat.value} className="flex items-center gap-1.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${MEDICINE_CATEGORY_COLORS[cat.value].bg}`} />
+            <span className="text-app-gray">{cat.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Medicine Selection */}
+      <div className="flex flex-wrap gap-2">
+        {medicines.map((medicine) => {
           const isSelected = loggedMedicines.some((l) => l.medicineId === medicine.id);
           return (
             <button
               key={medicine.id}
               type="button"
               onClick={() => toggleMedicine(medicine)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${
                 isSelected
                   ? "bg-app-taupe text-white"
                   : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-taupe"
               }`}
             >
+              {/* Category dots */}
+              <span className="flex items-center gap-0.5">
+                {medicine.categories.map((cat) => (
+                  <span
+                    key={cat}
+                    className={`w-2 h-2 rounded-full ${MEDICINE_CATEGORY_COLORS[cat].bg} ${
+                      isSelected ? "opacity-70" : ""
+                    }`}
+                    title={cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  />
+                ))}
+              </span>
               {medicine.name}
               {medicine.timeSensitive && " ⏰"}
             </button>
@@ -186,85 +230,99 @@ function MedicineSection({
       </div>
 
       {/* Details for Selected Medicines */}
-      {loggedMedicines
-        .filter((l) => relevantMedicines.some((m) => m.id === l.medicineId))
-        .map((entry) => {
-          const medicine = relevantMedicines.find((m) => m.id === entry.medicineId);
-          if (!medicine) return null;
+      {loggedMedicines.length > 0 && (
+        <div className="space-y-2 pt-2">
+          {loggedMedicines.map((entry) => {
+            const medicine = medicines.find((m) => m.id === entry.medicineId);
+            if (!medicine) return null;
 
-          return (
-            <div
-              key={entry.medicineId}
-              className="p-3 bg-app-taupe/5 rounded-lg border border-app-taupe/20 mb-2"
-            >
-              <p className="text-sm font-medium text-app-charcoal mb-2">
-                {medicine.name}
-              </p>
+            return (
+              <div
+                key={entry.medicineId}
+                className="p-3 bg-app-taupe/5 rounded-lg border border-app-taupe/20"
+              >
+                {/* Medicine Name with Category Dots */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="flex items-center gap-0.5">
+                    {medicine.categories.map((cat) => (
+                      <span
+                        key={cat}
+                        className={`w-2.5 h-2.5 rounded-full ${MEDICINE_CATEGORY_COLORS[cat].bg}`}
+                        title={cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      />
+                    ))}
+                  </span>
+                  <p className="text-sm font-medium text-app-charcoal">
+                    {medicine.name}
+                  </p>
+                </div>
 
-              {/* Dosage Input */}
-              <div className="mb-2">
-                <label className="block text-xs text-app-gray mb-1">Dosage taken:</label>
-                <input
-                  type="text"
-                  value={entry.dosage}
-                  onChange={(e) =>
-                    updateLogEntry(entry.medicineId, { dosage: e.target.value })
-                  }
-                  placeholder={medicine.dosage || "e.g., 2 pills, 200mg..."}
-                  className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
-                />
-              </div>
+                {/* Dosage Input */}
+                <div className="mb-2">
+                  <label className="block text-xs text-app-gray mb-1">Dosage taken:</label>
+                  <input
+                    type="text"
+                    value={entry.dosage}
+                    onChange={(e) =>
+                      updateLogEntry(entry.medicineId, { dosage: e.target.value })
+                    }
+                    placeholder={medicine.dosage || "e.g., 2 pills, 200mg..."}
+                    className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+                  />
+                </div>
 
-              {/* Time Input (if time-sensitive) */}
-              {medicine.timeSensitive && (
-                <div>
-                  <label className="block text-xs text-app-gray mb-1">Time taken: *</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={is24Hour ? 0 : 1}
-                      max={is24Hour ? 23 : 12}
-                      value={entry.time?.hour ?? 12}
-                      onChange={(e) =>
-                        updateLogEntry(entry.medicineId, {
-                          time: { ...entry.time!, hour: Number(e.target.value) },
-                        })
-                      }
-                      className="w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
-                    />
-                    <span className="text-app-gray font-bold">:</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={59}
-                      value={entry.time?.minute?.toString().padStart(2, "0") ?? "00"}
-                      onChange={(e) =>
-                        updateLogEntry(entry.medicineId, {
-                          time: { ...entry.time!, minute: Number(e.target.value) },
-                        })
-                      }
-                      className="w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
-                    />
-                    {!is24Hour && (
-                      <select
-                        value={entry.time?.period ?? "AM"}
+                {/* Time Input (if time-sensitive) */}
+                {medicine.timeSensitive && (
+                  <div>
+                    <label className="block text-xs text-app-gray mb-1">Time taken: *</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={is24Hour ? 0 : 1}
+                        max={is24Hour ? 23 : 12}
+                        value={entry.time?.hour ?? 12}
                         onChange={(e) =>
                           updateLogEntry(entry.medicineId, {
-                            time: { ...entry.time!, period: e.target.value as "AM" | "PM" },
+                            time: { ...entry.time!, hour: Number(e.target.value) },
                           })
                         }
-                        className="px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
-                      >
-                        <option value="AM">AM</option>
-                        <option value="PM">PM</option>
-                      </select>
-                    )}
+                        className="w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
+                      />
+                      <span className="text-app-gray font-bold">:</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        value={entry.time?.minute?.toString().padStart(2, "0") ?? "00"}
+                        onChange={(e) =>
+                          updateLogEntry(entry.medicineId, {
+                            time: { ...entry.time!, minute: Number(e.target.value) },
+                          })
+                        }
+                        className="w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
+                      />
+                      {!is24Hour && (
+                        <select
+                          value={entry.time?.period ?? "AM"}
+                          onChange={(e) =>
+                            updateLogEntry(entry.medicineId, {
+                              time: { ...entry.time!, period: e.target.value as "AM" | "PM" },
+                            })
+                          }
+                          className="px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+                        >
+                          <option value="AM">AM</option>
+                          <option value="PM">PM</option>
+                        </select>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -273,10 +331,6 @@ export default function EntryPage() {
   const { timeFormat, symptoms, periodTracking, stoolTracking, medicineTracking, googleSheet, isGoogleSheetConnected } = useSettings();
   const { addEntry, syncEntryToSheet } = useEntries();
   const is24Hour = timeFormat === "24h";
-
-  // Store access token for sync after OAuth completes
-  const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
-  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
 
   // Google OAuth for syncing entries
   const googleLogin = useGoogleLogin({
@@ -290,6 +344,10 @@ export default function EntryPage() {
     },
     scope: "https://www.googleapis.com/auth/spreadsheets",
   });
+
+  // Store access token for sync after OAuth completes
+  const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
 
   // Safe access to settings
   const safeSymptoms = symptoms ?? {
@@ -309,10 +367,7 @@ export default function EntryPage() {
   const painScaleType = safeSymptoms.intensityTracking?.scaleType ?? "simple";
 
 
-  const [bowelMedicines, setBowelMedicines] = useState<MedicineLogEntry[]>([]);
-  const [symptomMedicines, setSymptomMedicines] = useState<MedicineLogEntry[]>([]);
-  const [periodMedicines, setPeriodMedicines] = useState<MedicineLogEntry[]>([]);
-  const [otherMedicines, setOtherMedicines] = useState<MedicineLogEntry[]>([]);
+  const [loggedMedicines, setLoggedMedicines] = useState<MedicineLogEntry[]>([]);
 
   const [productUsage, setProductUsage] = useState<ProductUsageEntry[]>([]);
 
@@ -394,16 +449,13 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           setNotes("");
           setNotesWarning(null);
           setProductUsage([]);
-          setBowelMedicines([]);
-          setSymptomMedicines([]);
-          setPeriodMedicines([]);
-          setOtherMedicines([]);
+          setLoggedMedicines([]);
           setSubmitSuccess(false);
         }, 2000);
       }
     };
 
-    syncPendingEntry();
+  syncPendingEntry();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAccessToken, pendingEntryId]);
 
@@ -501,13 +553,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       }
     }
 
-    // Combine all medicine logs from different sections
-    const allMedicineLogs = [
-      ...bowelMedicines,
-      ...symptomMedicines,
-      ...periodMedicines,
-      ...otherMedicines,
-    ];
+    // Medicine logs from consolidated section
+    const allMedicineLogs = loggedMedicines;
 
     // Build the stored entry in the format expected by the entry store
     const entryData: Omit<StoredEntry, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'> = {
@@ -566,11 +613,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     setNotes("");
     setNotesWarning(null);
     setProductUsage([]);
-    // Clear medicine logs
-    setBowelMedicines([]);
-    setSymptomMedicines([]);
-    setPeriodMedicines([]);
-    setOtherMedicines([]);
+    setLoggedMedicines([]);
   };
 
   return (
@@ -661,17 +704,6 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
               </p>
             )}
           </div>
-
-
-          {safeMedicineTracking.enabled && (
-            <MedicineSection
-              category="bowel"
-              medicines={safeMedicineTracking.medicines}
-              loggedMedicines={bowelMedicines}
-              onChange={setBowelMedicines}
-              is24Hour={is24Hour}
-            />
-            )}
         </section>
       )}
 
@@ -761,16 +793,6 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                 onChange={setProductUsage}
               />
             </div>
-          )}
-
-          {safeMedicineTracking.enabled && isMenstrualPhase && (
-            <MedicineSection
-              category="period"
-              medicines={safeMedicineTracking.medicines}
-              loggedMedicines={periodMedicines}
-              onChange={setPeriodMedicines}
-              is24Hour={is24Hour}
-            />
           )}
         </section>
       )}
@@ -881,31 +903,22 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
               })}
             </div>
           )}
-                    {/* Inside Symptoms section */}
-          {safeMedicineTracking.enabled && (
-            <MedicineSection
-              category="symptom"
-              medicines={safeMedicineTracking.medicines}
-              loggedMedicines={symptomMedicines}
-              onChange={setSymptomMedicines}
-              is24Hour={is24Hour}
-            />
-          )}
         </section>
       )}
 
-      {/* Other Medicines Section - for medicines tagged as "other" */}
-      {safeMedicineTracking.enabled && 
-        safeMedicineTracking.medicines.some((m) => m.categories.includes("other")) && (
+      {/* Medicine Log - Consolidated */}
+      {safeMedicineTracking.enabled && safeMedicineTracking.medicines.length > 0 && (
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
-            💊 Other Medicines
+            💊 Medicine Log
           </h2>
-          <MedicineSection
-            category="other"
+          <p className="text-sm text-app-gray mb-4">
+            Log any medications you&apos;re taking with this entry:
+          </p>
+          <ConsolidatedMedicineLog
             medicines={safeMedicineTracking.medicines}
-            loggedMedicines={otherMedicines}
-            onChange={setOtherMedicines}
+            loggedMedicines={loggedMedicines}
+            onChange={setLoggedMedicines}
             is24Hour={is24Hour}
           />
         </section>
