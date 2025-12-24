@@ -71,7 +71,10 @@ Cadence supports multiple usage modes:
 - No copies are stored on Cadence servers
 - Sheet must be reconnected on new devices
 
-Important: Cadence does not and will never store user data, sheet IDs, or entries on any backend database. Ever.
+Important: Cadence does not and will never: 
+- store user data
+- store sheet IDs
+- store your entries on any backend database
 
 # 🚀 Getting Started (Local Development)
 ### Prerequisites
@@ -89,13 +92,9 @@ Important: Cadence does not and will never store user data, sheet IDs, or entrie
 - NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
 - NEXT_PUBLIC_GOOGLE_REDIRECT_URI=http://localhost:3000
 
-Note: No backend secrets or database credentials are required.
+*Note: No backend secrets or database credentials are required.*
 
-### Run Locally
-- npm run dev
-
-Visit:
-- http://localhost:3000
+Run Locally via `npm run dev` and visit http://localhost:3000
 
 # 🧪 Beta Testing
 - Cadence is currently in a private beta.
@@ -106,8 +105,10 @@ Visit:
 # ❓ FAQ
 Is Cadence HIPAA compliant?
 - No. Cadence is not a medical device and does not provide medical advice. Users retain full ownership and control of their data.
+
 Does Cadence track users?
-- Do. There are no analytics, ads, or tracking scripts.
+- No. There are no analytics, ads, or tracking scripts.
+
 Can I export my data?
 - Yes — users can export data from their Google Sheet or download CSV files in local mode. (Coming soon!)
 
@@ -117,8 +118,7 @@ Can I export my data?
 
 # 📬 Support
 Questions, feedback, or issues?
-- 📧 support@cadence.app
-- or open a GitHub issue.
+📧 support@cadence.app or open a GitHub issue.
 
 # 📜 License
 - MIT License
