@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useSettings } from "@/stores/useSettings";
+import { useGoogleLogin } from "@react-oauth/google";
+import { useEntries } from "@/stores/useEntries";
+import { getSpreadsheetIdFromUrl } from "@/lib/googleSheets";
+// import type {  } from "@/types";
+
+
 import {
   BRISTOL_TYPES,
   POST_BOWEL_FEELINGS,
@@ -11,6 +18,7 @@ import {
   PRODUCT_OPTIONS,
   MEDICINE_CATEGORIES,
 } from "@/lib/constants";
+
 import type {
   TimeValue,
   BristolScaleType,
@@ -22,10 +30,12 @@ import type {
   CustomProduct,
   ProductTracking,
   Medicine, 
-  MedicineTracking, 
+  // MedicineTracking, 
   MedicineLogEntry,
-  MedicineCategory,
-  MedicineSection
+  // MedicineCategory,
+  MedicineSection,
+  StoredEntry, 
+  PainScaleType,
 } from "@/types";
 
 function getCurrentTime(is24Hour: boolean): TimeValue {
@@ -230,8 +240,26 @@ function MedicineSection({
 }
 
 export default function EntryPage() {
-  const { timeFormat, symptoms, periodTracking, stoolTracking, medicineTracking} = useSettings();
+  const { timeFormat, symptoms, periodTracking, stoolTracking, medicineTracking, googleSheet, isGoogleSheetConnected } = useSettings();
+  const { addEntry, syncEntryToSheet } = useEntries();
   const is24Hour = timeFormat === "24h";
+
+  // Store access token for sync after OAuth completes
+  const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+
+  // Google OAuth for syncing entries
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      console.log("OAuth success, got access token");
+      setPendingAccessToken(tokenResponse.access_token);
+    },
+    onError: (error) => {
+      console.error("Google login error:", error);
+      setIsSubmitting(false);
+    },
+    scope: "https://www.googleapis.com/auth/spreadsheets",
+  });
 
   // Safe access to settings
   const safeSymptoms = symptoms ?? {
@@ -254,6 +282,7 @@ export default function EntryPage() {
   const [bowelMedicines, setBowelMedicines] = useState<MedicineLogEntry[]>([]);
   const [symptomMedicines, setSymptomMedicines] = useState<MedicineLogEntry[]>([]);
   const [periodMedicines, setPeriodMedicines] = useState<MedicineLogEntry[]>([]);
+  const [otherMedicines, setOtherMedicines] = useState<MedicineLogEntry[]>([]);
 
   const [productUsage, setProductUsage] = useState<ProductUsageEntry[]>([]);
 
@@ -272,9 +301,14 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
   const allSymptomsToShow = Array.from(
     new Set([
-      ...safeSymptoms.selected,
-      ...(safePeriodTracking.periodSymptoms ?? []),
-      ...(safePeriodTracking.customPeriodSymptoms ?? []),
+      // General symptoms - always show
+      // BUT exclude custom period symptoms (they should ONLY show when menstrual)
+      ...safeSymptoms.selected.filter(
+        (symptom) => !(safePeriodTracking.customPeriodSymptoms ?? []).includes(symptom)
+      ),
+      
+      // All period symptoms (default + custom) - only when menstrual
+      ...(isMenstrualPhase ? periodSymptomsList : []),
     ])
   );
 
@@ -290,6 +324,58 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [notesWarning, setNotesWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  // Effect to sync entry after OAuth completes
+  // This runs when pendingAccessToken is set by the OAuth callback
+  useEffect(() => {
+    const syncPendingEntry = async () => {
+      if (pendingAccessToken && pendingEntryId) {
+        console.log("OAuth complete, syncing entry to Google Sheets...");
+        
+        try {
+          const success = await syncEntryToSheet(pendingEntryId, pendingAccessToken);
+          
+          if (success) {
+            console.log("Entry synced to Google Sheets successfully!");
+          } else {
+            console.warn("Entry saved locally but failed to sync to Google Sheets. Will retry later.");
+          }
+        } catch (error) {
+          console.error("Error syncing to sheet:", error);
+        }
+        
+        // Clear pending state
+        setPendingAccessToken(null);
+        setPendingEntryId(null);
+        
+        // Show success and reset form
+        setIsSubmitting(false);
+        setSubmitSuccess(true);
+
+        setTimeout(() => {
+          setStartTime(getCurrentTime(is24Hour));
+          setEndTime(getCurrentTime(is24Hour));
+          setBristolType(null);
+          setPostFeeling(null);
+          setSelectedSymptoms([]);
+          setCyclePhase(null);
+          setFlowLevel(null);
+          setPeriodPainLevel(null);
+          setNotes("");
+          setNotesWarning(null);
+          setProductUsage([]);
+          setBowelMedicines([]);
+          setSymptomMedicines([]);
+          setPeriodMedicines([]);
+          setOtherMedicines([]);
+          setSubmitSuccess(false);
+        }, 2000);
+      }
+    };
+
+    syncPendingEntry();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAccessToken, pendingEntryId]);
 
   // Toggle symptom selection
   const toggleSymptom = (symptomName: string) => {
@@ -319,7 +405,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     );
   };
 
-  // Handle notes change with security check
+    // Handle notes change with security check
   const handleNotesChange = (value: string) => {
     setNotes(value);
     if (!isNoteSafe(value)) {
@@ -329,8 +415,17 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     }
   };
 
-  // Handle form submission
+  // Helper to format TimeValue to string for storage
+  const formatTimeToString = (time: TimeValue): string => {
+    if (is24Hour) {
+      return `${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}`;
+    }
+    return `${time.hour}:${time.minute.toString().padStart(2, '0')} ${time.period}`;
+  };
+
+    // Handle form submission
   const handleSubmit = async () => {
+    // Validation
     if (safeStoolTracking.enabled && (!bristolType || !postFeeling)) {
       alert("Please fill in the Bristol Stool Scale section");
       return;
@@ -343,46 +438,69 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
     setIsSubmitting(true);
 
-    const formData: EntryFormData = {
-      date: new Date().toISOString(),
-      startTime,
-      endTime,
-      bristolType: safeStoolTracking.enabled ? bristolType : null,
-      postFeeling: safeStoolTracking.enabled ? postFeeling : null,
-      symptoms: selectedSymptoms,
-      periodData: safePeriodTracking.enabled
-        ? {
-            cyclePhase,
-            productUsage: safePeriodTracking.productTracking?.enabled ? productUsage : undefined,
-            personalData:
-              safePeriodTracking && isMenstrualPhase
-                ? {
-                    flowLevel: flowLevel as
-                      | "light"
-                      | "medium"
-                      | "heavy"
-                      | "spotting"
-                      | undefined,
-                    painLevel: periodPainLevel ?? undefined,
-                    notes: notes ? sanitizeText(notes) : undefined,
-                  }
-                : undefined,
-          }
-        : undefined,
-      notes: notes ? sanitizeText(notes) : undefined,
+    // Build symptom intensities map (separating general vs period-related)
+    const symptomIntensities: Record<string, number | null> = {};
+    const periodSymptomIntensities: Record<string, number | null> = {};
+
+    for (const symptom of selectedSymptoms) {
+      const isPeriodRelated = periodSymptomsList.includes(symptom.name);
+      if (isPeriodRelated && isMenstrualPhase) {
+        periodSymptomIntensities[symptom.name] = symptom.intensity ?? null;
+      } else {
+        symptomIntensities[symptom.name] = symptom.intensity ?? null;
+      }
+    }
+
+    // Combine all medicine logs from different sections
+    const allMedicineLogs = [
+      ...bowelMedicines,
+      ...symptomMedicines,
+      ...periodMedicines,
+      ...otherMedicines,
+    ];
+
+    // Build the stored entry in the format expected by the entry store
+    const entryData: Omit<StoredEntry, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'> = {
+      date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format for sheets
+      startTime: formatTimeToString(startTime),
+      endTime: formatTimeToString(endTime),
+      painScale: painScaleType as PainScaleType,
+      symptomIntensities,
+      periodSymptomIntensities,
+      cyclePhase: safePeriodTracking.enabled ? cyclePhase : null,
+      periodFlow: isMenstrualPhase ? flowLevel : null,
+      productUsage: isMenstrualPhase ? productUsage : [],
+      stoolType: safeStoolTracking.enabled ? bristolType : null,
+      stoolFeeling: safeStoolTracking.enabled ? postFeeling : null,
+      medicineLog: allMedicineLogs,
+      notes: notes ? sanitizeText(notes) : '',
     };
 
-    console.log("Submitting entry:", formData);
+    // Step 1: Always save to localStorage first (works offline)
+    const savedEntry = addEntry(entryData);
+    console.log("Entry saved to localStorage:", savedEntry.id);
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Step 2: If Google Sheet is connected, sync to sheet
+    if (isGoogleSheetConnected && googleSheet.url) {
+      console.log("Google Sheet connected, initiating sync...");
+      
+      // Store the entry ID so we can sync it after OAuth completes
+      setPendingEntryId(savedEntry.id);
+      
+      // Trigger OAuth to get fresh access token
+      // The onSuccess callback will set pendingAccessToken
+      googleLogin();
+    } else {
+      // No Google Sheet connected - just show success
+      console.log("No Google Sheet connected, entry saved locally only");
+      setIsSubmitting(false);
+      setSubmitSuccess(true);
 
-    setIsSubmitting(false);
-    setSubmitSuccess(true);
-
-    setTimeout(() => {
-      resetForm();
-      setSubmitSuccess(false);
-    }, 2000);
+      setTimeout(() => {
+        resetForm();
+        setSubmitSuccess(false);
+      }, 2000);
+    }
   };
 
   // Reset form
@@ -398,6 +516,11 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     setNotes("");
     setNotesWarning(null);
     setProductUsage([]);
+    // Clear medicine logs
+    setBowelMedicines([]);
+    setSymptomMedicines([]);
+    setPeriodMedicines([]);
+    setOtherMedicines([]);
   };
 
   return (
@@ -427,16 +550,6 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             💩 Bristol Stool Scale
           </h2>
-
-          {safeMedicineTracking.enabled && (
-            <MedicineSection
-              category="bowel"
-              medicines={safeMedicineTracking.medicines}
-              loggedMedicines={bowelMedicines}
-              onChange={setBowelMedicines}
-              is24Hour={is24Hour}
-            />
-            )}
           
           {/* Bristol Type - Circular Buttons */}
           <div className="mb-6">
@@ -482,7 +595,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                   key={feeling.value}
                   type="button"
                   onClick={() => setPostFeeling(feeling.value)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  className={`mb-4 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                     postFeeling === feeling.value
                       ? "bg-app-plumb text-white"
                       : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-plumb"
@@ -498,6 +611,17 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
               </p>
             )}
           </div>
+
+
+          {safeMedicineTracking.enabled && (
+            <MedicineSection
+              category="bowel"
+              medicines={safeMedicineTracking.medicines}
+              loggedMedicines={bowelMedicines}
+              onChange={setBowelMedicines}
+              is24Hour={is24Hour}
+            />
+            )}
         </section>
       )}
 
@@ -707,7 +831,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
               })}
             </div>
           )}
-          {/* Inside Symptoms section */}
+                    {/* Inside Symptoms section */}
           {safeMedicineTracking.enabled && (
             <MedicineSection
               category="symptom"
@@ -717,6 +841,23 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
               is24Hour={is24Hour}
             />
           )}
+        </section>
+      )}
+
+      {/* Other Medicines Section - for medicines tagged as "other" */}
+      {safeMedicineTracking.enabled && 
+        safeMedicineTracking.medicines.some((m) => m.categories.includes("other")) && (
+        <section className="card">
+          <h2 className="text-lg font-semibold text-app-charcoal mb-4">
+            💊 Other Medicines
+          </h2>
+          <MedicineSection
+            category="other"
+            medicines={safeMedicineTracking.medicines}
+            loggedMedicines={otherMedicines}
+            onChange={setOtherMedicines}
+            is24Hour={is24Hour}
+          />
         </section>
       )}
 

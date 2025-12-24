@@ -363,3 +363,129 @@ export interface GoogleSettings {
   saveSettingsToSheet: (accessToken: string) => Promise<boolean>;
   loadSettingsFromSheet: (spreadsheetId: string, accessToken: string) => Promise<boolean>;
 }
+
+// ============================================
+// Google Sheets Entry Types
+// ============================================
+
+/**
+ * Represents a single row in the Google Sheet
+ * Maps column headers to cell values
+ */
+export interface SheetRowData {
+  [columnHeader: string]: string | number | null;
+}
+
+/**
+ * Entry as stored in localStorage/Zustand
+ * This is the canonical format before transformation to sheet row
+ */
+export interface StoredEntry {
+  /** Unique identifier for the entry */
+  id: string;
+  
+  /** ISO date string of when entry was created */
+  createdAt: string;
+  
+  /** ISO date string of last update */
+  updatedAt: string;
+  
+  /** Date of the entry (YYYY-MM-DD format for sheets) */
+  date: string;
+  
+  /** Start time formatted as string */
+  startTime: string;
+  
+  /** End time formatted as string */
+  endTime: string;
+  
+  /** Pain scale type used for this entry */
+  painScale: PainScaleType;
+  
+  /** Symptom intensities - key is symptom name, value is intensity (or null if no intensity tracking) */
+  symptomIntensities: Record<string, number | null>;
+  
+  /** Period-related symptom intensities (tracked separately for column grouping) */
+  periodSymptomIntensities: Record<string, number | null>;
+  
+  /** Cycle phase if period tracking enabled */
+  cyclePhase: CyclePhase | null;
+  
+  /** Period flow level if applicable */
+  periodFlow: string | null;
+  
+  /** Product usage entries */
+  productUsage: ProductUsageEntry[];
+  
+  /** Bristol stool type (1-7) if applicable */
+  stoolType: BristolScaleType | null;
+  
+  /** Post-bowel feeling if applicable */
+  stoolFeeling: PostBowelFeeling | null;
+  
+  /** Medicine log entries */
+  medicineLog: MedicineLogEntry[];
+  
+  /** Additional notes */
+  notes: string;
+  
+  /** Sync status with Google Sheets */
+  syncStatus: 'pending' | 'synced' | 'error';
+  
+  /** Error message if sync failed */
+  syncError?: string;
+}
+
+/**
+ * Entry store state
+ */
+export interface EntryStoreState {
+  /** All stored entries */
+  entries: StoredEntry[];
+  
+  /** Whether we're currently syncing with Google Sheets */
+  isSyncing: boolean;
+  
+  /** Last sync timestamp */
+  lastSyncAt: string | null;
+}
+
+/**
+ * Entry store actions
+ */
+export interface EntryStoreActions {
+  /** Add a new entry (saves to localStorage, optionally syncs to sheet) */
+  addEntry: (entry: Omit<StoredEntry, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'>) => StoredEntry;
+  
+  /** Sync a pending entry to Google Sheets */
+  syncEntryToSheet: (entryId: string, accessToken: string) => Promise<boolean>;
+  
+  /** Mark an entry as synced */
+  markEntrySynced: (entryId: string) => void;
+  
+  /** Mark an entry sync as failed */
+  markEntryFailed: (entryId: string, error: string) => void;
+  
+  /** Get all entries pending sync */
+  getPendingEntries: () => StoredEntry[];
+  
+  /** Sync all pending entries */
+  syncAllPending: (accessToken: string) => Promise<void>;
+  
+  /** Clear all entries (for testing/reset) */
+  clearEntries: () => void;
+}
+
+/**
+ * Combined entry store type
+ */
+export type EntryStore = EntryStoreState & EntryStoreActions;
+
+/**
+ * Column definition for sheet structure
+ */
+export interface SheetColumn {
+  header: string;
+  section: 'metadata' | 'symptoms' | 'periodSymptoms' | 'period' | 'products' | 'stool' | 'medicines' | 'closing';
+  getValue: (entry: StoredEntry) => string | number;
+}

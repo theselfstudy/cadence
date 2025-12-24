@@ -263,7 +263,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
 // ============================================
 
 export const APP_CONFIG = {
-  name: "Cadence",
+  name: "Trackwell",
   description: "Understand you better",
   version: "1.0.0",
 } as const;
@@ -273,8 +273,8 @@ export const APP_CONFIG = {
 // ============================================
 
 export const STORAGE_KEYS = {
-  settings: "app-settings",
-  entries: "app-entries",
+  settings: "trackwell-settings",
+  entries: 'trackwell-entries', 
 } as const;
 
 export const PRODUCT_OPTIONS: ProductOption[] = [
@@ -282,7 +282,7 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     type: "pad",
     label: "Pad",
     hasSizes: true,
-    sizes: ["Liner", "Regular", "Long", "Overnight", "Postpartum"],
+    sizes: ["Light", "Regular", "Long", "Overnight", "Postpartum"],
     allowCustomProducts: false,
   },
   {
@@ -296,7 +296,7 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     type: "cup",
     label: "Cup",
     hasSizes: true,
-    sizes: ["Small", "Medium", "Large"],
+    // sizes: ["Small", "Medium", "Large"],
     allowCustomProducts: true,
     maxCustomProducts: 5,
   },
@@ -304,7 +304,7 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     type: "disc",
     label: "Disc",
     hasSizes: true,
-    sizes: ["Small", "Medium", "Large"],
+    // sizes: ["Small", "Medium", "Large"],
     allowCustomProducts: true,
     maxCustomProducts: 5,
   },
@@ -312,7 +312,7 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     type: "liner",
     label: "Liner",
     hasSizes: true,
-    sizes: ["Light", "Regular", "Long"],
+    sizes: ["Regular", "Long"],
     allowCustomProducts: false,
   },
 
