@@ -8,9 +8,11 @@ interface CustomProductSectionProps {
   product: ProductOption;
   customProducts: CustomProduct[];
   onUpdate: (products: CustomProduct[]) => void;
+  /** When true, displays red border to indicate validation error */
+  hasError?: boolean;
 }
 
-export function CustomProductSection({ product, customProducts, onUpdate }: CustomProductSectionProps) {
+export function CustomProductSection({ product, customProducts, onUpdate, hasError = false }: CustomProductSectionProps) {
   const [newProductName, setNewProductName] = useState("");
   const [warning, setWarning] = useState<string | null>(null);
   
@@ -54,9 +56,13 @@ export function CustomProductSection({ product, customProducts, onUpdate }: Cust
   };
 
   return (
-    <div className="p-4 bg-app-cream rounded-lg">
+    <div className={`p-4 rounded-lg transition-colors ${
+      hasError 
+        ? "bg-app-red/10 border-2 border-app-red" 
+        : "bg-app-cream"
+    }`}>
       <p className="text-sm font-medium text-app-charcoal mb-2">
-        Your {product.label} products:
+        Your {product.label} products *
       </p>
       <p className="text-xs text-app-gray mb-3">
         Add specific products you use (up to {maxProducts})

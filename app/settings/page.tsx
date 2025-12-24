@@ -127,9 +127,12 @@ function SettingsPageContent() {
   const [pendingSheetUrl, setPendingSheetUrl] = useState<string | null>(null);
   const [pendingSheetName, setPendingSheetName] = useState<string | null>(null);
   const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
-  const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false);
+  const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false);  
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<"tutorial" | "entry" | null>(null);
+  
+  // Validation error display - only show after user attempts to submit
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
 
   // ---------------------------------------------------------------------------
   // SAFE ACCESS DEFAULTS
@@ -210,6 +213,13 @@ function SettingsPageContent() {
   // UNSAVED CHANGES WARNING
   // ---------------------------------------------------------------------------
 
+  // Clear validation errors when the invalid sections become valid
+  useEffect(() => {
+    if (showValidationErrors && settingsValidation.isValid) {
+      setShowValidationErrors(false);
+    }
+  }, [showValidationErrors, settingsValidation.isValid]);
+  
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
@@ -432,7 +442,7 @@ function SettingsPageContent() {
   // SAVE SETTINGS HANDLER
   // ---------------------------------------------------------------------------
 
-  const handleSaveSettings = () => {
+    const handleSaveSettings = () => {
     // Validate before allowing save
     const validation = validateSettings({
       periodTracking: safePeriodTracking,
@@ -440,11 +450,11 @@ function SettingsPageContent() {
     });
 
     if (!validation.isValid) {
-      alert(validation.validationMessage);
+      setShowValidationErrors(true);
       return;
     }
 
-    // Proceed with OAuth and save
+    setShowValidationErrors(false);
     saveLogin();
   };
 
@@ -453,14 +463,13 @@ function SettingsPageContent() {
   // ---------------------------------------------------------------------------
 
   const handleContinueToTutorial = () => {
-    if (!productTrackingValid) {
-      alert("Please select at least one product for Product Usage tracking, or disable it.");
+    // Validate and block navigation if invalid (show visual warning instead of alert)
+    if (!settingsValidation.isValid) {
+      setShowValidationErrors(true);
       return;
     }
-    if (!medicineTrackingValid) {
-      alert("Please add at least one medicine for Medicine Tracking, or disable it.");
-      return;
-    }
+
+    setShowValidationErrors(false);
 
     if (isGoogleSheetConnected) {
       setPendingNavigation("tutorial");
@@ -472,20 +481,20 @@ function SettingsPageContent() {
   };
 
   const handleSkipTutorial = () => {
-    if (!productTrackingValid) {
-      alert("Please select at least one product for Product Usage tracking, or disable it.");
+    // Validate and block navigation if invalid (show visual warning instead of alert)
+    if (!settingsValidation.isValid) {
+      setShowValidationErrors(true);
       return;
     }
-    if (!medicineTrackingValid) {
-      alert("Please add at least one medicine for Medicine Tracking, or disable it.");
-      return;
-    }
+
+    setShowValidationErrors(false);
 
     if (isGoogleSheetConnected) {
       setPendingNavigation("entry");
       setShowSavePrompt(true);
     } else {
       completeSetup();
+      useSettings.getState().completeTutorial();
       router.push("/entry");
     }
   };
@@ -826,7 +835,7 @@ function SettingsPageContent() {
 
         {/* Symptoms to Track */}
         <section className="card">
-          <h2 className="text-lg font-semibold text-app-charcoal mb-4">📋 General Symptoms</h2>
+          <h2 className="text-lg font-semibold text-app-charcoal mb-4">🏷️ General Symptoms</h2>
           <p className="text-sm text-app-gray mb-4">
             Select the symptoms you want to track with each entry
           </p>
@@ -918,7 +927,7 @@ function SettingsPageContent() {
 
         {/* Bowel Movement */}
         <section className="card">
-          <h2 className="text-lg font-semibold text-app-charcoal mb-4">🚽 Bowel Movement</h2>
+          <h2 className="text-lg font-semibold text-app-charcoal mb-4">🧻 Bowel Movement</h2>
           <ToggleRow
             label="Log Bowel Movements"
             description="Log bowel movements using the Bristol Stool Scale"
@@ -1054,13 +1063,6 @@ function SettingsPageContent() {
 
                   {safePeriodTracking.productTracking?.enabled && (
                     <div className="mt-4 space-y-6">
-                      {/* Required warning */}
-                      {!productTrackingValid && (
-                        <div className="p-3 bg-app-red/10 rounded-lg border border-app-red/20">
-                          <p className="text-xs text-app-red">⚠️ Please select at least one product to continue.</p>
-                        </div>
-                      )}
-
                       <div>
                         <p className="text-sm text-app-gray mb-3">Select and add products you use:</p>
                         <div className="flex flex-wrap gap-2">
@@ -1108,6 +1110,7 @@ function SettingsPageContent() {
                           key={product.type}
                           product={product}
                           customProducts={safePeriodTracking.productTracking?.customProducts?.[product.type] ?? []}
+                          hasError={showValidationErrors && productsMissingCustomItems.includes(product.label)}
                           onUpdate={(updated) => {
                             setPeriodTracking({
                               productTracking: {
@@ -1144,13 +1147,11 @@ function SettingsPageContent() {
             />
 
             {safeMedicineTracking.enabled && (
-              <>
-                {/* Required warning */}
-                {!medicineTrackingValid && (
-                  <div className="p-3 bg-app-red/10 rounded-lg border border-app-red/20">
-                    <p className="text-xs text-app-red">⚠️ Please add at least one medicine to continue.</p>
-                  </div>
-                )}
+              <div className={`transition-colors rounded-lg ${
+                showValidationErrors && !medicineTrackingValid 
+                  ? "bg-app-red/10 border-2 border-app-red p-4 -mx-4" 
+                  : ""
+              }`}>
 
                 {safeMedicineTracking.medicines.length > 0 && (
                   <div className="pt-4 border-t border-app-border">
@@ -1180,7 +1181,7 @@ function SettingsPageContent() {
                     existingMedicines={safeMedicineTracking.medicines}
                   />
                 </div>
-              </>
+              </div>
             )}
           </div>
         </section>
@@ -1192,6 +1193,16 @@ function SettingsPageContent() {
             <p className="text-sm text-app-gray mb-4">
               Save your current settings to your connected Google Sheet.
             </p>
+            
+            {/* Validation warning */}
+            {showValidationErrors && !settingsValidation.isValid && (
+              <div className="p-3 mb-4 bg-app-red/10 rounded-lg border border-app-red/30">
+                <p className="text-sm text-app-red font-medium">
+                  ⚠️ {settingsValidation.validationMessage}
+                </p>
+              </div>
+            )}
+            
             <button
               type="button"
               onClick={handleSaveSettings}
@@ -1295,10 +1306,20 @@ function SettingsPageContent() {
         {/* Continue / Tutorial */}
         {!setupComplete && (
           <section className="card border-2 border-app-green bg-app-green/5">
-            <h2 className="text-lg font-semibold text-app-charcoal mb-2">🎉 Ready to Start!</h2>
-            <p className="text-sm text-app-gray mb-6">
+            <h2 className="text-lg font-semibold text-app-charcoal mb-2">▶️ Ready to Start?</h2>
+            <p className="text-sm text-app-gray mb-4">
               Your preferences are saved automatically. Would you like to take a quick tour?
             </p>
+            
+            {/* Validation warning */}
+            {showValidationErrors && !settingsValidation.isValid && (
+              <div className="p-3 mb-4 bg-app-red/10 rounded-lg border border-app-red/30">
+                <p className="text-sm text-app-red font-medium">
+                  ⚠️ {settingsValidation.validationMessage}
+                </p>
+              </div>
+            )}
+            
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"

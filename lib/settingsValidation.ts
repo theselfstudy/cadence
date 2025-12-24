@@ -118,7 +118,7 @@ export function validateSettings(state: ValidationInput): SettingsValidation {
   } else if (!customProductsValid) {
     validationMessage = `Please add at least one product name for: ${productsMissingCustomItems.join(", ")}`;
   } else if (!medicineTrackingValid) {
-    validationMessage = "Please add at least one medicine for Medicine Tracking, or disable it.";
+    validationMessage = "Please add at least one medicine to Medicine Logging, or disable it.";
   }
 
   return {

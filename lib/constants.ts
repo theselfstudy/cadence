@@ -327,7 +327,7 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
 ];
 
 export const MEDICINE_CATEGORIES: { value: MedicineCategory; label: string; icon: string }[] = [
-  { value: "bowel", label: "Bowel", icon: "💩" },
+  { value: "bowel", label: "Bowel", icon: "🧻" },
   { value: "symptom", label: "Symptom", icon: "🏷️" },
   { value: "period", label: "Period", icon: "🌸" },
   { value: "other", label: "Other", icon: "✨" },
