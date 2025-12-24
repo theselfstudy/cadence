@@ -7,11 +7,11 @@ Cadence is intentionally simple: entries are recorded locally in your browser or
 
 ## ✨ Features
 
-- Gentle, single-page entry flow
+- Single-page entry flow
 - Optional Google Sheet integration (user-owned storage)
 - Local-only mode (no sign-in required)
 - Weekly / Monthly / Quarterly summaries
-- Mobile-first, responsive design
+- Mobile-first, responsive design (*coming soon!*)
 - Minimalist UI with calm, neutral language
 - No ads, no tracking, no AI inference
 
@@ -33,30 +33,52 @@ Cadence is built around a few core principles:
 # 📁 Project Structure
 ```
 /trackwell
-├── /app
-│   ├── /entry
-│   │   └── page.tsx
-│   ├── /settings
-│   │   └── page.tsx
-│   ├── /fonts
-│   ├── globals.css
-│   ├── layout.tsx
-│   └── page.tsx
-├── /components
-│   ├── /Layout
-│   │   ├── AppShell.tsx
-│   │   └── Header.tsx
-│   └── /ui
-├── /lib
-│   └── constants.ts
-├── /stores
-│   └── useSettings.ts
-├── /types
-│   └── index.ts
-├── tailwind.config.tsx
-└── README.md
+    /app
+        /entry
+            page.tsx
+        /fonts
+            GeistMonoVS.woff
+            GeistVS.woff
+        /recover
+            page.tsx
+        /settings
+            page.tsx
+        /tutorial
+            page.tsx
+        globals.css
+        layout.tsx
+        page.tsx
+    /components
+       /Layout
+            AppShell.tsx
+            Header.tsx 
+        /ui
+            SafeLink.tsx
+        /settings
+            /modals
+                RecoveryPromptModal.tsx
+                SavePromptModal.tsx
+            AddMedicineForm.tsx
+            CustomProductSection.tsx
+            index.ts
+            MedicineItem.tsx
+            PainScaleOption.tsx
+            SymptomChip.tsx
+            ToggleRow.tsx
+    /hooks
+        useSafeRouter.ts
+    /lib
+        constants.ts
+        googleSheets.ts
+        settingsValidation.ts
+        stringUtils.ts
+    /stores
+    useEntries.ts
+        useSettings.ts
+    /types
+        index.ts
+    tailwind.config.tsx
 ```
-
 # 🔐 Authentication & Data Storage
 
 Cadence supports multiple usage modes:
@@ -121,4 +143,4 @@ Questions, feedback, or issues?
 📧 support@cadence.app or open a GitHub issue.
 
 # 📜 License
-- MIT License
+MIT License
