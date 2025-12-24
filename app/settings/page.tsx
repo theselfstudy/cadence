@@ -186,11 +186,15 @@ function SettingsPageContent() {
   // ---------------------------------------------------------------------------
   
   const settingsValidation = validateSettings({
+    symptoms,
     periodTracking: safePeriodTracking,
     medicineTracking: safeMedicineTracking,
+    stoolTracking: safeStoolTracking,
   });
 
   const {
+    anySectionEnabled,
+    symptomsValid,
     productTrackingValid,
     customProductsValid,
     medicineTrackingValid,
@@ -198,6 +202,7 @@ function SettingsPageContent() {
   } = settingsValidation;
 
   const allOptionalFeaturesEnabled =
+    (symptoms?.selected?.length ?? 0) > 0 &&
     intensityTracking.enabled &&
     safeStoolTracking.enabled &&
     safePeriodTracking.enabled &&
@@ -208,6 +213,11 @@ function SettingsPageContent() {
   const allPeriodSymptomsSelected =
     periodSelectableSymptoms.length > 0 &&
     periodSelectableSymptoms.every((s) => safePeriodTracking.periodSymptoms?.includes(s));
+
+  // Check if all default symptoms are selected (for Select All / Deselect All button)
+  const allDefaultSymptomsSelected =
+    DEFAULT_SYMPTOMS.length > 0 &&
+    DEFAULT_SYMPTOMS.every((s) => symptoms?.selected?.includes(s));
 
   // ---------------------------------------------------------------------------
   // UNSAVED CHANGES WARNING
@@ -442,9 +452,10 @@ function SettingsPageContent() {
   // SAVE SETTINGS HANDLER
   // ---------------------------------------------------------------------------
 
-    const handleSaveSettings = () => {
+  const handleSaveSettings = () => {
     // Validate before allowing save
     const validation = validateSettings({
+      symptoms,
       periodTracking: safePeriodTracking,
       medicineTracking: safeMedicineTracking,
     });
@@ -530,11 +541,35 @@ function SettingsPageContent() {
     }
   };
 
+
+  // Toggle all period symptoms on/off
+  const handleToggleAllPeriodSymptoms = (selectAll: boolean) => {
+    if (selectAll) {
+      const allSymptoms = [...new Set([...safePeriodTracking.periodSymptoms, ...periodSelectableSymptoms])];
+      setPeriodTracking({ periodSymptoms: allSymptoms });
+    } else {
+      setPeriodTracking({ periodSymptoms: [...safePeriodTracking.customPeriodSymptoms] });
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // MASTER TOGGLE HANDLERS
   // ---------------------------------------------------------------------------
 
   const handleToggleAllOptionalFeatures = (enabled: boolean) => {
+    // Toggle General Symptoms
+    if (enabled) {
+      handleToggleAllDefaultSymptoms(true);
+    } else {
+      useSettings.setState((state) => ({
+        symptoms: {
+          ...state.symptoms,
+          selected: [],
+        },
+        hasUnsavedChanges: true,
+      }));
+    }
+    
     setIntensityTracking({ enabled });
     setStoolTracking({ enabled });
     setPeriodTracking({
@@ -550,12 +585,36 @@ function SettingsPageContent() {
     setMedicineTracking({ ...safeMedicineTracking, enabled });
   };
 
-  const handleToggleAllPeriodSymptoms = (selectAll: boolean) => {
+  
+  // Toggle all default symptoms on/off
+  const handleToggleAllDefaultSymptoms = (selectAll: boolean) => {
+    const currentCustom = symptoms?.custom ?? [];
+    const currentSelected = symptoms?.selected ?? [];
+    
     if (selectAll) {
-      const allSymptoms = [...new Set([...safePeriodTracking.periodSymptoms, ...periodSelectableSymptoms])];
-      setPeriodTracking({ periodSymptoms: allSymptoms });
+      // Select all defaults + keep any custom that were selected
+      const customThatWereSelected = currentSelected.filter(s => currentCustom.includes(s));
+      const newSelected = [...new Set([...DEFAULT_SYMPTOMS, ...customThatWereSelected])];
+      
+      // Use the store's internal method to set all at once
+      useSettings.setState((state) => ({
+        symptoms: {
+          ...state.symptoms,
+          selected: newSelected,
+        },
+        hasUnsavedChanges: true,
+      }));
     } else {
-      setPeriodTracking({ periodSymptoms: [...safePeriodTracking.customPeriodSymptoms] });
+      // Deselect all defaults, keep custom symptoms selected
+      const customThatWereSelected = currentSelected.filter(s => currentCustom.includes(s));
+      
+      useSettings.setState((state) => ({
+        symptoms: {
+          ...state.symptoms,
+          selected: customThatWereSelected,
+        },
+        hasUnsavedChanges: true,
+      }));
     }
   };
 
@@ -833,96 +892,146 @@ function SettingsPageContent() {
           />
         </section>
 
-        {/* Symptoms to Track */}
+        {/* General Symptoms */}
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">🏷️ General Symptoms</h2>
-          <p className="text-sm text-app-gray mb-4">
-            Select the symptoms you want to track with each entry
-          </p>
-          <div className="mb-4">
-            <p className="text-sm text-app-gray mb-2">Default symptoms:</p>
-            <div className="flex flex-wrap gap-2">
-              {DEFAULT_SYMPTOMS.map((symptom) => (
-                <SymptomChip
-                  key={symptom}
-                  label={symptom}
-                  selected={symptoms?.selected?.includes(symptom) ?? false}
-                  onToggle={() => toggleSymptom(symptom)}
-                />
-              ))}
-            </div>
-          </div>
-          {(symptoms?.custom?.length ?? 0) > 0 && (
-            <div className="mb-4">
-              <p className="text-sm text-app-gray mb-2">
-                Your custom symptoms ({symptoms.custom.length}/{MAX_CUSTOM_SYMPTOMS}):
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {symptoms.custom.map((symptom) => (
-                  <SymptomChip
-                    key={symptom}
-                    label={symptom}
-                    selected={symptoms.selected.includes(symptom)}
-                    onToggle={() => toggleSymptom(symptom)}
-                    onRemove={() => removeCustomSymptom(symptom)}
-                    removable
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-          {canAddMoreCustomSymptoms ? (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newSymptom}
-                onChange={(e) => setNewSymptom(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddSymptom()}
-                placeholder="Add custom symptom..."
-                className="flex-1 px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green"
-              />
-              <button
-                type="button"
-                onClick={handleAddSymptom}
-                className="px-6 py-2 rounded-lg bg-app-teal text-app-cream font-medium hover:bg-app-green-dark transition-colors"
-              >
-                Add
-              </button>
-            </div>
-          ) : (
-            <p className="text-xs text-app-gray italic">Maximum of {MAX_CUSTOM_SYMPTOMS} custom symptoms reached</p>
-          )}
-        </section>
+          <div className="space-y-4">
+            <ToggleRow
+              label="Enable Symptom Tracking"
+              description="Log symptoms you experience with each entry"
+              checked={(symptoms?.selected?.length ?? 0) > 0 || (symptoms?.custom?.length ?? 0) > 0}
+              onChange={(enabled) => {
+                if (enabled) {
+                  // Select all default symptoms when enabling
+                  handleToggleAllDefaultSymptoms(true);
+                } else {
+                  // Deselect all symptoms when disabling
+                  useSettings.setState((state) => ({
+                    symptoms: {
+                      ...state.symptoms,
+                      selected: [],
+                    },
+                    hasUnsavedChanges: true,
+                  }));
+                }
+              }}
+              activeColor="bg-app-teal"
+            />
 
-        {/* Symptom Intensity */}
-        <section className="card">
-          <h2 className="text-lg font-semibold text-app-charcoal mb-4">📊 Symptom Intensity </h2>
-          <ToggleRow
-            label="Log Symptom Intensity"
-            description="Record how severe each symptom feels using a pain scale"
-            checked={intensityTracking.enabled}
-            onChange={(enabled) => setIntensityTracking({ enabled })}
-            activeColor="bg-app-teal"
-          />
-          {intensityTracking.enabled && (
-            <div className="mt-6">
-              <p className="text-sm font-medium text-app-charcoal mb-3">Choose your pain scale:</p>
-              <div className="space-y-3">
-                <PainScaleOption
-                  type="simple"
-                  selected={intensityTracking.scaleType === "simple"}
-                  onSelect={() => setIntensityTracking({ scaleType: "simple" })}
-                  activeColor="app-teal"
-                />
-                <PainScaleOption
-                  type="mankoski"
-                  selected={intensityTracking.scaleType === "mankoski"}
-                  onSelect={() => setIntensityTracking({ scaleType: "mankoski" })}
-                  activeColor="app-teal"
-                />
-              </div>
-            </div>
-          )}
+            {((symptoms?.selected?.length ?? 0) > 0 || (symptoms?.custom?.length ?? 0) > 0) && (
+              <>
+                {/* Symptom Selection */}
+                <div className="pt-4 border-t border-app-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-app-charcoal">Symptoms to track</p>
+                    {DEFAULT_SYMPTOMS.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAllDefaultSymptoms(!allDefaultSymptomsSelected)}
+                        className="text-xs text-app-teal hover:text-app-teal/70 font-medium"
+                      >
+                        {allDefaultSymptomsSelected ? "Deselect All" : "Select All"}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-app-gray mb-3">
+                    Select at least one symptom to track with your entries
+                  </p>
+
+                  {/* Default symptoms */}
+                  <div className="mb-4">
+                    <p className="text-sm text-app-gray mb-2">Default symptoms:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {DEFAULT_SYMPTOMS.map((symptom) => (
+                        <SymptomChip
+                          key={symptom}
+                          label={symptom}
+                          selected={symptoms?.selected?.includes(symptom) ?? false}
+                          onToggle={() => toggleSymptom(symptom)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom symptoms */}
+                  {(symptoms?.custom?.length ?? 0) > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm text-app-gray mb-2">
+                        Your custom symptoms ({symptoms.custom.length}/{MAX_CUSTOM_SYMPTOMS}):
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {symptoms.custom.map((symptom) => (
+                          <SymptomChip
+                            key={symptom}
+                            label={symptom}
+                            selected={symptoms.selected.includes(symptom)}
+                            onToggle={() => toggleSymptom(symptom)}
+                            onRemove={() => removeCustomSymptom(symptom)}
+                            removable
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add custom symptom */}
+                  {canAddMoreCustomSymptoms ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newSymptom}
+                        onChange={(e) => setNewSymptom(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddSymptom()}
+                        placeholder="Add custom symptom..."
+                        className="flex-1 px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-teal"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddSymptom}
+                        className="px-6 py-2 rounded-lg bg-app-teal text-app-cream font-medium hover:opacity-90 transition-colors"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-app-gray italic">
+                      Maximum of {MAX_CUSTOM_SYMPTOMS} custom symptoms reached
+                    </p>
+                  )}
+                </div>
+
+                {/* Symptom Intensity */}
+                <div className="pt-4 border-t border-app-border">
+                  <ToggleRow
+                    label="Symptom Intensity"
+                    description="Record how severe each symptom feels using a pain scale"
+                    checked={intensityTracking.enabled}
+                    onChange={(enabled) => setIntensityTracking({ enabled })}
+                    activeColor="bg-app-teal"
+                  />
+                  {intensityTracking.enabled && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-app-charcoal mb-3">Choose your pain scale:</p>
+                      <div className="space-y-3">
+                        <PainScaleOption
+                          type="simple"
+                          selected={intensityTracking.scaleType === "simple"}
+                          onSelect={() => setIntensityTracking({ scaleType: "simple" })}
+                          activeColor="app-teal"
+                        />
+                        <PainScaleOption
+                          type="mankoski"
+                          selected={intensityTracking.scaleType === "mankoski"}
+                          onSelect={() => setIntensityTracking({ scaleType: "mankoski" })}
+                          activeColor="app-teal"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </section>
 
         {/* Bowel Movement */}
@@ -1043,7 +1152,11 @@ function SettingsPageContent() {
                 </div>
 
                 {/* Product Usage */}
-                <div className="pt-4 border-t border-app-border">
+                <div className={`pt-4 border-t border-app-border transition-colors ${
+                  showValidationErrors && !productTrackingValid
+                    ? "bg-app-red/10 border-2 border-app-red rounded-lg p-4 -mx-4 mt-4"
+                    : ""
+                }`}>
                   <ToggleRow
                     label="Product Usage"
                     description="Log which menstrual products you use"
@@ -1149,7 +1262,7 @@ function SettingsPageContent() {
             {safeMedicineTracking.enabled && (
               <div className={`transition-colors rounded-lg ${
                 showValidationErrors && !medicineTrackingValid 
-                  ? "bg-app-red/10 border-2 border-app-red p-4 -mx-4" 
+                  ? "bg-app-plumb/10 border-2 border-app-plumb p-4 -mx-4" 
                   : ""
               }`}>
 
