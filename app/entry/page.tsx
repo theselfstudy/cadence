@@ -5,6 +5,9 @@ import React, { useState, useEffect } from "react";
 import { useSettings } from "@/stores/useSettings";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useEntries } from "@/stores/useEntries";
+// import { getSpreadsheetIdFromUrl } from "@/lib/googleSheets";
+import type { MedicineCategory } from "@/types";
+
 
 import {
   BRISTOL_TYPES,
@@ -22,12 +25,13 @@ import type {
   PostBowelFeeling,
   CyclePhase,
   SymptomEntry,
+  // EntryFormData,
   ProductUsageEntry,
   CustomProduct,
   ProductTracking,
   Medicine, 
   MedicineLogEntry,
-  MedicineCategory,
+  // MedicineCategory,
   StoredEntry, 
   PainScaleType,
 } from "@/types";
@@ -130,13 +134,6 @@ const MEDICINE_CATEGORY_COLORS: Record<MedicineCategory, { bg: string; text: str
 // =============================================================================
 // CONSOLIDATED MEDICINE LOG COMPONENT
 // =============================================================================
-
-interface ConsolidatedMedicineLogProps {
-  medicines: Medicine[];
-  loggedMedicines: MedicineLogEntry[];
-  onChange: (entries: MedicineLogEntry[]) => void;
-  is24Hour: boolean;
-}
 
 function ConsolidatedMedicineLog({
   medicines,
@@ -328,6 +325,10 @@ export default function EntryPage() {
   const { addEntry, syncEntryToSheet } = useEntries();
   const is24Hour = timeFormat === "24h";
 
+  // Store access token for sync after OAuth completes
+  const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+
   // Google OAuth for syncing entries
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -340,10 +341,6 @@ export default function EntryPage() {
     },
     scope: "https://www.googleapis.com/auth/spreadsheets",
   });
-
-  // Store access token for sync after OAuth completes
-  const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
-  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
 
   // Safe access to settings
   const safeSymptoms = symptoms ?? {
@@ -362,7 +359,6 @@ export default function EntryPage() {
   const intensityEnabled = safeSymptoms.intensityTracking?.enabled ?? false;
   const painScaleType = safeSymptoms.intensityTracking?.scaleType ?? "simple";
 
-
   const [loggedMedicines, setLoggedMedicines] = useState<MedicineLogEntry[]>([]);
 
   const [productUsage, setProductUsage] = useState<ProductUsageEntry[]>([]);
@@ -379,9 +375,11 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [cyclePhase, setCyclePhase] = useState<CyclePhase | null>(null);
   // Check if menstrual phase is selected
   const isMenstrualPhase = cyclePhase === "menstrual";
+
   const allSymptomsToShow = Array.from(
     new Set([
-      // General symptoms - always show BUT exclude custom period symptoms (they should ONLY show when menstrual)
+      // General symptoms - always show
+      // BUT exclude custom period symptoms (they should ONLY show when menstrual)
       ...safeSymptoms.selected.filter(
         (symptom) => !(safePeriodTracking.customPeriodSymptoms ?? []).includes(symptom)
       ),
@@ -431,7 +429,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         setIsSubmitting(false);
         setSubmitSuccess(true);
 
-        setTimeout(() => {
+                setTimeout(() => {
           setStartTime(getCurrentTime(is24Hour));
           setEndTime(getCurrentTime(is24Hour));
           setBristolType(null);
@@ -449,7 +447,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       }
     };
 
-  syncPendingEntry();
+    syncPendingEntry();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAccessToken, pendingEntryId]);
 
   // Toggle symptom selection
@@ -480,7 +479,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     );
   };
 
-  // Handle notes change with security check
+    // Handle notes change with security check
   const handleNotesChange = (value: string) => {
     setNotes(value);
     if (!isNoteSafe(value)) {
@@ -1106,6 +1105,13 @@ function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSection
       </div>
     </div>
   );
+}
+
+interface ConsolidatedMedicineLogProps {
+  medicines: Medicine[];
+  loggedMedicines: MedicineLogEntry[];
+  onChange: (entries: MedicineLogEntry[]) => void;
+  is24Hour: boolean;
 }
 
 interface ProductUsageEntrySectionProps {

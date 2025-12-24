@@ -7,7 +7,6 @@ import { checkForExistingSettings, deleteSettingsSheet } from "@/lib/googleSheet
 import { useSettings } from "@/stores/useSettings";
 import { validateSettings } from "@/lib/settingsValidation";
 
-
 import {
   DEFAULT_SYMPTOMS,
   GOOGLE_SHEET_URL_PATTERN,
@@ -179,8 +178,7 @@ function SettingsPageContent() {
     return false;
   });
 
-  // Validation checks
-    // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
   // VALIDATION (using shared utility)
   // ---------------------------------------------------------------------------
   
@@ -459,10 +457,6 @@ function SettingsPageContent() {
       alert("Please select at least one product for Product Usage tracking, or disable it.");
       return;
     }
-    if (!customProductsValid) {
-      alert(`Please add at least one product name for the selected category/categories: ${productsMissingCustomItems.join(", ")}`);
-      return;
-    }
     if (!medicineTrackingValid) {
       alert("Please add at least one medicine for Medicine Tracking, or disable it.");
       return;
@@ -480,10 +474,6 @@ function SettingsPageContent() {
   const handleSkipTutorial = () => {
     if (!productTrackingValid) {
       alert("Please select at least one product for Product Usage tracking, or disable it.");
-      return;
-    }
-    if (!customProductsValid) {
-      alert(`Please add at least one product name for the selected category/categories: ${productsMissingCustomItems.join(", ")}`);
       return;
     }
     if (!medicineTrackingValid) {
@@ -1062,21 +1052,12 @@ function SettingsPageContent() {
                     activeColor="bg-app-red"
                   />
 
-                                    {safePeriodTracking.productTracking?.enabled && (
+                  {safePeriodTracking.productTracking?.enabled && (
                     <div className="mt-4 space-y-6">
-                      {/* Required warning - at least one product type */}
+                      {/* Required warning */}
                       {!productTrackingValid && (
                         <div className="p-3 bg-app-red/10 rounded-lg border border-app-red/20">
                           <p className="text-xs text-app-red">⚠️ Please select at least one product to continue.</p>
-                        </div>
-                      )}
-
-                      {/* Required warning - custom products for Cup/Disc/Other */}
-                      {productTrackingValid && !customProductsValid && (
-                        <div className="p-3 bg-app-red/10 rounded-lg border border-app-red/20">
-                          <p className="text-xs text-app-red">
-                            ⚠️ Please add at least one product name for the selected category/categories: {productsMissingCustomItems.join(", ")}
-                          </p>
                         </div>
                       )}
 

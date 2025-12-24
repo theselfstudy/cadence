@@ -5,31 +5,21 @@
 import type { StoredEntry, UserSettings, SheetColumn } from '@/types';
 import { PRODUCT_OPTIONS } from '@/lib/constants';
 
-// ============================================
-// SHEET NAMES & RANGES
-// ============================================
-
+// Sheet names
 const SETTINGS_SHEET_NAME = ".trackwell-settings";
-const COLUMN_MAP_SHEET_NAME = ".trackwell-column-map";
 const ENTRIES_SHEET_NAME = "TrackWell-Entries";
 
-const SETTINGS_RANGE = `'${SETTINGS_SHEET_NAME}'!A1`;
-const COLUMN_MAP_RANGE = `'${COLUMN_MAP_SHEET_NAME}'!A1`;
+// Ranges
+const SETTINGS_RANGE = `${SETTINGS_SHEET_NAME}!A1`;
 const ENTRIES_HEADERS_RANGE = `'${ENTRIES_SHEET_NAME}'!1:1`;
 
 // ============================================
-// TYPES
+// SETTINGS FUNCTIONS (existing)
 // ============================================
 
-interface ColumnMap {
-  columns: Record<string, number>;
-  nextColumn: number;
-}
-
-// ============================================
-// SETTINGS FUNCTIONS
-// ============================================
-
+/**
+ * Reads the settings JSON from the hidden tab in the user's Google Sheet.
+ */
 export async function getSettingsFromSheet(
   spreadsheetId: string,
   accessToken: string
@@ -54,6 +44,10 @@ export async function getSettingsFromSheet(
   }
 }
 
+/**
+ * Writes the settings JSON to the hidden tab in the user's Google Sheet.
+ * It will create the hidden tab if it doesn't exist.
+ */
 export async function saveSettingsToSheet(
   settingsJson: string,
   spreadsheetId: string,
@@ -92,41 +86,41 @@ export async function saveSettingsToSheet(
   }
 }
 
+/**
+ * Helper function to create a hidden sheet.
+ */
 async function _createHiddenSheet(
   spreadsheetId: string,
   accessToken: string,
   sheetName: string
-): Promise<boolean> {
-  try {
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          requests: [
-            {
-              addSheet: {
-                properties: {
-                  title: sheetName,
-                  hidden: true,
-                },
+) {
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            addSheet: {
+              properties: {
+                title: sheetName,
+                hidden: true,
               },
             },
-          ],
-        }),
-      }
-    );
-    return response.ok;
-  } catch (error) {
-    console.error(`Error creating hidden sheet ${sheetName}:`, error);
-    return false;
-  }
+          },
+        ],
+      }),
+    }
+  );
 }
 
+/**
+ * Checks if the settings sheet exists and has content.
+ */
 export async function checkForExistingSettings(
   spreadsheetId: string,
   accessToken: string
@@ -152,11 +146,16 @@ export async function checkForExistingSettings(
   }
 }
 
+/**
+ * Deletes the settings sheet from the user's Google Sheet.
+ * Used when doing a full reset to remove all saved settings.
+ */
 export async function deleteSettingsSheet(
   spreadsheetId: string,
   accessToken: string
 ): Promise<boolean> {
   try {
+    // First, get the sheet ID for the settings sheet
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
       {
@@ -178,12 +177,14 @@ export async function deleteSettingsSheet(
     );
 
     if (!settingsSheet) {
+      // Sheet doesn't exist, nothing to delete
       console.log("Settings sheet not found, nothing to delete");
       return true;
     }
 
     const sheetId = settingsSheet.properties.sheetId;
 
+    // Delete the sheet
     const deleteResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
       {
@@ -219,117 +220,20 @@ export async function deleteSettingsSheet(
 }
 
 // ============================================
-// COLUMN MAP FUNCTIONS
-// ============================================
-
-async function getColumnMapFromSheet(
-  spreadsheetId: string,
-  accessToken: string
-): Promise<ColumnMap | null> {
-  try {
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(COLUMN_MAP_RANGE)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    const jsonString = data.values?.[0]?.[0];
-    
-    if (!jsonString) {
-      return null;
-    }
-
-    return JSON.parse(jsonString) as ColumnMap;
-  } catch (error) {
-    console.error("Error reading column map:", error);
-    return null;
-  }
-}
-
-async function saveColumnMapToSheet(
-  columnMap: ColumnMap,
-  spreadsheetId: string,
-  accessToken: string
-): Promise<boolean> {
-  try {
-    const jsonString = JSON.stringify(columnMap);
-
-    const updateResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(COLUMN_MAP_RANGE)}?valueInputOption=RAW`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          values: [[jsonString]],
-        }),
-      }
-    );
-
-    if (updateResponse.status === 400) {
-      await _createHiddenSheet(spreadsheetId, accessToken, COLUMN_MAP_SHEET_NAME);
-      return await saveColumnMapToSheet(columnMap, spreadsheetId, accessToken);
-    }
-
-    if (!updateResponse.ok) {
-      const errorBody = await updateResponse.json();
-      console.error("Error saving column map:", errorBody);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error saving column map:", error);
-    return false;
-  }
-}
-
-function createInitialColumnMap(headers: string[]): ColumnMap {
-  const columns: Record<string, number> = {};
-  
-  headers.forEach((header, index) => {
-    columns[header] = index;
-  });
-
-  return {
-    columns,
-    nextColumn: headers.length,
-  };
-}
-
-// ============================================
-// CANONICAL COLUMNS BUILDER
+// ENTRIES FUNCTIONS (new)
 // ============================================
 
 /**
  * Builds the canonical column order based on current user settings.
- * 
- * ORDER:
- * 1. Date, Start Time (always first)
- * 2. Notes, End Time (always second group)
- * 3. Pain Scale
- * 4. Stool tracking
- * 5. Period/Cycle tracking
- * 6. Products
- * 7. General Symptoms
- * 8. Period Symptoms
- * 9. Medicines
+ * Order matches the entry form:
+ * Date → Start Time → Notes → End Time  → Pain Scale → Stool → Cycle → Flow → Products → 
+ * General Symptoms → Period Symptoms → Medicines
  */
 export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   const columns: SheetColumn[] = [];
 
   // ─────────────────────────────────────────
-  // SECTION 1: Time Start (always present)
+  // SECTION 1: Metadata (always present)
   // ─────────────────────────────────────────
   columns.push({
     header: 'Date',
@@ -342,25 +246,7 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
     section: 'metadata',
     getValue: (entry) => entry.startTime,
   });
-
-  // ─────────────────────────────────────────
-  // SECTION 2: Closing (always present, but placed early)
-  // ─────────────────────────────────────────
-  columns.push({
-    header: 'Notes',
-    section: 'closing',
-    getValue: (entry) => entry.notes ?? '',
-  });
   
-  columns.push({
-    header: 'End Time',
-    section: 'closing',
-    getValue: (entry) => entry.endTime,
-  });
-
-  // ─────────────────────────────────────────
-  // SECTION 3: Pain Scale (always present)
-  // ─────────────────────────────────────────
   columns.push({
     header: 'Pain Scale',
     section: 'metadata',
@@ -368,7 +254,23 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   });
 
   // ─────────────────────────────────────────
-  // SECTION 4: Stool Tracking
+  // SECTION 8: Closing (always present)
+  // ─────────────────────────────────────────
+  
+  columns.push({
+    header: 'End Time',
+    section: 'closing',
+    getValue: (entry) => entry.endTime,
+  });
+
+  columns.push({
+    header: 'Notes',
+    section: 'closing',
+    getValue: (entry) => entry.notes ?? '',
+  });
+
+  // ─────────────────────────────────────────
+  // SECTION 2: Stool Tracking (Bristol Stool Scale)
   // ─────────────────────────────────────────
   if (settings.stoolTracking.enabled) {
     columns.push({
@@ -385,15 +287,17 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 5: Period/Cycle Tracking
+  // SECTION 3: Period/Cycle Tracking
   // ─────────────────────────────────────────
   if (settings.periodTracking.enabled) {
+    // Cycle Phase (always show if period tracking enabled)
     columns.push({
       header: 'Cycle Phase',
       section: 'period',
       getValue: (entry) => entry.cyclePhase ?? '',
     });
 
+    // Period flow (only if flow tracking enabled)
     if (settings.periodTracking.trackFlow) {
       columns.push({
         header: 'Period: Flow',
@@ -404,16 +308,19 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 6: Products
+  // SECTION 4: Products
   // ─────────────────────────────────────────
   if (settings.periodTracking.enabled && settings.periodTracking.productTracking?.enabled) {
     const selectedProducts = settings.periodTracking.productTracking.selectedProducts ?? [];
     const customProductsMap = settings.periodTracking.productTracking.customProducts ?? {};
     
     for (const productType of selectedProducts) {
+      // Find the product definition to check if it uses custom products
       const productDef = PRODUCT_OPTIONS.find(p => p.type === productType);
       
       if (productDef?.allowCustomProducts) {
+        // Products with custom products (cup, disc, other):
+        // Create a column for EACH custom product, not a generic column
         const customProducts = customProductsMap[productType] ?? [];
         
         for (const customProduct of customProducts) {
@@ -427,11 +334,15 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
                 p => p.productType === productType && p.customProductId === customProduct.id
               );
               if (!usage) return '';
+              
+              // Include size if selected, otherwise just mark as 'Used'
               return usage.size ?? 'Used';
             },
           });
         }
       } else {
+        // Standard products (pad, tampon, liner):
+        // Keep generic column with size as value
         const productLabel = productDef?.label ?? productType;
         
         columns.push({
@@ -440,6 +351,8 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
           getValue: (entry) => {
             const usage = entry.productUsage.find(p => p.productType === productType);
             if (!usage) return '';
+            
+            // Return the size/absorbency selected
             return usage.size ?? 'Used';
           },
         });
@@ -448,13 +361,23 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 7: General Symptoms
+  // SECTION 5: General Symptoms (Gen. Sym:)
   // ─────────────────────────────────────────
   if (settings.symptoms.intensityTracking.enabled) {
+    // Build set of period symptoms to exclude from general
+    const periodSymptomSet = new Set([
+      ...settings.periodTracking.periodSymptoms,
+      ...settings.periodTracking.customPeriodSymptoms,
+    ]);
+
+    // Built-in selected symptoms (excluding period-only ones)
     for (const symptom of settings.symptoms.selected) {
+      // Skip if it's ONLY a period symptom (not also a general symptom)
+      // A symptom is "both" if it's in selected AND in periodSymptoms
+      // A symptom is "period only" if it's in customPeriodSymptoms but only added to selected via that
       if (settings.periodTracking.customPeriodSymptoms.includes(symptom) && 
           !settings.symptoms.custom.includes(symptom)) {
-        continue;
+        continue; // This is a custom period symptom, skip it for general
       }
       
       columns.push({
@@ -464,6 +387,7 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
       });
     }
 
+    // Custom general symptoms (that aren't period symptoms)
     for (const symptom of settings.symptoms.custom) {
       if (!settings.symptoms.selected.includes(symptom)) {
         columns.push({
@@ -476,9 +400,10 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 8: Period Symptoms
+  // SECTION 6: Period Symptoms (Per. Sym:)
   // ─────────────────────────────────────────
   if (settings.periodTracking.enabled) {
+    // Built-in period symptoms
     for (const symptom of settings.periodTracking.periodSymptoms) {
       columns.push({
         header: `Per. Sym: ${symptom}`,
@@ -487,6 +412,7 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
       });
     }
 
+    // Custom period symptoms
     for (const symptom of settings.periodTracking.customPeriodSymptoms) {
       columns.push({
         header: `Per. Sym: ${symptom}`,
@@ -497,7 +423,7 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 9: Medicines
+  // SECTION 7: Medicines
   // ─────────────────────────────────────────
   if (settings.medicineTracking.enabled) {
     for (const medicine of settings.medicineTracking.medicines) {
@@ -518,14 +444,13 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
       });
     }
   }
-
   return columns;
 }
 
-// ============================================
-// ENTRIES SHEET HELPERS
-// ============================================
-
+/**
+ * Gets the existing headers from the entries sheet.
+ * Returns null if the sheet doesn't exist.
+ */
 export async function getEntriesSheetHeaders(
   spreadsheetId: string,
   accessToken: string
@@ -542,6 +467,7 @@ export async function getEntriesSheetHeaders(
 
     if (!response.ok) {
       const error = await response.json();
+      // Sheet doesn't exist
       if (error.error?.status === 'NOT_FOUND' || response.status === 400) {
         return null;
       }
@@ -556,12 +482,16 @@ export async function getEntriesSheetHeaders(
   }
 }
 
+/**
+ * Creates the entries sheet with headers based on current settings.
+ */
 export async function createEntriesSheet(
   spreadsheetId: string,
   accessToken: string,
   headers: string[]
 ): Promise<boolean> {
   try {
+    // First, create the sheet
     const createResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
       {
@@ -587,12 +517,14 @@ export async function createEntriesSheet(
 
     if (!createResponse.ok) {
       const error = await createResponse.json();
+      // Sheet might already exist
       if (!error.error?.message?.includes('already exists')) {
         console.error('Error creating entries sheet:', error);
         return false;
       }
     }
 
+    // Then, add headers
     const headersResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!A1?valueInputOption=RAW`,
       {
@@ -619,6 +551,156 @@ export async function createEntriesSheet(
   }
 }
 
+/**
+ * Reconciles existing headers with canonical headers.
+ * Returns the columns to insert and their positions.
+ */
+export function reconcileHeaders(
+  existingHeaders: string[],
+  canonicalColumns: SheetColumn[]
+): {
+  finalHeaders: string[];
+  columnsToInsert: Array<{ header: string; position: number }>;
+} {
+  const existingSet = new Set(existingHeaders);
+  const finalHeaders = [...existingHeaders];
+  const columnsToInsert: Array<{ header: string; position: number }> = [];
+
+  // Group canonical columns by section
+  // Order must match buildCanonicalColumns to ensure proper column placement
+  const sections: SheetColumn['section'][] = [
+    'metadata',      // Date, Start Time, Pain Scale
+    'closing',       // Notes, End Time
+    'stool',         // Bristol Stool Scale
+    'period',        // Cycle Phase, Flow
+    'products',      // Period Products
+    'symptoms',      // General Symptoms
+    'periodSymptoms', // Period Symptoms
+    'medicines',     // Medicines
+  ];
+
+  for (const column of canonicalColumns) {
+    if (!existingSet.has(column.header)) {
+      // Find the right position to insert this column
+      // It should go after other columns in its section, or at the start of its section
+      
+      const sectionIndex = sections.indexOf(column.section);
+      let insertPosition = finalHeaders.length; // Default: end
+
+      // Find where this section ends in the existing headers
+      for (let i = finalHeaders.length - 1; i >= 0; i--) {
+        const existingColumn = canonicalColumns.find(c => c.header === finalHeaders[i]);
+        if (existingColumn) {
+          const existingSectionIndex = sections.indexOf(existingColumn.section);
+          if (existingSectionIndex <= sectionIndex) {
+            insertPosition = i + 1;
+            break;
+          }
+        }
+      }
+
+      // Special case: 'closing' section should always be at the end
+      if (column.section === 'closing') {
+        // Find where closing section starts
+        const closingColumns = canonicalColumns.filter(c => c.section === 'closing');
+        const firstClosingInFinal = finalHeaders.findIndex(h => 
+          closingColumns.some(c => c.header === h)
+        );
+        
+        if (firstClosingInFinal === -1) {
+          insertPosition = finalHeaders.length;
+        } else {
+          insertPosition = firstClosingInFinal;
+        }
+      }
+
+      columnsToInsert.push({ header: column.header, position: insertPosition });
+      finalHeaders.splice(insertPosition, 0, column.header);
+      existingSet.add(column.header);
+    }
+  }
+
+  return { finalHeaders, columnsToInsert };
+}
+
+/**
+ * Inserts new columns into the sheet at specific positions.
+ */
+export async function insertSheetColumns(
+  spreadsheetId: string,
+  accessToken: string,
+  sheetId: number,
+  columnsToInsert: Array<{ header: string; position: number }>
+): Promise<boolean> {
+  if (columnsToInsert.length === 0) return true;
+
+  try {
+    // Sort by position descending so insertions don't affect other positions
+    const sortedColumns = [...columnsToInsert].sort((a, b) => b.position - a.position);
+
+    const requests = sortedColumns.map(col => ({
+      insertDimension: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'COLUMNS',
+          startIndex: col.position,
+          endIndex: col.position + 1,
+        },
+        inheritFromBefore: col.position > 0,
+      },
+    }));
+
+    // First, insert the columns
+    const insertResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ requests }),
+      }
+    );
+
+    if (!insertResponse.ok) {
+      console.error('Error inserting columns:', await insertResponse.json());
+      return false;
+    }
+
+    // Then, update the header row with new column names
+    // We need to update each new column's header
+    for (const col of columnsToInsert) {
+      const columnLetter = getColumnLetter(col.position);
+      const updateResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!${columnLetter}1?valueInputOption=RAW`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            values: [[col.header]],
+          }),
+        }
+      );
+
+      if (!updateResponse.ok) {
+        console.error('Error updating header:', await updateResponse.json());
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error inserting columns:', error);
+    return false;
+  }
+}
+
+/**
+ * Converts a 0-based column index to a column letter (A, B, ..., Z, AA, AB, ...)
+ */
 function getColumnLetter(index: number): string {
   let letter = '';
   let temp = index;
@@ -631,48 +713,44 @@ function getColumnLetter(index: number): string {
   return letter;
 }
 
-async function appendNewHeaders(
+/**
+ * Gets the sheet ID for the entries sheet.
+ */
+export async function getEntriesSheetId(
   spreadsheetId: string,
-  accessToken: string,
-  newHeaders: string[],
-  startColumnIndex: number
-): Promise<boolean> {
-  if (newHeaders.length === 0) return true;
-
+  accessToken: string
+): Promise<number | null> {
   try {
-    const startLetter = getColumnLetter(startColumnIndex);
-    const endLetter = getColumnLetter(startColumnIndex + newHeaders.length - 1);
-    
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!${startLetter}1:${endLetter}1?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
       {
-        method: 'PUT',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          values: [newHeaders],
-        }),
       }
     );
 
     if (!response.ok) {
-      console.error('Error appending headers:', await response.json());
-      return false;
+      return null;
     }
 
-    return true;
+    const data = await response.json();
+    const entriesSheet = data.sheets?.find(
+      (sheet: { properties: { title: string } }) => 
+        sheet.properties.title === ENTRIES_SHEET_NAME
+    );
+
+    return entriesSheet?.properties?.sheetId ?? null;
   } catch (error) {
-    console.error('Error appending headers:', error);
-    return false;
+    console.error('Error getting sheet ID:', error);
+    return null;
   }
 }
 
-// ============================================
-// MAIN ENTRY FUNCTION
-// ============================================
-
+/**
+ * Appends an entry row to the entries sheet.
+ * This is the main function called when submitting an entry.
+ */
 export async function appendEntryToSheet(
   entry: StoredEntry,
   settings: UserSettings,
@@ -682,71 +760,57 @@ export async function appendEntryToSheet(
   try {
     // Step 1: Build canonical columns based on current settings
     const canonicalColumns = buildCanonicalColumns(settings);
+    const canonicalHeaders = canonicalColumns.map(c => c.header);
 
-    // Step 2: Get or create the column map
-    let columnMap = await getColumnMapFromSheet(spreadsheetId, accessToken);
+    // Step 2: Get existing headers (or null if sheet doesn't exist)
+    let existingHeaders = await getEntriesSheetHeaders(spreadsheetId, accessToken);
 
-    if (columnMap === null) {
-      const existingHeaders = await getEntriesSheetHeaders(spreadsheetId, accessToken);
+    // Step 3: Create sheet if it doesn't exist
+    if (existingHeaders === null) {
+      const created = await createEntriesSheet(spreadsheetId, accessToken, canonicalHeaders);
+      if (!created) {
+        return { success: false, error: 'Failed to create entries sheet' };
+      }
+      existingHeaders = canonicalHeaders;
+    }
 
-      if (existingHeaders === null) {
-        // Brand new sheet
-        const canonicalHeaders = canonicalColumns.map(c => c.header);
-        
-        const created = await createEntriesSheet(spreadsheetId, accessToken, canonicalHeaders);
-        if (!created) {
-          return { success: false, error: 'Failed to create entries sheet' };
-        }
+    // Step 4: Reconcile headers - check if new columns need to be added
+    const { finalHeaders, columnsToInsert } = reconcileHeaders(existingHeaders, canonicalColumns);
 
-        columnMap = createInitialColumnMap(canonicalHeaders);
-        await saveColumnMapToSheet(columnMap, spreadsheetId, accessToken);
-        
-        console.log('Created new entries sheet with column map');
-      } else {
-        // Sheet exists but no column map — create from existing headers
-        columnMap = createInitialColumnMap(existingHeaders);
-        await saveColumnMapToSheet(columnMap, spreadsheetId, accessToken);
-        
-        console.log('Created column map from existing headers');
+    // Step 5: Insert any new columns
+    if (columnsToInsert.length > 0) {
+      const sheetId = await getEntriesSheetId(spreadsheetId, accessToken);
+      if (sheetId !== null) {
+        await insertSheetColumns(spreadsheetId, accessToken, sheetId, columnsToInsert);
+        // Update header row with all headers
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!A1?valueInputOption=RAW`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              values: [finalHeaders],
+            }),
+          }
+        );
       }
     }
 
-    // Step 3: Find new columns not in the map
-    const newColumns: SheetColumn[] = [];
-    for (const column of canonicalColumns) {
-      if (!(column.header in columnMap.columns)) {
-        newColumns.push(column);
+    // Step 6: Build the row data matching the header order
+    const rowData: (string | number)[] = finalHeaders.map(header => {
+      const column = canonicalColumns.find(c => c.header === header);
+      if (column) {
+        return column.getValue(entry);
       }
-    }
+      // Column exists in sheet but not in current settings (disabled feature)
+      // Return empty string to preserve column alignment
+      return '';
+    });
 
-    // Step 4: Append new columns to the end
-    if (newColumns.length > 0) {
-      const newHeaders = newColumns.map(c => c.header);
-      const startIndex = columnMap.nextColumn;
-
-      await appendNewHeaders(spreadsheetId, accessToken, newHeaders, startIndex);
-
-      newColumns.forEach((column, i) => {
-        columnMap!.columns[column.header] = startIndex + i;
-      });
-      columnMap.nextColumn = startIndex + newColumns.length;
-
-      await saveColumnMapToSheet(columnMap, spreadsheetId, accessToken);
-      
-      console.log(`Appended ${newColumns.length} new columns:`, newHeaders);
-    }
-
-    // Step 5: Build row data using column map
-    const rowData: (string | number)[] = new Array(columnMap.nextColumn).fill('');
-
-    for (const column of canonicalColumns) {
-      const position = columnMap.columns[column.header];
-      if (position !== undefined) {
-        rowData[position] = column.getValue(entry);
-      }
-    }
-
-    // Step 6: Append the row
+    // Step 7: Append the row using the APPEND endpoint (this adds, doesn't overwrite)
     const appendResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!A:A:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
       {
@@ -777,6 +841,9 @@ export async function appendEntryToSheet(
   }
 }
 
+/**
+ * Helper to extract spreadsheet ID from URL
+ */
 export function getSpreadsheetIdFromUrl(url: string): string | null {
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : null;
