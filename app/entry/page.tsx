@@ -61,6 +61,36 @@ function formatDate(date: Date): string {
   });
 }
 
+/**
+ * Checks if a product usage entry is complete based on product requirements.
+ * - Products with sizes (pad, tampon, liner): Must have a size selected
+ * - Products with custom products (cup, disc, other): Must have a customProductId selected
+ */
+function isProductUsageComplete(
+  usage: ProductUsageEntry,
+  productOptions: typeof PRODUCT_OPTIONS,
+  customProducts: Record<string, CustomProduct[]>
+): { isComplete: boolean; missingField: 'size' | 'customProduct' | null } {
+  const product = productOptions.find((p) => p.type === usage.productType);
+  if (!product) return { isComplete: true, missingField: null };
+
+  // Check if this product requires a custom product selection
+  if (product.allowCustomProducts) {
+    const productCustomItems = customProducts[usage.productType] ?? [];
+    if (productCustomItems.length > 0 && !usage.customProductId) {
+      return { isComplete: false, missingField: 'customProduct' };
+    }
+  }
+
+  // Check if this product requires a size selection
+  // Only require size if the product has predefined sizes
+  if (product.hasSizes && product.sizes && product.sizes.length > 0 && !usage.size) {
+    return { isComplete: false, missingField: 'size' };
+  }
+
+  return { isComplete: true, missingField: null };
+}
+
 // Sanitize text to prevent XSS
 function sanitizeText(input: string): string {
   return input
@@ -423,8 +453,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     return `${time.hour}:${time.minute.toString().padStart(2, '0')} ${time.period}`;
   };
 
-    // Handle form submission
-  const handleSubmit = async () => {
+  // Handle form submission
+    const handleSubmit = async () => {
     // Validation
     if (safeStoolTracking.enabled && (!bristolType || !postFeeling)) {
       alert("Please fill in the Bristol Stool Scale section");
@@ -434,6 +464,26 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     if (!isNoteSafe(notes)) {
       alert("Please remove any code-like content from the notes field.");
       return;
+    }
+
+    // Validate product usage completeness (only if in menstrual phase with products selected)
+    if (isMenstrualPhase && safePeriodTracking.productTracking?.enabled && productUsage.length > 0) {
+      const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
+      const incompleteProducts = productUsage.filter((usage) => {
+        const validation = isProductUsageComplete(usage, PRODUCT_OPTIONS, customProducts);
+        return !validation.isComplete;
+      });
+
+      if (incompleteProducts.length > 0) {
+        const productNames = incompleteProducts
+          .map((p) => {
+            const product = PRODUCT_OPTIONS.find((opt) => opt.type === p.productType);
+            return product?.label ?? p.productType;
+          })
+          .join(", ");
+        alert(`Please complete the selection for: ${productNames}`);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -1067,6 +1117,13 @@ function ProductUsageEntrySection({
   const selectedProducts = productTracking.selectedProducts ?? [];
   const customProducts = productTracking.customProducts ?? {};
 
+  // Check which products have incomplete selections
+  const getProductValidation = (productType: string) => {
+    const usage = selectedProductUsage.find((p) => p.productType === productType);
+    if (!usage) return null;
+    return isProductUsageComplete(usage, PRODUCT_OPTIONS, customProducts);
+  };
+
   // productType is now string
   const toggleProduct = (productType: string) => {
     const exists = selectedProductUsage.find((p) => p.productType === productType);
@@ -1132,20 +1189,41 @@ function ProductUsageEntrySection({
         // Access custom products using string key
         const productCustomItems = customProducts[usage.productType] ?? [];
         const hasCustomProducts = product.allowCustomProducts && productCustomItems.length > 0;
+        
+        // Check validation status
+        const validation = isProductUsageComplete(usage, PRODUCT_OPTIONS, customProducts);
+        const isIncomplete = !validation.isComplete;
 
         return (
           <div
             key={usage.productType}
-            className="p-3 bg-app-red/5 rounded-lg border border-app-red/20"
+            className={`p-3 rounded-lg border ${
+              isIncomplete 
+                ? "bg-app-red/10 border-app-red/40" 
+                : "bg-app-red/5 border-app-red/20"
+            }`}
           >
-            <p className="text-sm font-medium text-app-charcoal mb-2">
-              {product.label} details:
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-app-charcoal">
+                {product.label} details:
+              </p>
+              {isIncomplete && (
+                <span className="text-xs text-app-red font-medium">
+                  ⚠️ Selection required
+                </span>
+              )}
+            </div>
 
             {/* Custom Product Selection (for cups, discs, etc.) */}
             {hasCustomProducts && (
               <div className="mb-3">
-                <p className="text-xs text-app-gray mb-2">Which one?</p>
+                <p className={`text-xs mb-2 ${
+                  validation.missingField === 'customProduct' 
+                    ? "text-app-red font-medium" 
+                    : "text-app-gray"
+                }`}>
+                  Which one? {validation.missingField === 'customProduct' && "*"}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {productCustomItems.map((cp: CustomProduct) => (
                     <button
@@ -1170,9 +1248,15 @@ function ProductUsageEntrySection({
             )}
 
             {/* Size Selection */}
-            {product.hasSizes && product.sizes && (
+            {product.hasSizes && product.sizes && product.sizes.length > 0 && (
               <div>
-                <p className="text-xs text-app-gray mb-2">Size/Absorbency:</p>
+                <p className={`text-xs mb-2 ${
+                  validation.missingField === 'size' 
+                    ? "text-app-red font-medium" 
+                    : "text-app-gray"
+                }`}>
+                  Size/Absorbency: {validation.missingField === 'size' && "*"}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {product.sizes.map((size: string) => (
                     <button

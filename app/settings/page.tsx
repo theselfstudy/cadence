@@ -181,6 +181,47 @@ function SettingsPageContent() {
     !safePeriodTracking.productTracking?.enabled ||
     (safePeriodTracking.productTracking?.selectedProducts?.length ?? 0) > 0;
 
+  // Products that require custom product entries (Cup, Disc, Other)
+  const productsRequiringCustomItems = ["cup", "disc", "other"];
+  
+  // Check if any selected products that require custom items are missing them
+  const customProductsValid = (() => {
+    if (!safePeriodTracking.productTracking?.enabled) return true;
+    
+    const selectedProducts = safePeriodTracking.productTracking.selectedProducts ?? [];
+    const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
+    
+    // For each product type that requires custom items, check if it's selected and has at least one
+    for (const productType of productsRequiringCustomItems) {
+      if (selectedProducts.includes(productType)) {
+        const items = customProducts[productType] ?? [];
+        if (items.length === 0) {
+          return false;
+        }
+      }
+    }
+    return true;
+  })();
+
+  // Get list of products missing custom items (for error message)
+  const productsMissingCustomItems = (() => {
+    if (!safePeriodTracking.productTracking?.enabled) return [];
+    
+    const selectedProducts = safePeriodTracking.productTracking.selectedProducts ?? [];
+    const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
+    
+    return productsRequiringCustomItems
+      .filter((productType) => {
+        if (!selectedProducts.includes(productType)) return false;
+        const items = customProducts[productType] ?? [];
+        return items.length === 0;
+      })
+      .map((type) => {
+        const product = PRODUCT_OPTIONS.find((p) => p.type === type);
+        return product?.label ?? type;
+      });
+  })();
+
   const medicineTrackingValid =
     !safeMedicineTracking.enabled || safeMedicineTracking.medicines.length > 0;
 
@@ -427,6 +468,10 @@ function SettingsPageContent() {
       alert("Please select at least one product for Product Usage tracking, or disable it.");
       return;
     }
+    if (!customProductsValid) {
+      alert(`Please add at least one product name for the selected category/categories: ${productsMissingCustomItems.join(", ")}`);
+      return;
+    }
     if (!medicineTrackingValid) {
       alert("Please add at least one medicine for Medicine Tracking, or disable it.");
       return;
@@ -444,6 +489,10 @@ function SettingsPageContent() {
   const handleSkipTutorial = () => {
     if (!productTrackingValid) {
       alert("Please select at least one product for Product Usage tracking, or disable it.");
+      return;
+    }
+    if (!customProductsValid) {
+      alert(`Please add at least one product name for the selected category/categories: ${productsMissingCustomItems.join(", ")}`);
       return;
     }
     if (!medicineTrackingValid) {
@@ -1022,12 +1071,21 @@ function SettingsPageContent() {
                     activeColor="bg-app-red"
                   />
 
-                  {safePeriodTracking.productTracking?.enabled && (
+                                    {safePeriodTracking.productTracking?.enabled && (
                     <div className="mt-4 space-y-6">
-                      {/* Required warning */}
+                      {/* Required warning - at least one product type */}
                       {!productTrackingValid && (
                         <div className="p-3 bg-app-red/10 rounded-lg border border-app-red/20">
                           <p className="text-xs text-app-red">⚠️ Please select at least one product to continue.</p>
+                        </div>
+                      )}
+
+                      {/* Required warning - custom products for Cup/Disc/Other */}
+                      {productTrackingValid && !customProductsValid && (
+                        <div className="p-3 bg-app-red/10 rounded-lg border border-app-red/20">
+                          <p className="text-xs text-app-red">
+                            ⚠️ Please add at least one product name for the selected category/categories: {productsMissingCustomItems.join(", ")}
+                          </p>
                         </div>
                       )}
 
