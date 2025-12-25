@@ -8,6 +8,11 @@
 export type TimeFormat = "12h" | "24h";
 
 /**
+ * Onboarding mode selection for new users
+ */
+export type OnboardingMode = "google-sheet" | "anonymous";
+
+/**
  * Pain scale type options
  */
 export type PainScaleType = "simple" | "mankoski";

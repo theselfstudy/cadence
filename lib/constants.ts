@@ -242,16 +242,12 @@ export const GOOGLE_SHEET_URL_PATTERN = /^https:\/\/docs\.google\.com\/spreadshe
 
 export const NAV_ITEMS: readonly NavItem[] = [
   {
-    label: "Home",
-    href: "/",
+    label: "Dashboard",
+    href: "/dashboard",
   },
   {
     label: "New Entry",
     href: "/entry",
-  },
-  {
-    label: "Dashboard",
-    href: "/dashboard",
   },
   {
     label: "Settings",

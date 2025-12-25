@@ -2,7 +2,7 @@
 
 import { useGoogleLogin } from "@react-oauth/google";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { checkForExistingSettings, deleteSettingsSheet } from "@/lib/googleSheets";
 import { useSettings } from "@/stores/useSettings";
 import { validateSettings } from "@/lib/settingsValidation";
@@ -24,6 +24,7 @@ import {
   AddMedicineForm,
   RecoveryPromptModal,
   SavePromptModal,
+  AnonymousContinueModal,
 } from "@/components/settings";
 
 // =============================================================================
@@ -118,6 +119,16 @@ function SettingsPageContent() {
   // LOCAL STATE
   // ---------------------------------------------------------------------------
 
+  // Get onboarding mode from URL params (set by welcome page)
+  const searchParams = useSearchParams();
+  const onboardingMode = searchParams.get("onboardingMode") as "google-sheet" | "anonymous" | null;
+  
+  // Track if Google Sheet section is expanded (for Anonymous mode accordion)
+  const [isGoogleSheetExpanded, setIsGoogleSheetExpanded] = useState(
+    // Start expanded if mode is google-sheet, or if user already has a sheet connected
+    onboardingMode === "google-sheet" || isGoogleSheetConnected
+  );
+
   const [newSymptom, setNewSymptom] = useState("");
   const [newPeriodSymptom, setNewPeriodSymptom] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
@@ -130,6 +141,8 @@ function SettingsPageContent() {
   const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false);  
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<"tutorial" | "entry" | null>(null);
+  const [showAnonymousContinueModal, setShowAnonymousContinueModal] = useState(false);
+
   
   // Validation error display - only show after user attempts to submit
   const [showValidationErrors, setShowValidationErrors] = useState(false);
@@ -474,8 +487,8 @@ function SettingsPageContent() {
   // NAVIGATION HANDLERS
   // ---------------------------------------------------------------------------
 
-  const handleContinueToTutorial = () => {
-    // Validate and block navigation if invalid (show visual warning instead of alert)
+    const handleContinueToTutorial = () => {
+    // Validate and block navigation if invalid
     if (!settingsValidation.isValid) {
       setShowValidationErrors(true);
       return;
@@ -487,13 +500,14 @@ function SettingsPageContent() {
       setPendingNavigation("tutorial");
       setShowSavePrompt(true);
     } else {
-      completeSetup();
-      router.push("/tutorial");
+      // Anonymous mode - show confirmation modal
+      setPendingNavigation("tutorial");
+      setShowAnonymousContinueModal(true);
     }
   };
 
-  const handleSkipTutorial = () => {
-    // Validate and block navigation if invalid (show visual warning instead of alert)
+    const handleSkipTutorial = () => {
+    // Validate and block navigation if invalid
     if (!settingsValidation.isValid) {
       setShowValidationErrors(true);
       return;
@@ -505,9 +519,9 @@ function SettingsPageContent() {
       setPendingNavigation("entry");
       setShowSavePrompt(true);
     } else {
-      completeSetup();
-      useSettings.getState().completeTutorial();
-      router.push("/entry");
+      // Anonymous mode - show confirmation modal
+      setPendingNavigation("entry");
+      setShowAnonymousContinueModal(true);
     }
   };
 
@@ -521,6 +535,17 @@ function SettingsPageContent() {
     setShowSavePrompt(false);
     setPendingNavigation(null);
     completeSetup();
+    router.push(destination === "tutorial" ? "/tutorial" : "/entry");
+  };
+
+    const handleAnonymousContinue = () => {
+    const destination = pendingNavigation;
+    setShowAnonymousContinueModal(false);
+    setPendingNavigation(null);
+    completeSetup();
+    if (destination === "entry") {
+      useSettings.getState().completeTutorial();
+    }
     router.push(destination === "tutorial" ? "/tutorial" : "/entry");
   };
 
@@ -693,6 +718,17 @@ function SettingsPageContent() {
         />
       )}
 
+      {showAnonymousContinueModal && pendingNavigation && (
+        <AnonymousContinueModal
+          destination={pendingNavigation}
+          onContinue={handleAnonymousContinue}
+          onCancel={() => {
+            setShowAnonymousContinueModal(false);
+            setPendingNavigation(null);
+          }}
+        />
+      )}
+
       <div className="space-y-6">
         {/* Page Header */}
         <div>
@@ -722,132 +758,210 @@ function SettingsPageContent() {
           </div>
         )}
 
-        {/* Mode Indicator */}
-        <div className="p-3 bg-app-cream rounded-lg border border-app-border">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
-            <span className="text-sm font-medium text-app-charcoal">
-              {isGoogleSheetConnected ? "Signed In Mode" : "Anonymous Mode"}
-            </span>
-            <span className="text-xs text-app-gray">
-              {isGoogleSheetConnected
-                ? "— Data syncs to your Google Sheet"
-                : "— Data stored locally on this device only"}
-            </span>
-          </div>
-        </div>
-
-        {/* Google Sheet Integration */}
-        <section className="card border-2 border-app-taupe/50">
-          <h2 className="text-lg font-semibold text-app-charcoal mb-1">📊 Google Sheet Integration</h2>
-          <p className="text-sm text-app-gray mb-4">
-            First link a sheet to sync your data across devices (Signed In Mode)
-          </p>
-
-          {safeGoogleSheet.url && !isEditingSheet ? (
-            <div>
-              <div className="p-4 bg-app-cream rounded-lg border border-app-border">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-app-charcoal truncate">
-                      {safeGoogleSheet.name || "Connected Sheet"}
-                    </p>
-                    <a
-                      href={safeGoogleSheet.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-app-green hover:text-app-green-dark underline underline-offset-2 break-all"
-                    >
-                      {safeGoogleSheet.url}
-                    </a>
-                    {safeGoogleSheet.addedAt && (
-                      <p className="text-xs text-app-gray mt-1">
-                        Added {new Date(safeGoogleSheet.addedAt).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                  <span className="w-2 h-2 bg-app-teal rounded-full flex-shrink-0" title="Connected" />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4 items-center">
-                <button
-                  type="button"
-                  onClick={handleEditGoogleSheet}
-                  className="px-4 py-2 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border transition-colors font-medium text-sm"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRemoveGoogleSheet}
-                  className="px-4 py-2 rounded-lg bg-app-red/10 text-app-red border border-app-red/20 hover:bg-app-red/20 transition-colors font-medium text-sm"
-                >
-                  Disconnect
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveSettings}
-                  disabled={isSyncing}
-                  className="px-4 py-2 rounded-lg bg-app-teal text-white font-medium hover:opacity-90 transition-colors text-sm disabled:bg-app-gray disabled:cursor-wait"
-                >
-                  {isSyncing ? "Saving..." : "Save Settings"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="sheetUrl" className="block text-sm font-medium text-app-charcoal mb-1">
-                  Google Sheet URL <span className="text-app-red">*</span>
-                </label>
-                <input
-                  id="sheetUrl"
-                  type="url"
-                  value={sheetUrl}
-                  onChange={(e) => {
-                    setSheetUrl(e.target.value);
-                    setSheetError(null);
-                  }}
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                  className={`w-full px-4 py-2 rounded-lg border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green ${
-                    sheetError ? "border-app-red" : "border-app-border"
-                  }`}
-                />
-                {sheetError && <p className="text-sm text-app-red mt-1">{sheetError}</p>}
-              </div>
-              <div>
-                <label htmlFor="sheetName" className="block text-sm font-medium text-app-charcoal mb-1">
-                  Sheet Name <span className="text-app-red">*</span>
-                </label>
-                <input
-                  id="sheetName"
-                  type="text"
-                  value={sheetName}
-                  onChange={(e) => setSheetName(e.target.value)}
-                  placeholder="e.g., My Health Tracker"
-                  className="w-full px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={handleSaveGoogleSheet} className="btn-primary">
-                  {isEditingSheet ? "Update & Save" : "Connect & Sign In"}
-                </button>
-                {isEditingSheet && (
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="px-4 py-2 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border transition-colors font-medium"
-                  >
-                    Cancel
-                  </button>
+        {/* Mode Indicator - Larger for returning users, compact for new users */}
+        {setupComplete ? (
+          <div className={`p-4 rounded-lg border-2 ${
+            isGoogleSheetConnected 
+              ? "bg-app-green/5 border-app-green/30" 
+              : "bg-app-gray/5 border-app-gray/30"
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                isGoogleSheetConnected ? "bg-app-green" : "bg-app-gray"
+              }`}>
+                {isGoogleSheetConnected ? (
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
                 )}
               </div>
-              <div className="p-3 bg-app-cream rounded-lg border border-app-border">
-                <p className="text-xs text-app-gray">
-                  💡 <strong>Tip:</strong> You&apos;ll be asked to sign in with Google to authorize
-                  TrackWell to read/write to your sheet.
+              <div>
+                <p className={`font-semibold text-lg ${
+                  isGoogleSheetConnected ? "text-app-green" : "text-app-gray"
+                }`}>
+                  {isGoogleSheetConnected ? "Signed In & Synced Mode" : "Anonymous Mode"}
+                </p>
+                <p className="text-sm text-app-gray">
+                  {isGoogleSheetConnected
+                    ? "Data syncs to your Google Sheet"
+                    : "Data stored locally on this device only"}
                 </p>
               </div>
+            </div>
+            {!isGoogleSheetConnected && (
+              <p className="text-xs text-app-gray mt-3 pl-13">
+                Want to backup your data? Connect a Google Sheet in the section below.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="p-3 bg-app-cream rounded-lg border border-app-border">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
+              <span className="text-sm font-medium text-app-charcoal">
+                {isGoogleSheetConnected ? "Signed In Mode" : "Anonymous Mode"}
+              </span>
+              <span className="text-xs text-app-gray">
+                {isGoogleSheetConnected
+                  ? "— Data syncs to your Google Sheet"
+                  : "— Data stored locally on this device only"}
+              </span>
+            </div>
+          </div>
+        )}
+
+                {/* Google Sheet Integration */}
+        <section className={`card border-2 transition-colors ${
+          onboardingMode === "google-sheet" && !setupComplete
+            ? "border-app-green bg-app-green/5"
+            : "border-app-taupe/50"
+        }`}>
+          {/* Collapsible header for Anonymous mode during onboarding */}
+          {onboardingMode === "anonymous" && !setupComplete && !isGoogleSheetConnected ? (
+            <button
+              onClick={() => setIsGoogleSheetExpanded(!isGoogleSheetExpanded)}
+              className="w-full flex justify-between items-center"
+            >
+              <div>
+                <h2 className="text-lg font-semibold text-app-charcoal text-left">
+                  📊 Google Sheet Integration
+                </h2>
+                <p className="text-sm text-app-gray text-left">
+                  Optional: Connect later to backup and sync your data
+                </p>
+              </div>
+              <span className="text-app-gray text-xl ml-4">
+                {isGoogleSheetExpanded ? "−" : "+"}
+              </span>
+            </button>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold text-app-charcoal mb-1">
+                📊 Google Sheet Integration
+              </h2>
+              <p className="text-sm text-app-gray mb-4">
+                {onboardingMode === "google-sheet" && !setupComplete
+                  ? "✨ Connect your Google Sheet to get started with Signed In & Synced Mode"
+                  : "Link a sheet to sync your data across devices (Signed In Mode)"}
+              </p>
+            </>
+          )}
+
+          {/* Content - conditionally rendered based on collapsed state */}
+          {(isGoogleSheetExpanded || setupComplete || onboardingMode !== "anonymous") && (
+            <div className={onboardingMode === "anonymous" && !setupComplete && !isGoogleSheetConnected ? "mt-4" : ""}>
+              {safeGoogleSheet.url && !isEditingSheet ? (
+                // Connected state - show sheet info
+                <div>
+                  <div className="p-4 bg-app-cream rounded-lg border border-app-border">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-app-charcoal truncate">
+                          {safeGoogleSheet.name || "Connected Sheet"}
+                        </p>
+                        <a
+                          href={safeGoogleSheet.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-app-green hover:text-app-green-dark underline underline-offset-2 break-all"
+                        >
+                          {safeGoogleSheet.url}
+                        </a>
+                        {safeGoogleSheet.addedAt && (
+                          <p className="text-xs text-app-gray mt-1">
+                            Added {new Date(safeGoogleSheet.addedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <span className="w-2 h-2 bg-app-teal rounded-full flex-shrink-0" title="Connected" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4 items-center">
+                    <button
+                      type="button"
+                      onClick={handleEditGoogleSheet}
+                      className="px-4 py-2 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border transition-colors font-medium text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveGoogleSheet}
+                      className="px-4 py-2 rounded-lg bg-app-red/10 text-app-red border border-app-red/20 hover:bg-app-red/20 transition-colors font-medium text-sm"
+                    >
+                      Disconnect
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveSettings}
+                      disabled={isSyncing}
+                      className="px-4 py-2 rounded-lg bg-app-teal text-white font-medium hover:opacity-90 transition-colors text-sm disabled:bg-app-gray disabled:cursor-wait"
+                    >
+                      {isSyncing ? "Saving..." : "Save Settings"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Not connected or editing - show form
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="sheetUrl" className="block text-sm font-medium text-app-charcoal mb-1">
+                      Google Sheet URL <span className="text-app-red">*</span>
+                    </label>
+                    <input
+                      id="sheetUrl"
+                      type="url"
+                      value={sheetUrl}
+                      onChange={(e) => {
+                        setSheetUrl(e.target.value);
+                        setSheetError(null);
+                      }}
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      className={`w-full px-4 py-2 rounded-lg border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green ${
+                        sheetError ? "border-app-red" : "border-app-border"
+                      }`}
+                    />
+                    {sheetError && <p className="text-sm text-app-red mt-1">{sheetError}</p>}
+                  </div>
+                  <div>
+                    <label htmlFor="sheetName" className="block text-sm font-medium text-app-charcoal mb-1">
+                      Sheet Name <span className="text-app-red">*</span>
+                    </label>
+                    <input
+                      id="sheetName"
+                      type="text"
+                      value={sheetName}
+                      onChange={(e) => setSheetName(e.target.value)}
+                      placeholder="e.g., My Health Tracker"
+                      className="w-full px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={handleSaveGoogleSheet} className="btn-primary">
+                      {isEditingSheet ? "Update & Save" : "Connect & Sign In"}
+                    </button>
+                    {isEditingSheet && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="px-4 py-2 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border transition-colors font-medium"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                  <div className="p-3 bg-app-cream rounded-lg border border-app-border">
+                    <p className="text-xs text-app-gray">
+                      💡 <strong>Tip:</strong> You&apos;ll be asked to sign in with Google to authorize
+                      TrackWell to read/write to your sheet.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>

@@ -1,0 +1,194 @@
+"use client";
+
+import Link from "next/link";
+import { useSettings } from "@/stores/useSettings";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+// =============================================================================
+// DASHBOARD LANDING PAGE
+// =============================================================================
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const { setupComplete, tutorialComplete } = useSettings();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Redirect new users to welcome
+  useEffect(() => {
+    if (isClient && !setupComplete && !tutorialComplete) {
+      router.replace("/welcome");
+    }
+  }, [isClient, setupComplete, tutorialComplete, router]);
+
+  if (!isClient) {
+    return <DashboardSkeleton />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-app-charcoal">Dashboard</h1>
+        <p className="text-app-gray">Your health tracking overview</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Link
+          href="/entry"
+          className="card p-6 hover:border-app-green hover:bg-app-green/5 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-app-green flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-app-charcoal">New Entry</h3>
+              <p className="text-sm text-app-gray">Log your health data</p>
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          href="/settings"
+          className="card p-6 hover:border-app-teal hover:bg-app-teal/5 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-app-teal flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-app-charcoal">Settings</h3>
+              <p className="text-sm text-app-gray">Customize your tracking</p>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Dashboard Sections */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <DashboardCard
+          href="/dashboard/settings-overview"
+          icon="⚙️"
+          title="Settings Overview"
+          description="View your current tracking configuration"
+          color="green"
+        />
+        <DashboardCard
+          href="/dashboard/weekly"
+          icon="📅"
+          title="Weekly Overview"
+          description="Last 7 days at a glance"
+          color="teal"
+          comingSoon
+        />
+        <DashboardCard
+          href="/dashboard/monthly"
+          icon="📊"
+          title="Monthly Overview"
+          description="Monthly patterns and trends"
+          color="plumb"
+          comingSoon
+        />
+        <DashboardCard
+          href="/dashboard/quarterly"
+          icon="📈"
+          title="Quarterly Overview"
+          description="Long-term insights"
+          color="taupe"
+          comingSoon
+        />
+        <DashboardCard
+          href="/dashboard/history"
+          icon="📋"
+          title="History"
+          description="All entries & CSV export"
+          color="charcoal"
+          comingSoon
+        />
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// HELPER COMPONENTS
+// =============================================================================
+
+interface DashboardCardProps {
+  href: string;
+  icon: string;
+  title: string;
+  description: string;
+  color: "green" | "teal" | "plumb" | "taupe" | "charcoal";
+  comingSoon?: boolean;
+}
+
+function DashboardCard({ href, icon, title, description, color, comingSoon }: DashboardCardProps) {
+  const colorClasses = {
+    green: "hover:border-app-green hover:bg-app-green/5",
+    teal: "hover:border-app-teal hover:bg-app-teal/5",
+    plumb: "hover:border-app-plumb hover:bg-app-plumb/5",
+    taupe: "hover:border-app-taupe hover:bg-app-taupe/5",
+    charcoal: "hover:border-app-charcoal hover:bg-app-charcoal/5",
+  };
+
+  const content = (
+    <div className={`card p-5 transition-all relative ${comingSoon ? "opacity-60" : colorClasses[color]}`}>
+      {comingSoon && (
+        <span className="absolute top-2 right-2 text-xs bg-app-gray/20 text-app-gray px-2 py-0.5 rounded-full">
+          Coming Soon
+        </span>
+      )}
+      <span className="text-2xl block mb-2">{icon}</span>
+      <h3 className="font-semibold text-app-charcoal">{title}</h3>
+      <p className="text-sm text-app-gray mt-1">{description}</p>
+    </div>
+  );
+
+  if (comingSoon) {
+    return <div className="cursor-not-allowed">{content}</div>;
+  }
+
+  return (
+    <Link href={href} className="block">
+      {content}
+    </Link>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="h-8 w-40 bg-app-border rounded animate-pulse" />
+        <div className="h-4 w-56 bg-app-border rounded animate-pulse mt-2" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {[1, 2].map((i) => (
+          <div key={i} className="card p-6">
+            <div className="h-12 w-12 bg-app-border rounded-full animate-pulse" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="card p-5">
+            <div className="h-8 w-8 bg-app-border rounded animate-pulse mb-2" />
+            <div className="h-4 w-24 bg-app-border rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
