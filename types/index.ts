@@ -54,6 +54,8 @@ export interface ProductTracking {
  * Symptom tracking configuration
  */
 export interface SymptomsConfig {
+  /** Whether symptom tracking section is enabled */
+  enabled: boolean;
   /** Currently selected symptoms to track */
   selected: string[];
   /** User-added custom symptoms */

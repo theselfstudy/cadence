@@ -165,7 +165,7 @@ export const useEntries = create<EntryStore>()(
     // PERSIST CONFIGURATION
     // ═══════════════════════════════════════
     {
-      name: STORAGE_KEYS.entries || 'trackwell-entries',
+      name: STORAGE_KEYS.entries || 'TrackWell-entries',
       storage: createJSONStorage(() => localStorage),
     }
   )

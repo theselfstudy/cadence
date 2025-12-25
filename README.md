@@ -1,9 +1,9 @@
-# Cadence
-### Learn your cadence.
+# TrackWell
+### Learn your TrackWell.
 
 A privacy-first, judgment-free body tracking web app designed to help you notice your patterns over time without storing your data on a server.
 
-Cadence is intentionally simple: entries are recorded locally in your browser or written directly to a user-owned Google Sheet. There is no database, no analytics, and no server-side data storage.
+TrackWell is intentionally simple: entries are recorded locally in your browser or written directly to a user-owned Google Sheet. There is no database, no analytics, and no server-side data storage.
 
 ## ✨ Features
 
@@ -16,7 +16,7 @@ Cadence is intentionally simple: entries are recorded locally in your browser or
 - No ads, no tracking, no AI inference
 
 ## 🧠 Design Philosophy
-Cadence is built around a few core principles:
+TrackWell is built around a few core principles:
 - User-owned data — your data lives where you choose
 - No judgment — tracking without gamification or scoring
 - Low cognitive load — simple inputs, clear flows
@@ -32,7 +32,7 @@ Cadence is built around a few core principles:
 
 # 📁 Project Structure
 ```
-/trackwell
+/TrackWell
     /app
         /entry
             page.tsx
@@ -84,7 +84,7 @@ Cadence is built around a few core principles:
 ```
 # 🔐 Authentication & Data Storage
 
-Cadence supports multiple usage modes:
+TrackWell supports multiple usage modes:
 1. No Sign-In (Local Storage)
 - Entries stored in browser storage
 - Fast, private, device-specific
@@ -93,10 +93,10 @@ Cadence supports multiple usage modes:
 2. Google Sheet (Optional)
 - User connects their own Google Sheet
 - Data is written directly to the sheet
-- No copies are stored on Cadence servers
+- No copies are stored on TrackWell servers
 - Sheet must be reconnected on new devices
 
-Important: Cadence does not and will never: 
+Important: TrackWell does not and will never: 
 - store user data
 - store sheet IDs
 - store your entries on any backend database
@@ -108,8 +108,8 @@ Important: Cadence does not and will never:
 - Google OAuth credentials (for Sheet integration)
 
 ### Installation
-- git clone https://github.com/your-username/cadence.git
-- cd cadence
+- git clone https://github.com/your-username/TrackWell.git
+- cd TrackWell
 - npm install
 
 ### Environment Variables
@@ -122,28 +122,28 @@ Important: Cadence does not and will never:
 Run Locally via `npm run dev` and visit http://localhost:3000
 
 # 🧪 Beta Testing
-- Cadence is currently in a private beta.
+- TrackWell is currently in a private beta.
 - Expect breaking changes
 - Data persistence is intentionally limited
 - Feedback is welcome via the support contact listed below
 
 # ❓ FAQ
-Is Cadence HIPAA compliant?
-- No. Cadence is not a medical device and does not provide medical advice. Users retain full ownership and control of their data.
+Is TrackWell HIPAA compliant?
+- No. TrackWell is not a medical device and does not provide medical advice. Users retain full ownership and control of their data.
 
-Does Cadence track users?
+Does TrackWell track users?
 - No. There are no analytics, ads, or tracking scripts.
 
 Can I export my data?
 - Yes — users can export data from their Google Sheet or download CSV files in local mode. (*coming soon!*)
 
 # 🧑‍💻 About the Creator
-- Cadence is an independent project built with care and intention.
+- TrackWell is an independent project built with care and intention.
 - It is not venture-backed and is designed to remain simple and sustainable.
 
 # 📬 Support
 Questions, feedback, or issues?
-📧 support@cadence.app or open a GitHub issue.
+📧 support@TrackWell.app or open a GitHub issue.
 
 # 📜 License
 MIT License

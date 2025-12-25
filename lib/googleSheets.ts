@@ -6,7 +6,7 @@ import type { StoredEntry, UserSettings, SheetColumn } from '@/types';
 import { PRODUCT_OPTIONS } from '@/lib/constants';
 
 // Sheet names
-const SETTINGS_SHEET_NAME = ".trackwell-settings";
+const SETTINGS_SHEET_NAME = ".TrackWell-settings";
 const ENTRIES_SHEET_NAME = "TrackWell-Entries";
 
 // Ranges

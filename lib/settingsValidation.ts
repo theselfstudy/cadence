@@ -1,4 +1,3 @@
-// /lib/settingsValidation.ts
 import { PRODUCT_OPTIONS } from "@/lib/constants";
 
 import type { PeriodTrackingConfig, MedicineTracking, SymptomsConfig, StoolTrackingConfig } from "@/types";
@@ -63,20 +62,24 @@ export function validateSettings(state: ValidationInput): SettingsValidation {
   // ---------------------------------------------------------------------------
   
   const medicineTracking = state.medicineTracking ?? { enabled: false, medicines: [] };
-  const symptoms = state.symptoms ?? { selected: [], custom: [], intensityTracking: { enabled: false, scaleType: "simple" } };
+  const symptoms = state.symptoms ?? { enabled: false, selected: [], custom: [], intensityTracking: { enabled: false, scaleType: "simple" } };
   const stoolTracking = state.stoolTracking ?? { enabled: false };
 
   // ---------------------------------------------------------------------------
   // Section Enabled Validation
   // ---------------------------------------------------------------------------
   
-  const symptomTrackingEnabled = symptoms.selected.length > 0;
-  const periodTrackingEnabled = periodTracking.enabled;
-  const stoolTrackingEnabled = stoolTracking.enabled;
-  const medicineTrackingEnabled = medicineTracking.enabled;
+  // Each section is considered "ready" if enabled AND has usable content
+  const symptomTrackingReady = symptoms.enabled && symptoms.selected.length > 0;
+  const stoolTrackingReady = stoolTracking.enabled; // Always has Bristol Scale
+  const periodTrackingReady = periodTracking.enabled; // Always has Cycle Phase
+  const medicineTrackingReady = medicineTracking.enabled && medicineTracking.medicines.length > 0;
   
-  // At least one main section must be enabled
-  const anySectionEnabled = symptomTrackingEnabled || periodTrackingEnabled || stoolTrackingEnabled || medicineTrackingEnabled;
+  // At least one section must be ready (enabled with content)
+  const anySectionEnabled = symptomTrackingReady || stoolTrackingReady || periodTrackingReady || medicineTrackingReady;
+  
+  // Track if symptoms section is toggled on but has no symptoms selected
+  const symptomsEnabledButEmpty = symptoms.enabled && symptoms.selected.length === 0;
 
   // ---------------------------------------------------------------------------
   // Symptoms Validation
@@ -145,14 +148,16 @@ export function validateSettings(state: ValidationInput): SettingsValidation {
 
   // Build human-readable validation message
   let validationMessage: string | null = null;
-  if (!anySectionEnabled) {
-    validationMessage = "Please select at least one section to start logging.";
+  if (symptomsEnabledButEmpty) {
+    validationMessage = "Please select at least one symptom, or disable Symptom Logging.";
+  } else if (!anySectionEnabled) {
+    validationMessage = "Please enable at least one section to begin logging.";
   } else if (!productTrackingValid) {
-    validationMessage = "Please select at least one product for Product Usage tracking, or disable it.";
+    validationMessage = "Please select at least one product, or disable Product Usage.";
   } else if (!customProductsValid) {
-    validationMessage = `Please add at least one product name for: ${productsMissingCustomItems.join(", ")}`;
+    validationMessage = `Please add at least one product name for ${productsMissingCustomItems.join(" / ")} type(s), or disable Product Usage`;
   } else if (!medicineTrackingValid) {
-    validationMessage = "Please add at least one medicine for Medicine Tracking, or disable it.";
+    validationMessage = "Please add at least one medicine, or disable Medicine Loggiing.";
   }
 
   return {

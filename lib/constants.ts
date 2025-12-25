@@ -45,7 +45,7 @@ export const PAIN_SCALE_INFO = {
   },
   mankoski: {
     name: "Mankoski Pain Scale",
-    shortDescription: "Detailed scale for chronic pain",
+    shortDescription: "Select this detailed scale for chronic pain",
     description:
       "Developed for chronic pain sufferers, this scale provides specific functional descriptions at each level, helping you communicate more effectively with healthcare providers. Recommended for those managing ongoing conditions.",
     levels: [
@@ -197,7 +197,8 @@ export const FLOW_LEVELS: readonly { value: string; label: string }[] = [
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   timeFormat: "12h",
-  symptoms: {
+    symptoms: {
+    enabled: false,
     selected: [],
     custom: [],
     intensityTracking: {
@@ -263,7 +264,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
 // ============================================
 
 export const APP_CONFIG = {
-  name: "Trackwell",
+  name: "TrackWell",
   description: "Understand you better",
   version: "1.0.0",
 } as const;
@@ -273,8 +274,8 @@ export const APP_CONFIG = {
 // ============================================
 
 export const STORAGE_KEYS = {
-  settings: "trackwell-settings",
-  entries: 'trackwell-entries', 
+  settings: "TrackWell-settings",
+  entries: 'TrackWell-entries', 
 } as const;
 
 export const PRODUCT_OPTIONS: ProductOption[] = [

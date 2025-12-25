@@ -202,7 +202,7 @@ function SettingsPageContent() {
   } = settingsValidation;
 
   const allOptionalFeaturesEnabled =
-    (symptoms?.selected?.length ?? 0) > 0 &&
+    (symptoms?.enabled ?? false) &&
     intensityTracking.enabled &&
     safeStoolTracking.enabled &&
     safePeriodTracking.enabled &&
@@ -456,6 +456,7 @@ function SettingsPageContent() {
     // Validate before allowing save
     const validation = validateSettings({
       symptoms,
+      stoolTracking: safeStoolTracking,
       periodTracking: safePeriodTracking,
       medicineTracking: safeMedicineTracking,
     });
@@ -556,28 +557,28 @@ function SettingsPageContent() {
   // MASTER TOGGLE HANDLERS
   // ---------------------------------------------------------------------------
 
-  const handleToggleAllOptionalFeatures = (enabled: boolean) => {
-    // Toggle General Symptoms
-    if (enabled) {
-      handleToggleAllDefaultSymptoms(true);
-    } else {
-      useSettings.setState((state) => ({
-        symptoms: {
-          ...state.symptoms,
-          selected: [],
+    const handleToggleAllOptionalFeatures = (enabled: boolean) => {
+    // Toggle symptoms section and intensity
+    useSettings.setState((state) => ({
+      symptoms: {
+        ...state.symptoms,
+        enabled,
+        selected: enabled ? state.symptoms.selected : [],
+        intensityTracking: {
+          ...state.symptoms.intensityTracking,
+          enabled, // Quick Setup turns on/off intensity too
         },
-        hasUnsavedChanges: true,
-      }));
-    }
+      },
+      hasUnsavedChanges: true,
+    }));
     
-    setIntensityTracking({ enabled });
     setStoolTracking({ enabled });
     setPeriodTracking({
       enabled,
-      trackFlow: enabled,
+      trackFlow: enabled, // Quick Setup turns on/off flow too
       productTracking: {
         ...safePeriodTracking.productTracking,
-        enabled,
+        enabled, // Quick Setup turns on/off product usage too
         selectedProducts: safePeriodTracking.productTracking?.selectedProducts ?? [],
         customProducts: safePeriodTracking.productTracking?.customProducts ?? {},
       },
@@ -701,7 +702,7 @@ function SettingsPageContent() {
           <p className="text-app-gray">
             {setupComplete
               ? "Customize your TrackWell experience"
-              : "Configure how you want to track your health"}
+              : "Configure how you want to keep a log of your health"}
           </p>
         </div>
 
@@ -737,10 +738,10 @@ function SettingsPageContent() {
         </div>
 
         {/* Google Sheet Integration */}
-        <section className="card">
+        <section className="card border-2 border-app-taupe/50">
           <h2 className="text-lg font-semibold text-app-charcoal mb-1">📊 Google Sheet Integration</h2>
           <p className="text-sm text-app-gray mb-4">
-            Connect a sheet to sync your data across devices (Signed In Mode)
+            First link a sheet to sync your data across devices (Signed In Mode)
           </p>
 
           {safeGoogleSheet.url && !isEditingSheet ? (
@@ -796,19 +797,6 @@ function SettingsPageContent() {
           ) : (
             <div className="space-y-4">
               <div>
-                <label htmlFor="sheetName" className="block text-sm font-medium text-app-charcoal mb-1">
-                  Sheet Name <span className="text-app-red">*</span>
-                </label>
-                <input
-                  id="sheetName"
-                  type="text"
-                  value={sheetName}
-                  onChange={(e) => setSheetName(e.target.value)}
-                  placeholder="e.g., My Health Tracker"
-                  className="w-full px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green"
-                />
-              </div>
-              <div>
                 <label htmlFor="sheetUrl" className="block text-sm font-medium text-app-charcoal mb-1">
                   Google Sheet URL <span className="text-app-red">*</span>
                 </label>
@@ -826,6 +814,19 @@ function SettingsPageContent() {
                   }`}
                 />
                 {sheetError && <p className="text-sm text-app-red mt-1">{sheetError}</p>}
+              </div>
+              <div>
+                <label htmlFor="sheetName" className="block text-sm font-medium text-app-charcoal mb-1">
+                  Sheet Name <span className="text-app-red">*</span>
+                </label>
+                <input
+                  id="sheetName"
+                  type="text"
+                  value={sheetName}
+                  onChange={(e) => setSheetName(e.target.value)}
+                  placeholder="e.g., My Health Tracker"
+                  className="w-full px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green"
+                />
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={handleSaveGoogleSheet} className="btn-primary">
@@ -852,7 +853,7 @@ function SettingsPageContent() {
         </section>
 
         {/* Time Format */}
-        <section className="card">
+        <section className="card border-2 border-app-taupe/50">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">🕐 Time Format</h2>
           <div className="flex gap-3">
             <button
@@ -884,8 +885,8 @@ function SettingsPageContent() {
         <section className="card border-2 border-app-green/30">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">⚡ Quick Setup</h2>
           <ToggleRow
-            label="Enable All Optional Features"
-            description="Turn on intensity, bowel, cycle, and medicine logging"
+            label="Enable All Optional Features Below"
+            description="Turns on all sections below: General Symptoms, Bowel Movement, Cycle Log, and Medicine Log"
             checked={allOptionalFeaturesEnabled}
             onChange={handleToggleAllOptionalFeatures}
             activeColor="bg-app-green"
@@ -893,32 +894,35 @@ function SettingsPageContent() {
         </section>
 
         {/* General Symptoms */}
-        <section className="card">
+        <section className={`card transition-colors ${
+          showValidationErrors && (symptoms?.enabled ?? false) && (symptoms?.selected?.length ?? 0) === 0
+            ? "border-2 border-app-teal bg-app-teal/5"
+            : "border-2 border-app-taupe/50"
+        }`}>
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">🏷️ General Symptoms</h2>
           <div className="space-y-4">
-            <ToggleRow
-              label="Enable Symptom Tracking"
+              <ToggleRow
+              label="Enable Symptom Logging"
               description="Log symptoms you experience with each entry"
-              checked={(symptoms?.selected?.length ?? 0) > 0 || (symptoms?.custom?.length ?? 0) > 0}
+              checked={symptoms?.enabled ?? false}
               onChange={(enabled) => {
-                if (enabled) {
-                  // Select all default symptoms when enabling
-                  handleToggleAllDefaultSymptoms(true);
-                } else {
-                  // Deselect all symptoms when disabling
-                  useSettings.setState((state) => ({
-                    symptoms: {
-                      ...state.symptoms,
-                      selected: [],
-                    },
-                    hasUnsavedChanges: true,
-                  }));
-                }
+                useSettings.setState((state) => ({
+                  symptoms: {
+                    ...state.symptoms,
+                    enabled,
+                    // Clear selections and disable intensity when disabling
+                    selected: enabled ? state.symptoms.selected : [],
+                    intensityTracking: enabled 
+                      ? state.symptoms.intensityTracking 
+                      : { ...state.symptoms.intensityTracking, enabled: false },
+                  },
+                  hasUnsavedChanges: true,
+                }));
               }}
               activeColor="bg-app-teal"
             />
 
-            {((symptoms?.selected?.length ?? 0) > 0 || (symptoms?.custom?.length ?? 0) > 0) && (
+            {(symptoms?.enabled ?? false) && (              
               <>
                 {/* Symptom Selection */}
                 <div className="pt-4 border-t border-app-border">
@@ -934,8 +938,13 @@ function SettingsPageContent() {
                       </button>
                     )}
                   </div>
-                  <p className="text-sm text-app-gray mb-3">
-                    Select at least one symptom to track with your entries
+                  <p className={`text-sm mb-3 ${
+                    showValidationErrors && (symptoms?.selected?.length ?? 0) === 0
+                      ? "text-app-red font-medium"
+                      : "text-app-gray"
+                  }`}>
+                    Select or add at least one symptom to log with your entries *
+                    {showValidationErrors && (symptoms?.selected?.length ?? 0) === 0}
                   </p>
 
                   {/* Default symptoms */}
@@ -1004,7 +1013,7 @@ function SettingsPageContent() {
                 <div className="pt-4 border-t border-app-border">
                   <ToggleRow
                     label="Symptom Intensity"
-                    description="Record how severe each symptom feels using a pain scale"
+                    description="Choose a pain scale to record how severe each symptom feels"
                     checked={intensityTracking.enabled}
                     onChange={(enabled) => setIntensityTracking({ enabled })}
                     activeColor="bg-app-teal"
@@ -1035,10 +1044,10 @@ function SettingsPageContent() {
         </section>
 
         {/* Bowel Movement */}
-        <section className="card">
+        <section className="card border-2 border-app-taupe/50">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">🧻 Bowel Movement</h2>
           <ToggleRow
-            label="Log Bowel Movements"
+            label="Enable Bowel Movement Logging"
             description="Log bowel movements using the Bristol Stool Scale"
             checked={safeStoolTracking.enabled}
             onChange={(enabled) => setStoolTracking({ enabled })}
@@ -1047,14 +1056,30 @@ function SettingsPageContent() {
         </section>
 
         {/* Period Tracking */}
-        <section className="card">
+        <section className="card border-2 border-app-taupe/50">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">🌸 Cycle Log</h2>
           <div className="space-y-4">
-            <ToggleRow
-              label="Enable Cycle & Period Logging"
-              description="Log your menstrual cycle"
+              <ToggleRow
+              label="Enable Period & Cycle Logging"
+              description="Log your menstrual period or cycle"
               checked={safePeriodTracking.enabled}
-              onChange={(enabled) => setPeriodTracking({ enabled })}
+              onChange={(enabled) => {
+                if (enabled) {
+                  setPeriodTracking({ enabled });
+                } else {
+                  // Disable all sub-sections when main toggle is turned off
+                  setPeriodTracking({
+                    enabled: false,
+                    trackFlow: false,
+                    productTracking: {
+                      ...safePeriodTracking.productTracking,
+                      enabled: false,
+                      selectedProducts: safePeriodTracking.productTracking?.selectedProducts ?? [],
+                      customProducts: safePeriodTracking.productTracking?.customProducts ?? {},
+                    },
+                  });
+                }
+              }}
               activeColor="bg-app-red"
             />
 
@@ -1063,7 +1088,7 @@ function SettingsPageContent() {
                 {/* Period Symptoms */}
                 <div className="pt-4 border-t border-app-border">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-app-charcoal">Period-related symptoms</p>
+                    <p className="text-sm font-medium text-app-charcoal">Period and cycle-related symptoms</p>
                     {periodSelectableSymptoms.length > 0 && (
                       <button
                         type="button"
@@ -1075,7 +1100,7 @@ function SettingsPageContent() {
                     )}
                   </div>
                   <p className="text-sm text-app-gray mb-3">
-                    Select and add symptoms that are typically related to your period
+                    Select or add symptoms typically related to your period or cycle
                   </p>
 
                   {periodSelectableSymptoms.length > 0 && (
@@ -1100,7 +1125,7 @@ function SettingsPageContent() {
                   {(safePeriodTracking.customPeriodSymptoms?.length ?? 0) > 0 && (
                     <div className="mb-4">
                       <p className="text-sm text-app-gray mb-2">
-                        Custom period symptoms ({safePeriodTracking.customPeriodSymptoms.length}/{MAX_CUSTOM_PERIOD_SYMPTOMS}):
+                        Your custom period or cycle symptoms ({safePeriodTracking.customPeriodSymptoms.length}/{MAX_CUSTOM_PERIOD_SYMPTOMS}):
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {safePeriodTracking.customPeriodSymptoms.map((symptom) => (
@@ -1125,7 +1150,7 @@ function SettingsPageContent() {
                         value={newPeriodSymptom}
                         onChange={(e) => setNewPeriodSymptom(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleAddPeriodSymptom()}
-                        placeholder="Add custom period symptom..."
+                        placeholder="Add custom period or cycle symptom..."
                         className="flex-1 px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-red"
                       />
                       <button
@@ -1144,7 +1169,7 @@ function SettingsPageContent() {
                 <div className="pt-4 border-t border-app-border">
                   <ToggleRow
                     label="Flow Log"
-                    description="Log flow during menstruation"
+                    description="Log flow during period"
                     checked={safePeriodTracking.trackFlow ?? false}
                     onChange={(trackFlow) => setPeriodTracking({ trackFlow })}
                     activeColor="bg-app-red"
@@ -1159,7 +1184,7 @@ function SettingsPageContent() {
                 }`}>
                   <ToggleRow
                     label="Product Usage"
-                    description="Log which menstrual products you use"
+                    description="Log which period products you use"
                     checked={safePeriodTracking.productTracking?.enabled ?? false}
                     onChange={(enabled) =>
                       setPeriodTracking({
@@ -1177,7 +1202,14 @@ function SettingsPageContent() {
                   {safePeriodTracking.productTracking?.enabled && (
                     <div className="mt-4 space-y-6">
                       <div>
-                        <p className="text-sm text-app-gray mb-3">Select and add products you use:</p>
+                        <p className={`text-sm mb-3 ${
+                          showValidationErrors && !productTrackingValid
+                            ? "text-app-red font-medium"
+                            : "text-app-gray"
+                        }`}>
+                          Select at least one product you use *
+                          {showValidationErrors && !productTrackingValid}
+                        </p>
                         <div className="flex flex-wrap gap-2">
                           {PRODUCT_OPTIONS.map((product) => {
                             const isSelected =
@@ -1248,21 +1280,21 @@ function SettingsPageContent() {
         </section>
 
         {/* Medicine Tracking */}
-        <section className="card">
+        <section className="card border-2 border-app-taupe/50">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">💊 Medicine Log</h2>
           <div className="space-y-4">
             <ToggleRow
               label="Enable Medicine Logging"
-              description="Log medications related to your health entries"
+              description="Log medications related to your health"
               checked={safeMedicineTracking.enabled}
               onChange={(enabled) => setMedicineTracking({ ...safeMedicineTracking, enabled })}
-              activeColor="bg-app-taupe"
+              activeColor="bg-app-green/60"
             />
 
             {safeMedicineTracking.enabled && (
               <div className={`transition-colors rounded-lg ${
                 showValidationErrors && !medicineTrackingValid 
-                  ? "bg-app-plumb/10 border-2 border-app-plumb p-4 -mx-4" 
+                  ? "bg-app-green/10 border-2 border-app-green p-4 -mx-4" 
                   : ""
               }`}>
 
@@ -1292,6 +1324,7 @@ function SettingsPageContent() {
                     currentMedicineCount={safeMedicineTracking.medicines.length}
                     maxMedicines={MAX_MEDICINES}
                     existingMedicines={safeMedicineTracking.medicines}
+                    showValidationError={showValidationErrors && !medicineTrackingValid}
                   />
                 </div>
               </div>
@@ -1299,8 +1332,8 @@ function SettingsPageContent() {
           </div>
         </section>
 
-        {/* Save Settings */}
-        {isGoogleSheetConnected && (
+        {/* Save Settings - Only show for users who have completed setup */}
+        {isGoogleSheetConnected && setupComplete && (
           <section className="card border-2 border-app-teal bg-app-teal/5">
             <h2 className="text-lg font-semibold text-app-charcoal mb-2">💾 Save Settings</h2>
             <p className="text-sm text-app-gray mb-4">
@@ -1416,13 +1449,21 @@ function SettingsPageContent() {
           </section>
         )}
 
-        {/* Continue / Tutorial */}
+                {/* Continue / Tutorial */}
         {!setupComplete && (
           <section className="card border-2 border-app-green bg-app-green/5">
             <h2 className="text-lg font-semibold text-app-charcoal mb-2">▶️ Ready to Start?</h2>
-            <p className="text-sm text-app-gray mb-4">
-              Your preferences are saved automatically. Would you like to take a quick tour?
-            </p>
+            
+            {/* Context-aware description */}
+            {isGoogleSheetConnected ? (
+              <p className="text-sm text-app-gray mb-4">
+                Your settings will be saved to your Google Sheet when you continue.
+              </p>
+            ) : (
+              <p className="text-sm text-app-gray mb-4">
+                Your preferences are saved automatically to this device.
+              </p>
+            )}
             
             {/* Validation warning */}
             {showValidationErrors && !settingsValidation.isValid && (
@@ -1439,7 +1480,7 @@ function SettingsPageContent() {
                 onClick={handleContinueToTutorial}
                 className="flex-1 py-3 px-6 rounded-lg bg-app-green text-white font-semibold hover:bg-app-green-dark flex items-center justify-center gap-2"
               >
-                Continue to Tutorial
+                {isGoogleSheetConnected ? "Save & Continue to Tutorial" : "Continue to Tutorial"}
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
@@ -1449,7 +1490,7 @@ function SettingsPageContent() {
                 onClick={handleSkipTutorial}
                 className="py-3 px-6 rounded-lg bg-app-cream text-app-charcoal font-medium border border-app-border hover:bg-app-border"
               >
-                Skip Tutorial
+                {isGoogleSheetConnected ? "Save & Skip Tutorial" : "Skip Tutorial"}
               </button>
             </div>
           </section>

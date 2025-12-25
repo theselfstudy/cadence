@@ -1,44 +1,37 @@
 "use client";
 
 import { useSettings } from "@/stores/useSettings";
-import { DEFAULT_SYMPTOMS } from "@/lib/constants";
 import Link from "next/link";
 import { useState } from 'react';
 
-const LockIcon = () => <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>;
 const CloudIcon = () => <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>;
 const UserIcon = () => <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
-
 
 /**
  * Home page - Entry point of the TrackWell app
  */
 export default function HomePage() {
-const { 
-  setupComplete, 
-  symptoms, 
-  periodTracking,
-  timeFormat,
-  googleSheet,
-  stoolTracking,
-  isGoogleSheetConnected,
-  completeSetup,
-  toggleSymptom,
-  setTimeFormat 
-} = useSettings();
+  const { 
+    setupComplete, 
+    symptoms, 
+    periodTracking,
+    timeFormat,
+    googleSheet,
+    stoolTracking,
+    medicineTracking,
+    isGoogleSheetConnected,
+  } = useSettings();
 
   let mode = "Anonymous Mode";
   let modeIcon = <UserIcon />;
-  let modeColorClass = "text-app-grey";
+  let modeColorClass = "text-app-gray";
   let modeDescription = "Data stored locally on this device only";
-
 
   if (isGoogleSheetConnected) {
     mode = "Signed In & Synced";
     modeIcon = <CloudIcon />;
     modeColorClass = "text-app-green";
     modeDescription = "Data syncs to your Google Sheet";
-
   }
 
   const [showColorPalette, setShowColorPalette] = useState(false);
@@ -60,9 +53,13 @@ const {
   };
   
   const safeStoolTracking = stoolTracking ?? { enabled: false };
+  const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: [] };
 
   // Check if period tracking is enabled
   const isPeriodTrackingEnabled = safePeriodTracking.enabled ?? false;
+  
+  // Check if medicine tracking is enabled
+  const isMedicineTrackingEnabled = safeMedicineTracking.enabled && safeMedicineTracking.medicines.length > 0;
 
   // Custom symptoms lists
   const generalCustom = symptoms?.custom || [];
@@ -107,6 +104,9 @@ const {
 
   // Count total products selected
   const totalProductsSelected = safePeriodTracking.productTracking?.selectedProducts?.length ?? 0;
+  
+  // Count medicines
+  const totalMedicines = safeMedicineTracking.medicines.length;
 
   return (
     <div className="space-y-6">
@@ -122,67 +122,118 @@ const {
         </p>
 
         <div className="mt-4 p-3 bg-app-cream rounded-lg border border-app-border">
-        <div className="flex items-center gap-3">
-          <div className={modeColorClass}>{modeIcon}</div>
-          <div>
-            <p className={`font-semibold ${modeColorClass}`}>{mode}</p>
-            <p className="text-xs text-app-gray">{modeDescription}</p>
-            <p className="text-xs text-app-gray mt-1">
-              <Link href="/settings" className="underline hover:text-app-green">
-                Change in Settings
-              </Link>
-            </p>
+          <div className="flex items-center gap-3">
+            <div className={modeColorClass}>{modeIcon}</div>
+            <div>
+              <p className={`font-semibold ${modeColorClass}`}>{mode}</p>
+              <p className="text-xs text-app-gray">{modeDescription}</p>
+              <p className="text-xs text-app-gray mt-1">
+                <Link href="/settings" className="underline hover:text-app-green">
+                  Change in Settings
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-        {/* Different action call based on setup status */}
+        {/* Action Buttons */}
         {setupComplete ? (
-          <Link
-            href="/entry"
-            className="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-app-green text-white font-medium rounded-lg hover:bg-app-green-dark transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex flex-wrap gap-3 mt-4 justify-center">
+            <Link
+              href="/entry"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-app-green text-white font-medium rounded-lg hover:bg-app-green-dark transition-colors"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            New Entry
-          </Link>
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              New Entry
+            </Link>
+            <Link
+              href="/settings"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-app-cream text-app-charcoal font-medium rounded-lg border border-app-border hover:bg-app-border transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              Edit Settings
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-app-cream text-app-charcoal font-medium rounded-lg border border-app-border hover:bg-app-border transition-colors"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+              View Dashboard
+            </Link>
+          </div>
         ) : (
-          <Link
-            href="/settings"
-            className="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-app-green text-white font-medium rounded-lg hover:bg-app-green-dark transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="mt-4">
+            <p className="text-sm text-app-gray mb-3">
+              👇 <strong>Start here</strong> to set up your tracking preferences
+            </p>
+            <Link
+              href="/settings"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-app-green text-white font-medium rounded-lg hover:bg-app-green-dark transition-colors"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-            Customize Your Settings
-          </Link>
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              Customize Your Settings
+            </Link>
+          </div>
         )}
       </section>
 
@@ -219,12 +270,11 @@ const {
                 <p className="text-sm text-app-gray">
                   Connect a Google Sheet to sync and backup your data.
                 </p>
-
-              <p className="text-sm mt-4">
-                <Link href="/recover" className="text-app-green hover:underline">
-                  On a new device? Click here to restore your settings.
-                </Link>
-              </p>
+                <p className="text-sm mt-4">
+                  <Link href="/recover" className="text-app-green hover:underline">
+                    On a new device? Click here to restore your settings.
+                  </Link>
+                </p>
               </div>
             </div>
             {setupComplete ? (
@@ -274,39 +324,44 @@ const {
         </div>
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
           <CountStatCard
             label="Symptoms"
             count={allSelectedSymptoms.length}
             color="teal"
           />
           <CountStatCard
-            label="Custom Symptoms"
+            label="Custom"
             count={allCustomSymptoms.length}
             color="green"
           />
           {isPeriodTrackingEnabled && (
-            <>
-              <CountStatCard
-                label="Period Symptoms"
-                count={safePeriodTracking.periodSymptoms?.length ?? 0}
-                color="red"
-              />
-              {safePeriodTracking.productTracking?.enabled && (
-                <CountStatCard
-                  label="Products"
-                  count={totalProductsSelected}
-                  color="red"
-                />
-              )}
-            </>
+            <CountStatCard
+              label="Period"
+              count={safePeriodTracking.periodSymptoms?.length ?? 0}
+              color="red"
+            />
+          )}
+          {isPeriodTrackingEnabled && safePeriodTracking.productTracking?.enabled && (
+            <CountStatCard
+              label="Products"
+              count={totalProductsSelected}
+              color="red"
+            />
+          )}
+          {isMedicineTrackingEnabled && (
+            <CountStatCard
+              label="Medicines"
+              count={totalMedicines}
+              color="taupe"
+            />
           )}
         </div>
 
         {/* Enabled Features Pills */}
         <div className="mb-6">
           <p className="text-sm text-app-gray mb-2">Active Features:</p>
-          <div className="flex flex-wrap gap-2 justify-evenly">
+          <div className="flex flex-wrap gap-2 justify-center">
             <FeaturePill 
               label={timeFormat === "12h" ? "12-Hour" : "24-Hour"} 
               isEnabled={true} 
@@ -341,6 +396,13 @@ const {
                 />
               </>
             )}
+            {isMedicineTrackingEnabled && (
+              <FeaturePill 
+                label={`Medicine (${totalMedicines})`}
+                isEnabled={true} 
+                color="taupe"
+              />
+            )}
           </div>
         </div>
 
@@ -363,6 +425,12 @@ const {
                   <span className="text-sm text-app-charcoal">Both</span>
                 </div>
               </>
+            )}
+            {isMedicineTrackingEnabled && (
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-app-taupe"></span>
+                <span className="text-sm text-app-charcoal">Medicine</span>
+              </div>
             )}
           </div>
         </div>
@@ -405,7 +473,7 @@ const {
 
         {/* Products Selected - Only if enabled */}
         {isPeriodTrackingEnabled && safePeriodTracking.productTracking?.enabled && (
-          <div>
+          <div className="mb-6">
             <p className="text-sm text-app-gray mb-2">Products Tracked:</p>
             {totalProductsSelected > 0 ? (
               <div className="flex flex-wrap gap-2">
@@ -421,6 +489,26 @@ const {
             ) : (
               <p className="text-app-gray italic">No products selected</p>
             )}
+          </div>
+        )}
+
+        {/* Medicines - Only if enabled */}
+        {isMedicineTrackingEnabled && (
+          <div>
+            <p className="text-sm text-app-gray mb-2">Medicines Tracked:</p>
+            <div className="flex flex-wrap gap-2">
+              {safeMedicineTracking.medicines.map((medicine) => (
+                <span
+                  key={medicine.id}
+                  className="px-3 py-1.5 rounded-full text-sm font-medium text-white bg-app-taupe"
+                >
+                  {medicine.name}
+                  {medicine.dosage && (
+                    <span className="ml-1 opacity-80">({medicine.dosage})</span>
+                  )}
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </section>
@@ -466,50 +554,6 @@ const {
 // Helper Components
 // ========================
 
-interface MiniStatCardProps {
-  label: string;
-  isEnabled: boolean;
-}
-
-function MiniStatCard({ label, isEnabled }: MiniStatCardProps) {
-  return (
-    <div className="card py-3 px-3 text-center">
-      <div className="flex items-center justify-center mb-1">
-        {isEnabled ? (
-          <svg 
-            className="w-5 h-5 text-app-green" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-        ) : (
-          <svg 
-            className="w-5 h-5 text-app-gray" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        )}
-      </div>
-      <p className="text-xs text-app-gray leading-tight">{label}</p>
-    </div>
-  );
-}
-
 interface CountStatCardProps {
   label: string;
   count: number;
@@ -549,7 +593,7 @@ function ColorSwatch({ color, label }: ColorSwatchProps) {
 interface FeaturePillProps {
   label: string;
   isEnabled: boolean;
-  color?: "green" | "teal" | "red" | "plumb"; 
+  color?: "green" | "teal" | "red" | "plumb" | "taupe"; 
 }
 
 function FeaturePill({ label, isEnabled, color = "green" }: FeaturePillProps) {
@@ -560,10 +604,11 @@ function FeaturePill({ label, isEnabled, color = "green" }: FeaturePillProps) {
     teal: "bg-app-teal/10 text-app-teal border-app-teal/20",
     red: "bg-app-red/10 text-app-red border-app-red/20",
     plumb: "bg-app-plumb/10 text-app-plumb border-app-plumb/20",
+    taupe: "bg-app-taupe/10 text-app-taupe border-app-taupe/20",
   };
   
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${colorClasses[color]}`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border flex-shrink-0 ${colorClasses[color]}`}>
       <svg 
         className="w-3.5 h-3.5" 
         fill="none" 

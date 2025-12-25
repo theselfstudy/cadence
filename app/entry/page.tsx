@@ -25,13 +25,11 @@ import type {
   PostBowelFeeling,
   CyclePhase,
   SymptomEntry,
-  // EntryFormData,
   ProductUsageEntry,
   CustomProduct,
   ProductTracking,
   Medicine, 
   MedicineLogEntry,
-  // MedicineCategory,
   StoredEntry, 
   PainScaleType,
 } from "@/types";

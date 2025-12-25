@@ -28,8 +28,10 @@ export function SafeLink({ href, onClick, children, ...props }: ComponentProps<t
 
     if (isOnSettingsPage || isInSetupFlow) {
       const validation = validateSettings({
+        symptoms: state.symptoms,
         periodTracking: state.periodTracking,
         medicineTracking: state.medicineTracking,
+        stoolTracking: state.stoolTracking,
       });
 
       if (!validation.isValid) {

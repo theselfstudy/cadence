@@ -10,6 +10,7 @@ interface AddMedicineFormProps {
   currentMedicineCount: number;
   maxMedicines: number;
   existingMedicines: Medicine[];
+  showValidationError?: boolean;
 }
 
 export function AddMedicineForm({
@@ -18,6 +19,7 @@ export function AddMedicineForm({
   currentMedicineCount,
   maxMedicines,
   existingMedicines,
+  showValidationError = false,
 }: AddMedicineFormProps) {
   const [name, setName] = useState("");
   const [dosage, setDosage] = useState("");
@@ -173,7 +175,11 @@ export function AddMedicineForm({
     <div className="space-y-4">
       {/* Medicine Name */}
       <div>
-        <label className="block text-sm text-app-gray mb-1">Medicine Name *</label>
+        <label className={`block text-sm mb-1 ${
+          showValidationError ? "text-app-red font-medium" : "text-app-gray"
+        }`}>
+          Medicine Name * {showValidationError}
+        </label>
         <input
           type="text"
           value={name}
@@ -200,7 +206,11 @@ export function AddMedicineForm({
 
       {/* Tags */}
       <div>
-        <label className="block text-sm text-app-gray mb-2">Tags *</label>
+        <label className={`block text-sm mb-2 ${
+          showValidationError ? "text-app-red font-medium" : "text-app-gray"
+        }`}>
+          Add at least one tag to the medicine {showValidationError && "*"}
+        </label>        
         {availableCategories.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {availableCategories.map((cat) => (
@@ -210,8 +220,8 @@ export function AddMedicineForm({
                 onClick={() => toggleCategory(cat.value)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                   categories.includes(cat.value)
-                    ? "bg-app-taupe text-white"
-                    : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-taupe"
+                    ? "bg-app-green/70 text-white"
+                    : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-green/40"
                 }`}
               >
                 {cat.icon} {cat.label}
@@ -232,7 +242,7 @@ export function AddMedicineForm({
           type="button"
           onClick={() => setTimeSensitive(!timeSensitive)}
           className={`relative w-12 h-7 rounded-full transition-colors ${
-            timeSensitive ? "bg-app-taupe" : "bg-app-border"
+            timeSensitive ? "bg-app-green/60" : "bg-app-border"
           }`}
         >
           <span
@@ -242,8 +252,8 @@ export function AddMedicineForm({
           />
         </button>
         <div>
-          <p className="text-sm font-medium text-app-charcoal">Time-sensitive</p>
-          <p className="text-xs text-app-gray">Require logging the time taken</p>
+          <p className="text-sm font-medium text-app-charcoal">Time-sensitive Medication</p>
+          <p className="text-xs text-app-gray">Toggle option to log the time the medicine was taken</p>
         </div>
       </div>
 
@@ -252,7 +262,7 @@ export function AddMedicineForm({
         type="button"
         onClick={handleSubmit}
         disabled={!name.trim() || categories.length === 0}
-        className="w-full px-6 py-2 rounded-lg bg-app-taupe text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full px-6 py-2 rounded-lg bg-app-green/60 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
       >
         + Add Medicine ({currentMedicineCount}/{maxMedicines})
       </button>
