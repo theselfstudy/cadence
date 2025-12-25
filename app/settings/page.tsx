@@ -228,9 +228,22 @@ function SettingsPageContent() {
     periodSelectableSymptoms.every((s) => safePeriodTracking.periodSymptoms?.includes(s));
 
   // Check if all default symptoms are selected (for Select All / Deselect All button)
+    // Check if all default symptoms are selected (for Select All / Deselect All button)
   const allDefaultSymptomsSelected =
     DEFAULT_SYMPTOMS.length > 0 &&
     DEFAULT_SYMPTOMS.every((s) => symptoms?.selected?.includes(s));
+
+  // Check if all custom general symptoms are selected
+  const customGeneralSymptoms = symptoms?.custom ?? [];
+  const allCustomSymptomsSelected =
+    customGeneralSymptoms.length > 0 &&
+    customGeneralSymptoms.every((s) => symptoms?.selected?.includes(s));
+
+  // Check if all custom period symptoms are selected
+  const customPeriodSymptomsList = safePeriodTracking.customPeriodSymptoms ?? [];
+  const allCustomPeriodSymptomsSelected =
+    customPeriodSymptomsList.length > 0 &&
+    customPeriodSymptomsList.every((s) => safePeriodTracking.periodSymptoms?.includes(s));
 
   // ---------------------------------------------------------------------------
   // UNSAVED CHANGES WARNING
@@ -641,6 +654,50 @@ function SettingsPageContent() {
         },
         hasUnsavedChanges: true,
       }));
+    }
+  };
+
+    // Toggle all custom general symptoms on/off
+  const handleToggleAllCustomSymptoms = (selectAll: boolean) => {
+    const currentSelected = symptoms?.selected ?? [];
+    const customSymptoms = symptoms?.custom ?? [];
+    
+    if (selectAll) {
+      // Add all custom symptoms to selected
+      const newSelected = [...new Set([...currentSelected, ...customSymptoms])];
+      useSettings.setState((state) => ({
+        symptoms: {
+          ...state.symptoms,
+          selected: newSelected,
+        },
+        hasUnsavedChanges: true,
+      }));
+    } else {
+      // Remove all custom symptoms from selected (keep defaults)
+      const newSelected = currentSelected.filter(s => !customSymptoms.includes(s));
+      useSettings.setState((state) => ({
+        symptoms: {
+          ...state.symptoms,
+          selected: newSelected,
+        },
+        hasUnsavedChanges: true,
+      }));
+    }
+  };
+
+  // Toggle all custom period symptoms on/off
+  const handleToggleAllCustomPeriodSymptoms = (selectAll: boolean) => {
+    const currentPeriodSymptoms = safePeriodTracking.periodSymptoms ?? [];
+    const customPeriodSymptoms = safePeriodTracking.customPeriodSymptoms ?? [];
+    
+    if (selectAll) {
+      // Add all custom period symptoms to periodSymptoms
+      const newPeriodSymptoms = [...new Set([...currentPeriodSymptoms, ...customPeriodSymptoms])];
+      setPeriodTracking({ periodSymptoms: newPeriodSymptoms });
+    } else {
+      // Remove all custom period symptoms from periodSymptoms
+      const newPeriodSymptoms = currentPeriodSymptoms.filter(s => !customPeriodSymptoms.includes(s));
+      setPeriodTracking({ periodSymptoms: newPeriodSymptoms });
     }
   };
 
@@ -1079,9 +1136,18 @@ function SettingsPageContent() {
                   {/* Custom symptoms */}
                   {(symptoms?.custom?.length ?? 0) > 0 && (
                     <div className="mb-4">
-                      <p className="text-sm text-app-gray mb-2">
-                        Your custom symptoms ({symptoms.custom.length}/{MAX_CUSTOM_SYMPTOMS}):
-                      </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm text-app-gray">
+                          Your custom symptoms ({symptoms.custom.length}/{MAX_CUSTOM_SYMPTOMS}):
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAllCustomSymptoms(!allCustomSymptomsSelected)}
+                          className="text-xs text-app-teal hover:text-app-teal/70 font-medium"
+                        >
+                          {allCustomSymptomsSelected ? "Deselect All" : "Select All"}
+                        </button>
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {symptoms.custom.map((symptom) => (
                           <SymptomChip
@@ -1236,23 +1302,61 @@ function SettingsPageContent() {
                     </div>
                   )}
 
-                  {(safePeriodTracking.customPeriodSymptoms?.length ?? 0) > 0 && (
+                                      {(safePeriodTracking.customPeriodSymptoms?.length ?? 0) > 0 && (
                     <div className="mb-4">
-                      <p className="text-sm text-app-gray mb-2">
-                        Your custom period or cycle symptoms ({safePeriodTracking.customPeriodSymptoms.length}/{MAX_CUSTOM_PERIOD_SYMPTOMS}):
-                      </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm text-app-gray">
+                          Your custom period or cycle symptoms ({safePeriodTracking.customPeriodSymptoms.length}/{MAX_CUSTOM_PERIOD_SYMPTOMS}):
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAllCustomPeriodSymptoms(!allCustomPeriodSymptomsSelected)}
+                          className="text-xs text-app-red hover:text-app-red/70 font-medium"
+                        >
+                          {allCustomPeriodSymptomsSelected ? "Deselect All" : "Select All"}
+                        </button>
+                      </div>
                       <div className="flex flex-wrap gap-2">
-                        {safePeriodTracking.customPeriodSymptoms.map((symptom) => (
-                          <div
-                            key={`custom-period-${symptom}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-app-red text-white"
-                          >
-                            {symptom}
-                            <button onClick={() => removeCustomPeriodSymptom(symptom)} className="ml-1 hover:text-app-cream">
-                              ×
+                        {safePeriodTracking.customPeriodSymptoms.map((symptom) => {
+                          const isSelected = safePeriodTracking.periodSymptoms?.includes(symptom) ?? false;
+                          
+                          return (
+                            <button
+                              key={`custom-period-${symptom}`}
+                              type="button"
+                              onClick={() => togglePeriodSymptom(symptom)}
+                              className={`group inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                                isSelected
+                                  ? "bg-app-red text-white hover:bg-app-red/80"
+                                  : "bg-app-red/15 text-app-gray/50 hover:bg-app-red/30"
+                              }`}
+                            >
+                              {symptom}
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeCustomPeriodSymptom(symptom);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.stopPropagation();
+                                    removeCustomPeriodSymptom(symptom);
+                                  }
+                                }}
+                                className={`ml-1 hover:scale-110 transition-transform ${
+                                  isSelected 
+                                    ? "text-white/70 hover:text-white" 
+                                    : "text-app-gray/40 hover:text-app-gray"
+                                }`}
+                                title={`Remove "${symptom}"`}
+                              >
+                                ×
+                              </span>
                             </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

@@ -225,15 +225,30 @@ export async function deleteSettingsSheet(
 
 /**
  * Builds the canonical column order based on current user settings.
- * Order matches the entry form:
- * Date → Start Time → Notes → End Time  → Pain Scale → Stool → Cycle → Flow → Products → 
- * General Symptoms → Period Symptoms → Medicines
+ * 
+ * COLUMN ORDER ARCHITECTURE:
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │ FIXED START        │ DYNAMIC MIDDLE (append-only)              │ FIXED END │
+ * ├────────────────────┼───────────────────────────────────────────┼───────────┤
+ * │ Date               │ Stool: Type, Feeling                      │ Notes     │
+ * │ Start Time         │ Cycle Phase, Flow                         │           │
+ * │ End Time           │ Products (append-only)                    │           │
+ * │ Pain Scale         │ General Symptoms (append-only)            │           │
+ * │                    │ Period Symptoms (append-only)             │           │
+ * │                    │ Medicines (append-only)                   │           │
+ * └────────────────────┴───────────────────────────────────────────┴───────────┘
+ * 
+ * Rules:
+ * 1. Fixed columns don't change position
+ * 2. New columns are appended to the end of their section
+ * 3. Removed/archived symptoms leave columns in place (old entries keep data)
+ * 4. Column headers in the sheet are the source of truth for positions
  */
 export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   const columns: SheetColumn[] = [];
 
   // ─────────────────────────────────────────
-  // SECTION 1: Metadata (always present)
+  // SECTION 1: Fixed Start (always these 4, in this order)
   // ─────────────────────────────────────────
   columns.push({
     header: 'Date',
@@ -248,29 +263,19 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   });
   
   columns.push({
+    header: 'End Time',
+    section: 'metadata',
+    getValue: (entry) => entry.endTime,
+  });
+  
+  columns.push({
     header: 'Pain Scale',
     section: 'metadata',
     getValue: (entry) => entry.painScale,
   });
 
   // ─────────────────────────────────────────
-  // SECTION 8: Closing (always present)
-  // ─────────────────────────────────────────
-  
-  columns.push({
-    header: 'End Time',
-    section: 'closing',
-    getValue: (entry) => entry.endTime,
-  });
-
-  columns.push({
-    header: 'Notes',
-    section: 'closing',
-    getValue: (entry) => entry.notes ?? '',
-  });
-
-  // ─────────────────────────────────────────
-  // SECTION 2: Stool Tracking (Bristol Stool Scale)
+  // SECTION 2: Stool Tracking
   // ─────────────────────────────────────────
   if (settings.stoolTracking.enabled) {
     columns.push({
@@ -287,17 +292,15 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 3: Period/Cycle Tracking
+  // SECTION 3: Period/Cycle Info
   // ─────────────────────────────────────────
   if (settings.periodTracking.enabled) {
-    // Cycle Phase (always show if period tracking enabled)
     columns.push({
       header: 'Cycle Phase',
       section: 'period',
       getValue: (entry) => entry.cyclePhase ?? '',
     });
 
-    // Period flow (only if flow tracking enabled)
     if (settings.periodTracking.trackFlow) {
       columns.push({
         header: 'Period: Flow',
@@ -308,19 +311,16 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 4: Products
+  // SECTION 4: Products (append-only)
   // ─────────────────────────────────────────
   if (settings.periodTracking.enabled && settings.periodTracking.productTracking?.enabled) {
     const selectedProducts = settings.periodTracking.productTracking.selectedProducts ?? [];
     const customProductsMap = settings.periodTracking.productTracking.customProducts ?? {};
     
     for (const productType of selectedProducts) {
-      // Find the product definition to check if it uses custom products
       const productDef = PRODUCT_OPTIONS.find(p => p.type === productType);
       
       if (productDef?.allowCustomProducts) {
-        // Products with custom products (cup, disc, other):
-        // Create a column for EACH custom product, not a generic column
         const customProducts = customProductsMap[productType] ?? [];
         
         for (const customProduct of customProducts) {
@@ -334,15 +334,11 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
                 p => p.productType === productType && p.customProductId === customProduct.id
               );
               if (!usage) return '';
-              
-              // Include size if selected, otherwise just mark as 'Used'
               return usage.size ?? 'Used';
             },
           });
         }
       } else {
-        // Standard products (pad, tampon, liner):
-        // Keep generic column with size as value
         const productLabel = productDef?.label ?? productType;
         
         columns.push({
@@ -351,8 +347,6 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
           getValue: (entry) => {
             const usage = entry.productUsage.find(p => p.productType === productType);
             if (!usage) return '';
-            
-            // Return the size/absorbency selected
             return usage.size ?? 'Used';
           },
         });
@@ -361,24 +355,21 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 5: General Symptoms (Gen. Sym:)
+  // SECTION 5: General Symptoms (append-only)
+  // All general symptoms grouped together: defaults first, then custom
   // ─────────────────────────────────────────
-  if (settings.symptoms.intensityTracking.enabled) {
-    // Build set of period symptoms to exclude from general
-    const periodSymptomSet = new Set([
-      ...settings.periodTracking.periodSymptoms,
-      ...settings.periodTracking.customPeriodSymptoms,
-    ]);
+  if (settings.symptoms.enabled && settings.symptoms.intensityTracking.enabled) {
+    // Collect all general symptoms (selected built-in + custom)
+    // Exclude symptoms that are ONLY period symptoms
+    const periodOnlySymptoms = new Set(
+      settings.periodTracking.customPeriodSymptoms.filter(
+        s => !settings.symptoms.custom.includes(s)
+      )
+    );
 
-    // Built-in selected symptoms (excluding period-only ones)
+    // First: selected built-in symptoms (in their selection order)
     for (const symptom of settings.symptoms.selected) {
-      // Skip if it's ONLY a period symptom (not also a general symptom)
-      // A symptom is "both" if it's in selected AND in periodSymptoms
-      // A symptom is "period only" if it's in customPeriodSymptoms but only added to selected via that
-      if (settings.periodTracking.customPeriodSymptoms.includes(symptom) && 
-          !settings.symptoms.custom.includes(symptom)) {
-        continue; // This is a custom period symptom, skip it for general
-      }
+      if (periodOnlySymptoms.has(symptom)) continue;
       
       columns.push({
         header: `Gen. Sym: ${symptom}`,
@@ -387,7 +378,8 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
       });
     }
 
-    // Custom general symptoms (that aren't period symptoms)
+    // Then: custom general symptoms that weren't already added via selected
+    // (This handles the case where custom symptoms aren't in 'selected' yet)
     for (const symptom of settings.symptoms.custom) {
       if (!settings.symptoms.selected.includes(symptom)) {
         columns.push({
@@ -400,10 +392,11 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
-  // SECTION 6: Period Symptoms (Per. Sym:)
+  // SECTION 6: Period Symptoms (append-only)
+  // All period symptoms grouped together: selected first, then custom-only
   // ─────────────────────────────────────────
   if (settings.periodTracking.enabled) {
-    // Built-in period symptoms
+    // First: symptoms selected for period tracking (may overlap with general)
     for (const symptom of settings.periodTracking.periodSymptoms) {
       columns.push({
         header: `Per. Sym: ${symptom}`,
@@ -412,18 +405,20 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
       });
     }
 
-    // Custom period symptoms
+    // Then: custom period symptoms not already in periodSymptoms
     for (const symptom of settings.periodTracking.customPeriodSymptoms) {
-      columns.push({
-        header: `Per. Sym: ${symptom}`,
-        section: 'periodSymptoms',
-        getValue: (entry) => entry.periodSymptomIntensities[symptom] ?? '',
-      });
+      if (!settings.periodTracking.periodSymptoms.includes(symptom)) {
+        columns.push({
+          header: `Per. Sym: ${symptom}`,
+          section: 'periodSymptoms',
+          getValue: (entry) => entry.periodSymptomIntensities[symptom] ?? '',
+        });
+      }
     }
   }
 
   // ─────────────────────────────────────────
-  // SECTION 7: Medicines
+  // SECTION 7: Medicines (append-only)
   // ─────────────────────────────────────────
   if (settings.medicineTracking.enabled) {
     for (const medicine of settings.medicineTracking.medicines) {
@@ -444,6 +439,16 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
       });
     }
   }
+
+  // ─────────────────────────────────────────
+  // SECTION 8: Fixed End (Notes always last)
+  // ─────────────────────────────────────────
+  columns.push({
+    header: 'Notes',
+    section: 'closing',
+    getValue: (entry) => entry.notes ?? '',
+  });
+
   return columns;
 }
 
@@ -552,8 +557,13 @@ export async function createEntriesSheet(
 }
 
 /**
- * Reconciles existing headers with canonical headers.
- * Returns the columns to insert and their positions.
+ * Reconciles existing sheet headers with canonical headers from current settings.
+ * 
+ * Rules:
+ * 1. Fixed columns (Date, Start, End, Pain Scale, Notes) maintain their positions
+ * 2. New dynamic columns are APPENDED to the end of their section
+ * 3. Existing columns that are no longer in settings are LEFT IN PLACE (for historical data)
+ * 4. Column order in the sheet is preserved - we only add, never remove or reorder
  */
 export function reconcileHeaders(
   existingHeaders: string[],
@@ -561,66 +571,149 @@ export function reconcileHeaders(
 ): {
   finalHeaders: string[];
   columnsToInsert: Array<{ header: string; position: number }>;
+  hasChanges: boolean;
 } {
   const existingSet = new Set(existingHeaders);
   const finalHeaders = [...existingHeaders];
   const columnsToInsert: Array<{ header: string; position: number }> = [];
 
-  // Group canonical columns by section
-  // Order must match buildCanonicalColumns to ensure proper column placement
-  const sections: SheetColumn['section'][] = [
-    'metadata',      // Date, Start Time, Pain Scale
-    'closing',       // Notes, End Time
-    'stool',         // Bristol Stool Scale
-    'period',        // Cycle Phase, Flow
-    'products',      // Period Products
-    'symptoms',      // General Symptoms
-    'periodSymptoms', // Period Symptoms
-    'medicines',     // Medicines
+  // Define section boundaries for insertion
+  // Order matters: this is the order sections appear in the sheet
+  const sectionOrder: SheetColumn['section'][] = [
+    'metadata',       // Date, Start Time, End Time, Pain Scale (fixed)
+    'stool',          // Stool: Type, Stool: Feeling
+    'period',         // Cycle Phase, Period: Flow
+    'products',       // Product: X, Product: Y...
+    'symptoms',       // Gen. Sym: A, Gen. Sym: B...
+    'periodSymptoms', // Per. Sym: A, Per. Sym: B...
+    'medicines',      // Med: X, Med: Y...
+    'closing',        // Notes (fixed at end)
   ];
 
+  // Helper: find the last column index of a given section in the current headers
+  const findSectionEndIndex = (section: SheetColumn['section']): number => {
+    let lastIndex = -1;
+    
+    for (let i = 0; i < finalHeaders.length; i++) {
+      const header = finalHeaders[i];
+      const column = canonicalColumns.find(c => c.header === header);
+      
+      // Also check existing columns that might not be in canonical anymore
+      const inferredSection = inferSectionFromHeader(header);
+      
+      if (column?.section === section || inferredSection === section) {
+        lastIndex = i;
+      }
+    }
+    
+    return lastIndex;
+  };
+
+  // Helper: find where a section SHOULD start (after previous sections)
+  const findSectionInsertPoint = (section: SheetColumn['section']): number => {
+    const sectionIdx = sectionOrder.indexOf(section);
+    
+    // Special case: Notes always goes at the very end
+    if (section === 'closing') {
+      // Find if Notes already exists
+      const notesIdx = finalHeaders.indexOf('Notes');
+      if (notesIdx !== -1) return notesIdx;
+      return finalHeaders.length;
+    }
+    
+    // Find the end of the previous section, or start of next section
+    for (let i = sectionIdx - 1; i >= 0; i--) {
+      const prevSectionEnd = findSectionEndIndex(sectionOrder[i]);
+      if (prevSectionEnd !== -1) {
+        return prevSectionEnd + 1;
+      }
+    }
+    
+    // No previous sections found, insert after metadata
+    // Metadata is always first 4 columns
+    return 4;
+  };
+
+  // Process each canonical column
   for (const column of canonicalColumns) {
     if (!existingSet.has(column.header)) {
-      // Find the right position to insert this column
-      // It should go after other columns in its section, or at the start of its section
+      // This is a new column - need to insert it
       
-      const sectionIndex = sections.indexOf(column.section);
-      let insertPosition = finalHeaders.length; // Default: end
-
-      // Find where this section ends in the existing headers
-      for (let i = finalHeaders.length - 1; i >= 0; i--) {
-        const existingColumn = canonicalColumns.find(c => c.header === finalHeaders[i]);
-        if (existingColumn) {
-          const existingSectionIndex = sections.indexOf(existingColumn.section);
-          if (existingSectionIndex <= sectionIndex) {
-            insertPosition = i + 1;
-            break;
-          }
-        }
-      }
-
-      // Special case: 'closing' section should always be at the end
+      let insertPosition: number;
+      
       if (column.section === 'closing') {
-        // Find where closing section starts
-        const closingColumns = canonicalColumns.filter(c => c.section === 'closing');
-        const firstClosingInFinal = finalHeaders.findIndex(h => 
-          closingColumns.some(c => c.header === h)
-        );
+        // Notes always at the end
+        insertPosition = finalHeaders.length;
+      } else if (column.section === 'metadata') {
+        // Metadata columns should be at fixed positions (0-3)
+        // But if sheet already exists, they should already be there
+        // This handles edge case of upgrading old sheets
+        const metadataHeaders = ['Date', 'Start Time', 'End Time', 'Pain Scale'];
+        insertPosition = metadataHeaders.indexOf(column.header);
+        if (insertPosition === -1) insertPosition = 4; // After metadata
+      } else {
+        // Dynamic section: append at end of its section
+        const sectionEnd = findSectionEndIndex(column.section);
         
-        if (firstClosingInFinal === -1) {
-          insertPosition = finalHeaders.length;
+        if (sectionEnd !== -1) {
+          // Section exists, append after last column in section
+          insertPosition = sectionEnd + 1;
         } else {
-          insertPosition = firstClosingInFinal;
+          // Section doesn't exist yet, find where it should go
+          insertPosition = findSectionInsertPoint(column.section);
+        }
+        
+        // Make sure we don't insert after Notes
+        const notesIdx = finalHeaders.indexOf('Notes');
+        if (notesIdx !== -1 && insertPosition > notesIdx) {
+          insertPosition = notesIdx;
         }
       }
-
+      
       columnsToInsert.push({ header: column.header, position: insertPosition });
       finalHeaders.splice(insertPosition, 0, column.header);
       existingSet.add(column.header);
     }
   }
 
-  return { finalHeaders, columnsToInsert };
+  return { 
+    finalHeaders, 
+    columnsToInsert,
+    hasChanges: columnsToInsert.length > 0
+  };
+}
+
+/**
+ * Infers the section of a header based on its prefix.
+ * Used for columns that exist in the sheet but aren't in current settings
+ * (e.g., archived symptoms).
+ */
+function inferSectionFromHeader(header: string): SheetColumn['section'] | null {
+  if (header === 'Date' || header === 'Start Time' || header === 'End Time' || header === 'Pain Scale') {
+    return 'metadata';
+  }
+  if (header === 'Notes') {
+    return 'closing';
+  }
+  if (header.startsWith('Stool:')) {
+    return 'stool';
+  }
+  if (header === 'Cycle Phase' || header.startsWith('Period:')) {
+    return 'period';
+  }
+  if (header.startsWith('Product:')) {
+    return 'products';
+  }
+  if (header.startsWith('Gen. Sym:')) {
+    return 'symptoms';
+  }
+  if (header.startsWith('Per. Sym:')) {
+    return 'periodSymptoms';
+  }
+  if (header.startsWith('Med:')) {
+    return 'medicines';
+  }
+  return null;
 }
 
 /**
