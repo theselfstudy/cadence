@@ -468,11 +468,18 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     if (exists) {
       setSelectedSymptoms(selectedSymptoms.filter((s) => s.name !== symptomName));
     } else {
+      // Set initial intensity based on pain scale type:
+      // - Mankoski scale starts at 0
+      // - Simple scale starts at 1
+      const initialIntensity = intensityEnabled 
+        ? (painScaleType === "mankoski" ? 0 : 1)
+        : undefined;
+      
       setSelectedSymptoms([
         ...selectedSymptoms,
         {
           name: symptomName,
-          intensity: undefined,
+          intensity: initialIntensity,
           isPeriodRelated: isMenstrualPhase && isPeriodRelated,
         },
       ]);

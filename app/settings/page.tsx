@@ -1193,7 +1193,7 @@ function SettingsPageContent() {
                 <div className="pt-4 border-t border-app-border">
                   <ToggleRow
                     label="Symptom Intensity"
-                    description="Choose a pain scale to record how severe each symptom feels"
+                    description="Choose a scale to record how severe each symptom feels"
                     checked={intensityTracking.enabled}
                     onChange={(enabled) => setIntensityTracking({ enabled })}
                     activeColor="bg-app-teal"

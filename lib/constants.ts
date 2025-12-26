@@ -29,7 +29,7 @@ export const PAIN_SCALE_INFO = {
     name: "Simple 1-10 Scale",
     shortDescription: "A straightforward numeric scale",
     description:
-      "A general-purpose scale where 1 means minimal discomfort and 10 means the worst pain imaginable. Best for occasional symptom tracking and those new to pain journaling.",
+      "A general-purpose scale where 1 means minimal discomfort and 10 means the worst imaginable. Best for occasional symptom tracking and those new to symptom intensity journaling.",
     levels: [
       { value: 1, label: "Minimal" },
       { value: 2, label: "Mild" },
@@ -44,10 +44,10 @@ export const PAIN_SCALE_INFO = {
     ],
   },
   mankoski: {
-    name: "Mankoski Pain Scale",
+    name: "Mankoski Scale",
     shortDescription: "Select this detailed scale for chronic pain",
     description:
-      "Developed for chronic pain sufferers, this scale provides specific functional descriptions at each level, helping you communicate more effectively with healthcare providers. Recommended for those managing ongoing conditions.",
+      "Developed for chronic pain sufferers, this scale provides specific functional descriptions at each level, helping you communicate more effectively with healthcare providers. Recommended for those managing ongoing chronic conditions.",
     levels: [
       { value: 0, label: "Pain-free" },
       { value: 1, label: "Very minor annoyance — occasional twinges" },

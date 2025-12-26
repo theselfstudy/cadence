@@ -114,7 +114,6 @@ export default function DashboardPage() {
           title="History"
           description="All entries & CSV export"
           color="charcoal"
-          comingSoon
         />
       </div>
     </div>
