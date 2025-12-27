@@ -86,6 +86,7 @@ function SettingsPageContent() {
   // ---------------------------------------------------------------------------
   const {
     setupComplete,
+    tutorialComplete,
     timeFormat,
     symptoms,
     periodTracking,
@@ -142,6 +143,7 @@ function SettingsPageContent() {
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<"tutorial" | "entry" | null>(null);
   const [showAnonymousContinueModal, setShowAnonymousContinueModal] = useState(false);
+  const [showLocalSaveModal, setShowLocalSaveModal] = useState(false);
 
   
   // Validation error display - only show after user attempts to submit
@@ -559,7 +561,25 @@ function SettingsPageContent() {
     if (destination === "entry") {
       useSettings.getState().completeTutorial();
     }
-    router.push(destination === "tutorial" ? "/tutorial" : "/entry");
+  router.push(destination === "tutorial" ? "/tutorial" : "/entry");
+  };
+
+  // ---------------------------------------------------------------------------
+  // LOCAL SAVE CONTINUE HANDLER (for anonymous users post-tutorial)
+  // ---------------------------------------------------------------------------
+  
+  const handleLocalContinue = () => {
+    if (!settingsValidation.isValid) {
+      setShowValidationErrors(true);
+      return;
+    }
+    setShowValidationErrors(false);
+    setShowLocalSaveModal(true);
+  };
+
+  const handleLocalSaveConfirm = () => {
+    setShowLocalSaveModal(false);
+    router.push("/dashboard");
   };
 
   // ---------------------------------------------------------------------------
@@ -775,7 +795,7 @@ function SettingsPageContent() {
         />
       )}
 
-      {showAnonymousContinueModal && pendingNavigation && (
+            {showAnonymousContinueModal && pendingNavigation && (
         <AnonymousContinueModal
           destination={pendingNavigation}
           onContinue={handleAnonymousContinue}
@@ -784,6 +804,42 @@ function SettingsPageContent() {
             setPendingNavigation(null);
           }}
         />
+      )}
+
+      {showLocalSaveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">💾</span>
+              <h2 className="text-xl font-bold text-app-charcoal">Settings Saved Locally</h2>
+            </div>
+            <div className="space-y-3 mb-6">
+              <p className="text-app-gray">Your settings have been saved to this device.</p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>⚠️ Important:</strong> Clearing your browser data will delete your settings and entries.
+                </p>
+              </div>
+              <p className="text-sm text-app-gray">
+                For automatic cloud backup, you can connect a Google Sheet in settings anytime.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleLocalSaveConfirm}
+                className="flex-1 py-3 px-4 rounded-lg bg-app-green text-white font-semibold hover:bg-app-green-dark transition-colors"
+              >
+                Got it, Continue
+              </button>
+              <button
+                onClick={() => setShowLocalSaveModal(false)}
+                className="py-3 px-4 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border transition-colors"
+              >
+                Back to Settings
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="space-y-6">
@@ -955,10 +1011,10 @@ function SettingsPageContent() {
                     <button
                       type="button"
                       onClick={handleSaveSettings}
-                      disabled={isSyncing}
-                      className="px-4 py-2 rounded-lg bg-app-teal text-white font-medium hover:opacity-90 transition-colors text-sm disabled:bg-app-gray disabled:cursor-wait"
+                      disabled={isSyncing || !hasUnsavedChanges}
+                      className="px-4 py-2 rounded-lg bg-app-teal text-white font-medium hover:opacity-90 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isSyncing ? "Saving..." : "Save Settings"}
+                      {isSyncing ? "Saving..." : !hasUnsavedChanges ? "Saved ✓" : "Save Settings"}
                     </button>
                   </div>
                 </div>
@@ -1200,7 +1256,7 @@ function SettingsPageContent() {
                   />
                   {intensityTracking.enabled && (
                     <div className="mt-4">
-                      <p className="text-sm font-medium text-app-charcoal mb-3">Choose your pain scale:</p>
+                      <p className="text-sm font-medium text-app-charcoal mb-3">Choose your preferred intensity scale:</p>
                       <div className="space-y-3">
                         <PainScaleOption
                           type="simple"
@@ -1550,6 +1606,33 @@ function SettingsPageContent() {
           </div>
         </section>
 
+        {/* Continue Button - Anonymous users who completed setup AND tutorial */}
+        {!isGoogleSheetConnected && setupComplete && tutorialComplete && (
+          <section className="card border-2 border-app-green bg-app-green/5">
+            <h2 className="text-lg font-semibold text-app-charcoal mb-2">💾 Save & Continue</h2>
+            <p className="text-sm text-app-gray mb-4">
+              Your settings are saved automatically to this device.
+            </p>
+            
+            {showValidationErrors && !settingsValidation.isValid && (
+              <div className="p-3 mb-4 bg-app-red/10 rounded-lg border border-app-red/30">
+                <p className="text-sm text-app-red font-medium">
+                  ⚠️ {settingsValidation.validationMessage}
+                </p>
+              </div>
+            )}
+            
+            <button
+              type="button"
+              onClick={handleLocalContinue}
+              disabled={!hasUnsavedChanges}
+              className="w-full py-3 px-6 rounded-lg bg-app-green text-white font-semibold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {!hasUnsavedChanges ? "No Changes to Save" : "Continue"}
+            </button>
+          </section>
+        )}
+
         {/* Save Settings - Only show for users who have completed setup */}
         {isGoogleSheetConnected && setupComplete && (
           <section className="card border-2 border-app-teal bg-app-teal/5">
@@ -1570,10 +1653,10 @@ function SettingsPageContent() {
             <button
               type="button"
               onClick={handleSaveSettings}
-              disabled={isSyncing}
-              className="w-full py-3 px-6 rounded-lg bg-app-teal text-white font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-wait"
+              disabled={isSyncing || !hasUnsavedChanges}
+              className="w-full py-3 px-6 rounded-lg bg-app-teal text-white font-semibold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSyncing ? "Saving..." : "Save Settings to Google Sheet"}
+              {isSyncing ? "Saving..." : !hasUnsavedChanges ? "No Changes to Save" : "Save Settings to Google Sheet"}
             </button>
           </section>
         )}
