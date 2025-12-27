@@ -455,6 +455,9 @@ export interface EntryStoreState {
   
   /** Last sync timestamp */
   lastSyncAt: string | null;
+  
+  /** Progress state for batch sync operations */
+  batchSyncProgress: BatchSyncProgress | null;
 }
 
 /**
@@ -481,6 +484,18 @@ export interface EntryStoreActions {
   
   /** Clear all entries (for testing/reset) */
   clearEntries: () => void;
+  
+  /** Batch sync all pending/error entries with progress tracking */
+  batchSyncEntries: (
+    accessToken: string,
+    onProgress?: (progress: BatchSyncProgress) => void
+  ) => Promise<BatchSyncResult>;
+  
+  /** Get count of entries that can be synced */
+  getSyncableEntriesCount: () => number;
+  
+  /** Clear batch sync progress state */
+  clearBatchSyncProgress: () => void;
 }
 
 /**
@@ -513,4 +528,42 @@ export type LogSection = "symptoms" | "bowel" | "period" | "medicine";
 export interface LogSelectionConfig {
   /** Which sections the user wants to log for this entry */
   selectedSections: LogSection[];
+}
+
+// ============================================
+// Batch Sync Types
+// ============================================
+
+/**
+ * Progress state for batch entry sync
+ */
+export interface BatchSyncProgress {
+  /** Total number of entries to sync */
+  total: number;
+  /** Number of entries completed (success or fail) */
+  completed: number;
+  /** Number of entries successfully synced */
+  succeeded: number;
+  /** Number of entries that failed */
+  failed: number;
+  /** Currently syncing entry index (1-based for display) */
+  current: number;
+  /** Entry IDs that failed to sync */
+  failedEntryIds: string[];
+}
+
+/**
+ * Result of a batch sync operation
+ */
+export interface BatchSyncResult {
+  /** Whether all entries synced successfully */
+  success: boolean;
+  /** Total entries attempted */
+  total: number;
+  /** Number successfully synced */
+  succeeded: number;
+  /** Number that failed */
+  failed: number;
+  /** IDs of entries that failed */
+  failedEntryIds: string[];
 }

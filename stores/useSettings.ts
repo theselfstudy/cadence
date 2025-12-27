@@ -394,6 +394,7 @@ export const useSettings = create<SettingsStore>()(
           googleSheet: { url: null, name: null, addedAt: null },
           timeFormat: "12h",
           symptoms: {
+            enabled: true,
             selected: [...DEFAULT_SYMPTOMS],
             custom: [],
             intensityTracking: { enabled: false, scaleType: "simple" },

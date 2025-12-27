@@ -7,3 +7,4 @@ export { AddMedicineForm } from "./AddMedicineForm";
 export { RecoveryPromptModal } from "./modals/RecoveryPromptModal";
 export { SavePromptModal } from "./modals/SavePromptModal";
 export { AnonymousContinueModal } from "./modals/AnonymousContinueModal";
+export { SyncEntriesModal } from './modals/SyncEntriesModal';

@@ -5,8 +5,22 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-import type { EntryStore, StoredEntry, UserSettings } from '@/types';
-import { appendEntryToSheet, getSpreadsheetIdFromUrl } from '@/lib/googleSheets';
+import type { 
+  EntryStore, 
+  StoredEntry, 
+  UserSettings, 
+  BatchSyncProgress,
+  BatchSyncResult } from '@/types';
+
+import { 
+  appendEntryToSheet, 
+  getSpreadsheetIdFromUrl,
+  getExistingEntryKeys,
+  groupEntriesByMonth,
+  appendEntriesToSheet,
+} from '@/lib/googleSheets';
+
+
 import { STORAGE_KEYS } from '@/lib/constants';
 
 // ============================================
@@ -30,6 +44,7 @@ export const useEntries = create<EntryStore>()(
       entries: [],
       isSyncing: false,
       lastSyncAt: null,
+      batchSyncProgress: null as BatchSyncProgress | null,
 
       // ═══════════════════════════════════════
       // ACTIONS
@@ -154,6 +169,159 @@ export const useEntries = create<EntryStore>()(
       },
 
       /**
+       * Batch syncs all pending/error entries to Google Sheets.
+       * Groups by month and syncs efficiently with progress tracking.
+       * Skips duplicates already in the sheet.
+       */
+      batchSyncEntries: async (
+        accessToken: string,
+        onProgress?: (progress: BatchSyncProgress) => void
+      ): Promise<BatchSyncResult> => {
+        const { entries } = get();
+        
+        // Get entries that need syncing (pending or error)
+        const entriesToSync = entries.filter(
+          e => e.syncStatus === 'pending' || e.syncStatus === 'error'
+        );
+        
+        if (entriesToSync.length === 0) {
+          return { success: true, total: 0, succeeded: 0, failed: 0, failedEntryIds: [] };
+        }
+
+        // Get settings
+        const { useSettings } = await import('./useSettings');
+        const settings = useSettings.getState();
+        
+        if (!settings.googleSheet.url) {
+          return { 
+            success: false, 
+            total: entriesToSync.length, 
+            succeeded: 0, 
+            failed: entriesToSync.length, 
+            failedEntryIds: entriesToSync.map(e => e.id) 
+          };
+        }
+
+        const spreadsheetId = getSpreadsheetIdFromUrl(settings.googleSheet.url);
+        if (!spreadsheetId) {
+          return { 
+            success: false, 
+            total: entriesToSync.length, 
+            succeeded: 0, 
+            failed: entriesToSync.length, 
+            failedEntryIds: entriesToSync.map(e => e.id) 
+          };
+        }
+
+        set({ isSyncing: true });
+        
+        // Initialize progress
+        const progress: BatchSyncProgress = {
+          total: entriesToSync.length,
+          completed: 0,
+          succeeded: 0,
+          failed: 0,
+          current: 0,
+          failedEntryIds: [],
+        };
+        
+        set({ batchSyncProgress: progress });
+        onProgress?.(progress);
+
+        // Group entries by month
+        const entriesByMonth = groupEntriesByMonth(entriesToSync);
+        const allSyncedIds: string[] = [];
+        const allSkippedIds: string[] = [];
+        const allFailedIds: string[] = [];
+
+        // Process each month's entries
+        let processedCount = 0;
+        for (const [sheetName, monthEntries] of entriesByMonth) {
+          // Update progress - starting this batch
+          progress.current = processedCount + 1;
+          set({ batchSyncProgress: { ...progress } });
+          onProgress?.({ ...progress });
+
+          // Get existing entry keys for duplicate detection
+          const existingKeys = await getExistingEntryKeys(
+            spreadsheetId, 
+            accessToken, 
+            sheetName
+          );
+
+          // Sync this month's entries
+          const result = await appendEntriesToSheet(
+            monthEntries,
+            settings as UserSettings,
+            spreadsheetId,
+            accessToken,
+            sheetName,
+            existingKeys
+          );
+
+          // Update local state for synced entries
+          result.syncedIds.forEach(id => {
+            get().markEntrySynced(id);
+            allSyncedIds.push(id);
+          });
+
+          // Mark skipped (duplicates) as synced too
+          result.skippedIds.forEach(id => {
+            get().markEntrySynced(id);
+            allSkippedIds.push(id);
+          });
+
+          // Mark failed entries
+          result.failedIds.forEach(id => {
+            get().markEntryFailed(id, result.error || 'Sync failed');
+            allFailedIds.push(id);
+          });
+
+          // Update progress
+          processedCount += monthEntries.length;
+          progress.completed = processedCount;
+          progress.succeeded = allSyncedIds.length + allSkippedIds.length;
+          progress.failed = allFailedIds.length;
+          progress.failedEntryIds = allFailedIds;
+          progress.current = processedCount;
+          
+          set({ batchSyncProgress: { ...progress } });
+          onProgress?.({ ...progress });
+        }
+
+        // Final state update
+        set({ 
+          isSyncing: false, 
+          batchSyncProgress: null,
+          lastSyncAt: new Date().toISOString() 
+        });
+
+        return {
+          success: allFailedIds.length === 0,
+          total: entriesToSync.length,
+          succeeded: allSyncedIds.length + allSkippedIds.length,
+          failed: allFailedIds.length,
+          failedEntryIds: allFailedIds,
+        };
+      },
+
+      /**
+       * Gets count of entries that can be synced (pending or error status).
+       */
+      getSyncableEntriesCount: () => {
+        return get().entries.filter(
+          e => e.syncStatus === 'pending' || e.syncStatus === 'error'
+        ).length;
+      },
+
+      /**
+       * Clears the batch sync progress state.
+       */
+      clearBatchSyncProgress: () => {
+        set({ batchSyncProgress: null });
+      },
+
+      /**
        * Clears all entries (for testing/reset).
        */
       clearEntries: () => {
@@ -178,3 +346,7 @@ export const useEntries = create<EntryStore>()(
 export const useEntriesList = () => useEntries((state) => state.entries);
 export const useIsSyncing = () => useEntries((state) => state.isSyncing);
 export const usePendingEntries = () => useEntries((state) => state.getPendingEntries());
+export const useBatchSyncProgress = () => useEntries((state) => state.batchSyncProgress);
+export const useSyncableEntriesCount = () => useEntries((state) => 
+  state.entries.filter(e => e.syncStatus === 'pending' || e.syncStatus === 'error').length
+);

@@ -13,7 +13,10 @@ import {
   PRODUCT_OPTIONS,
   MEDICINE_CATEGORIES,
 } from "@/lib/constants";
+
 import type { PainScaleType, Medicine, MedicineCategory } from "@/types";
+
+import { useEntries } from "@/stores/useEntries";
 
 import {
   SymptomChip,
@@ -25,6 +28,7 @@ import {
   RecoveryPromptModal,
   SavePromptModal,
   AnonymousContinueModal,
+  SyncEntriesModal,
 } from "@/components/settings";
 
 // =============================================================================
@@ -116,6 +120,11 @@ function SettingsPageContent() {
 
   const hasUnsavedChanges = useSettings((state) => state.hasUnsavedChanges);
 
+  const syncableEntriesCount = useEntries((state) => 
+    state.entries.filter(e => e.syncStatus === 'pending' || e.syncStatus === 'error').length
+  );
+  const batchSyncEntries = useEntries((state) => state.batchSyncEntries);
+
   // ---------------------------------------------------------------------------
   // LOCAL STATE
   // ---------------------------------------------------------------------------
@@ -144,6 +153,8 @@ function SettingsPageContent() {
   const [pendingNavigation, setPendingNavigation] = useState<"tutorial" | "entry" | null>(null);
   const [showAnonymousContinueModal, setShowAnonymousContinueModal] = useState(false);
   const [showLocalSaveModal, setShowLocalSaveModal] = useState(false);
+  const [showSyncEntriesModal, setShowSyncEntriesModal] = useState(false);
+  const [pendingSyncAccessToken, setPendingSyncAccessToken] = useState<string | null>(null);
 
   
   // Validation error display - only show after user attempts to submit
@@ -281,7 +292,7 @@ function SettingsPageContent() {
   // GOOGLE SHEET OAUTH HANDLERS
   // ---------------------------------------------------------------------------
 
-  const connectSheetLogin = useGoogleLogin({
+    const connectSheetLogin = useGoogleLogin({
     scope: "https://www.googleapis.com/auth/spreadsheets",
     onSuccess: async (tokenResponse) => {
       const spreadsheetId = getSpreadsheetIdFromUrl(sheetUrl);
@@ -300,11 +311,24 @@ function SettingsPageContent() {
       } else {
         setGoogleSheet(sheetUrl, sheetName);
         const success = await saveSettingsToSheet(tokenResponse.access_token);
+        
         if (success) {
-          alert("Google Sheet connected and settings saved!");
+          // Check if there are local entries to sync
+          const currentSyncableCount = useEntries.getState().entries.filter(
+            e => e.syncStatus === 'pending' || e.syncStatus === 'error'
+          ).length;
+          
+          if (currentSyncableCount > 0) {
+            // Store the access token and show sync modal
+            setPendingSyncAccessToken(tokenResponse.access_token);
+            setShowSyncEntriesModal(true);
+          } else {
+            alert("Google Sheet connected and settings saved!");
+          }
         } else {
           alert("Sheet connected but failed to save settings. Please try saving again.");
         }
+        
         setSheetUrl("");
         setSheetName("");
         setIsEditingSheet(false);
@@ -474,6 +498,37 @@ function SettingsPageContent() {
     setSheetUrl("");
     setSheetName("");
     setIsEditingSheet(false);
+  };
+
+  // ---------------------------------------------------------------------------
+  // SYNC ENTRIES HANDLERS
+  // ---------------------------------------------------------------------------
+
+  const handleSyncEntries = async (
+    onProgress: (progress: import("@/types").BatchSyncProgress) => void
+  ) => {
+    if (!pendingSyncAccessToken) {
+      return { 
+        success: false, 
+        total: 0, 
+        succeeded: 0, 
+        failed: 0, 
+        failedEntryIds: [] 
+      };
+    }
+    
+    return await batchSyncEntries(pendingSyncAccessToken, onProgress);
+  };
+
+  const handleSyncSkip = () => {
+    setShowSyncEntriesModal(false);
+    setPendingSyncAccessToken(null);
+    alert("Google Sheet connected! Your local entries remain unsynced.");
+  };
+
+  const handleSyncComplete = () => {
+    setShowSyncEntriesModal(false);
+    setPendingSyncAccessToken(null);
   };
 
     // ---------------------------------------------------------------------------
@@ -840,6 +895,15 @@ function SettingsPageContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {showSyncEntriesModal && pendingSyncAccessToken && (
+        <SyncEntriesModal
+          entryCount={syncableEntriesCount}
+          onSync={handleSyncEntries}
+          onSkip={handleSyncSkip}
+          onCancel={handleSyncComplete}
+        />
       )}
 
       <div className="space-y-6">

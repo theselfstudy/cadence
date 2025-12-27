@@ -5,14 +5,15 @@
 import type { StoredEntry, UserSettings, SheetColumn } from '@/types';
 import { PRODUCT_OPTIONS } from '@/lib/constants';
 
+
+// Entry sheet naming: TrackWell-YYYY-MM (e.g., TrackWell-2024-01)
+export const ENTRIES_SHEET_PREFIX = "TrackWell";
+
 // ============================================
 // SHEET NAMES & CONFIGURATION
 // ============================================
 
 const SETTINGS_SHEET_NAME = ".TrackWell-settings";
-
-// Entry sheet naming: TrackWell-YYYY-MM (e.g., TrackWell-2024-01)
-const ENTRIES_SHEET_PREFIX = "TrackWell";
 
 /**
  * Generates the sheet name for a given date's month.
@@ -1136,4 +1137,221 @@ export async function appendEntryToSheet(
 export function getSpreadsheetIdFromUrl(url: string): string | null {
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : null;
+}
+
+// ============================================
+// BATCH SYNC OPERATIONS
+// ============================================
+
+/**
+ * Gets all entry IDs already present in the sheet for a specific month.
+ * Used to detect duplicates before syncing.
+ * 
+ * Note: We store entry IDs in a hidden column or check by date+time combo.
+ * For simplicity, we'll check by Date + Start Time + End Time as a unique key.
+ */
+export async function getExistingEntryKeys(
+  spreadsheetId: string,
+  accessToken: string,
+  sheetName: string
+): Promise<Set<string>> {
+  const existingKeys = new Set<string>();
+  
+  try {
+    // Get all data from the sheet (Date, Start Time, End Time columns)
+    const range = `'${sheetName}'!A:C`;
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      // Sheet might not exist yet, that's fine
+      return existingKeys;
+    }
+
+    const data = await response.json();
+    const rows = data.values ?? [];
+    
+    // Skip header row, create keys from Date+StartTime+EndTime
+    for (let i = 1; i < rows.length; i++) {
+      const [date, startTime, endTime] = rows[i];
+      if (date && startTime && endTime) {
+        const key = `${date}|${startTime}|${endTime}`;
+        existingKeys.add(key);
+      }
+    }
+    
+    return existingKeys;
+  } catch (error) {
+    console.error('Error getting existing entry keys:', error);
+    return existingKeys;
+  }
+}
+
+/**
+ * Creates a unique key for an entry to check for duplicates.
+ */
+export function createEntryKey(entry: StoredEntry): string {
+  return `${entry.date}|${entry.startTime}|${entry.endTime}`;
+}
+
+/**
+ * Groups entries by their target monthly sheet.
+ */
+export function groupEntriesByMonth(entries: StoredEntry[]): Map<string, StoredEntry[]> {
+  const grouped = new Map<string, StoredEntry[]>();
+  
+  for (const entry of entries) {
+    const entryDate = new Date(entry.date);
+    const year = entryDate.getFullYear();
+    const month = (entryDate.getMonth() + 1).toString().padStart(2, '0');
+    const sheetName = `${ENTRIES_SHEET_PREFIX}-${year}-${month}`;
+    
+    if (!grouped.has(sheetName)) {
+      grouped.set(sheetName, []);
+    }
+    grouped.get(sheetName)!.push(entry);
+  }
+  
+  return grouped;
+}
+
+/**
+ * Appends multiple entries to a sheet in a single batch operation.
+ * More efficient than appending one at a time.
+ */
+export async function appendEntriesToSheet(
+  entries: StoredEntry[],
+  settings: UserSettings,
+  spreadsheetId: string,
+  accessToken: string,
+  sheetName: string,
+  existingKeys: Set<string>
+): Promise<{ 
+  success: boolean; 
+  syncedIds: string[]; 
+  skippedIds: string[]; 
+  failedIds: string[];
+  error?: string;
+}> {
+  const syncedIds: string[] = [];
+  const skippedIds: string[] = [];
+  const failedIds: string[] = [];
+  
+  // Filter out duplicates
+  const entriesToSync = entries.filter(entry => {
+    const key = createEntryKey(entry);
+    if (existingKeys.has(key)) {
+      skippedIds.push(entry.id);
+      return false;
+    }
+    return true;
+  });
+  
+  if (entriesToSync.length === 0) {
+    return { success: true, syncedIds, skippedIds, failedIds };
+  }
+  
+  try {
+    // Build canonical columns based on current settings
+    const canonicalColumns = buildCanonicalColumns(settings);
+    const canonicalHeaders = canonicalColumns.map(c => c.header);
+
+    // Get existing headers (or null if sheet doesn't exist)
+    let existingHeaders = await getEntriesSheetHeaders(spreadsheetId, accessToken, sheetName);
+
+    // Create sheet if it doesn't exist
+    if (existingHeaders === null) {
+      const created = await createEntriesSheet(spreadsheetId, accessToken, canonicalHeaders, sheetName);
+      if (!created) {
+        // Mark all as failed
+        entries.forEach(e => failedIds.push(e.id));
+        return { success: false, syncedIds, skippedIds, failedIds, error: 'Failed to create sheet' };
+      }
+      existingHeaders = canonicalHeaders;
+    }
+
+    // Reconcile headers
+    const { finalHeaders, columnsToInsert } = reconcileHeaders(existingHeaders, canonicalColumns);
+
+    // Insert any new columns
+    if (columnsToInsert.length > 0) {
+      const sheetId = await getEntriesSheetId(spreadsheetId, accessToken, sheetName);
+      if (sheetId !== null) {
+        await insertSheetColumns(spreadsheetId, accessToken, sheetId, columnsToInsert, sheetName);
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A1?valueInputOption=RAW`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              values: [finalHeaders],
+            }),
+          }
+        );
+      }
+    }
+
+    // Build all row data
+    const rows: (string | number)[][] = entriesToSync.map(entry => {
+      return finalHeaders.map(header => {
+        const column = canonicalColumns.find(c => c.header === header);
+        if (column) {
+          return column.getValue(entry);
+        }
+        return '';
+      });
+    });
+
+    // Batch append all rows at once
+    const appendResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A:A:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          values: rows,
+        }),
+      }
+    );
+
+    if (!appendResponse.ok) {
+      const error = await appendResponse.json();
+      console.error('Error batch appending entries:', error);
+      entries.forEach(e => failedIds.push(e.id));
+      return { 
+        success: false, 
+        syncedIds, 
+        skippedIds, 
+        failedIds, 
+        error: error.error?.message || 'Failed to append entries' 
+      };
+    }
+
+    // All succeeded
+    entriesToSync.forEach(e => syncedIds.push(e.id));
+    
+    return { success: true, syncedIds, skippedIds, failedIds };
+  } catch (error) {
+    console.error('Error in appendEntriesToSheet:', error);
+    entries.forEach(e => failedIds.push(e.id));
+    return { 
+      success: false, 
+      syncedIds, 
+      skippedIds, 
+      failedIds, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
 }
