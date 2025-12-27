@@ -5,16 +5,50 @@
 import type { StoredEntry, UserSettings, SheetColumn } from '@/types';
 import { PRODUCT_OPTIONS } from '@/lib/constants';
 
-// Sheet names
+// ============================================
+// SHEET NAMES & CONFIGURATION
+// ============================================
+
 const SETTINGS_SHEET_NAME = ".TrackWell-settings";
-const ENTRIES_SHEET_NAME = "TrackWell-Entries";
+
+// Entry sheet naming: TrackWell-YYYY-MM (e.g., TrackWell-2024-01)
+const ENTRIES_SHEET_PREFIX = "TrackWell";
+
+/**
+ * Generates the sheet name for a given date's month.
+ * Format: TrackWell-YYYY-MM
+ */
+function getEntriesSheetName(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${ENTRIES_SHEET_PREFIX}-${year}-${month}`;
+}
+
+/**
+ * Parses a sheet name to extract year and month.
+ * Returns null if not a valid entries sheet name.
+ */
+function parseEntriesSheetName(sheetName: string): { year: number; month: number } | null {
+  const match = sheetName.match(/^TrackWell-(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  return {
+    year: parseInt(match[1], 10),
+    month: parseInt(match[2], 10),
+  };
+}
+
+/**
+ * Checks if a sheet name is a TrackWell entries sheet.
+ */
+function isEntriesSheet(sheetName: string): boolean {
+  return parseEntriesSheetName(sheetName) !== null;
+}
 
 // Ranges
 const SETTINGS_RANGE = `${SETTINGS_SHEET_NAME}!A1`;
-const ENTRIES_HEADERS_RANGE = `'${ENTRIES_SHEET_NAME}'!1:1`;
 
 // ============================================
-// SETTINGS FUNCTIONS (existing)
+// SETTINGS FUNCTIONS
 // ============================================
 
 /**
@@ -155,7 +189,6 @@ export async function deleteSettingsSheet(
   accessToken: string
 ): Promise<boolean> {
   try {
-    // First, get the sheet ID for the settings sheet
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
       {
@@ -177,14 +210,12 @@ export async function deleteSettingsSheet(
     );
 
     if (!settingsSheet) {
-      // Sheet doesn't exist, nothing to delete
       console.log("Settings sheet not found, nothing to delete");
       return true;
     }
 
     const sheetId = settingsSheet.properties.sheetId;
 
-    // Delete the sheet
     const deleteResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
       {
@@ -220,7 +251,196 @@ export async function deleteSettingsSheet(
 }
 
 // ============================================
-// ENTRIES FUNCTIONS (new)
+// MONTHLY TAB MANAGEMENT
+// ============================================
+
+/**
+ * Gets all TrackWell entry sheet tabs from the spreadsheet.
+ * Returns array of { name, sheetId, year, month, hidden }
+ */
+export async function getAllEntriesSheets(
+  spreadsheetId: string,
+  accessToken: string
+): Promise<Array<{
+  name: string;
+  sheetId: number;
+  year: number;
+  month: number;
+  hidden: boolean;
+}>> {
+  try {
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Failed to get spreadsheet info");
+      return [];
+    }
+
+    const data = await response.json();
+    const entriesSheets: Array<{
+      name: string;
+      sheetId: number;
+      year: number;
+      month: number;
+      hidden: boolean;
+    }> = [];
+
+    for (const sheet of data.sheets ?? []) {
+      const name = sheet.properties.title;
+      const parsed = parseEntriesSheetName(name);
+      if (parsed) {
+        entriesSheets.push({
+          name,
+          sheetId: sheet.properties.sheetId,
+          year: parsed.year,
+          month: parsed.month,
+          hidden: sheet.properties.hidden ?? false,
+        });
+      }
+    }
+
+    // Sort by date descending (most recent first)
+    entriesSheets.sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
+    });
+
+    return entriesSheets;
+  } catch (error) {
+    console.error("Error getting entries sheets:", error);
+    return [];
+  }
+}
+
+/**
+ * Hides old monthly tabs. Called after successfully appending to current month.
+ * Hides tabs that are:
+ * - Not the current month
+ * - We're at least 7 days into the current month
+ */
+export async function hideOldMonthlyTabs(
+  spreadsheetId: string,
+  accessToken: string
+): Promise<void> {
+  const now = new Date();
+  const currentDay = now.getDate();
+  
+  // Only hide old tabs if we're 7+ days into the month
+  if (currentDay < 7) {
+    return;
+  }
+
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  try {
+    const allSheets = await getAllEntriesSheets(spreadsheetId, accessToken);
+    
+    const sheetsToHide = allSheets.filter(sheet => {
+      // Don't hide current month
+      if (sheet.year === currentYear && sheet.month === currentMonth) {
+        return false;
+      }
+      // Don't hide already hidden sheets
+      if (sheet.hidden) {
+        return false;
+      }
+      return true;
+    });
+
+    if (sheetsToHide.length === 0) {
+      return;
+    }
+
+    const requests = sheetsToHide.map(sheet => ({
+      updateSheetProperties: {
+        properties: {
+          sheetId: sheet.sheetId,
+          hidden: true,
+        },
+        fields: 'hidden',
+      },
+    }));
+
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ requests }),
+      }
+    );
+
+    console.log(`Hidden ${sheetsToHide.length} old monthly tab(s)`);
+  } catch (error) {
+    // Non-critical error - don't fail the main operation
+    console.error("Error hiding old tabs:", error);
+  }
+}
+
+/**
+ * Unhides a specific monthly tab (for viewing old data).
+ */
+export async function unhideMonthlyTab(
+  spreadsheetId: string,
+  accessToken: string,
+  year: number,
+  month: number
+): Promise<boolean> {
+  try {
+    const allSheets = await getAllEntriesSheets(spreadsheetId, accessToken);
+    const targetSheet = allSheets.find(s => s.year === year && s.month === month);
+    
+    if (!targetSheet) {
+      console.log(`Sheet for ${year}-${month} not found`);
+      return false;
+    }
+
+    if (!targetSheet.hidden) {
+      return true; // Already visible
+    }
+
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [{
+            updateSheetProperties: {
+              properties: {
+                sheetId: targetSheet.sheetId,
+                hidden: false,
+              },
+              fields: 'hidden',
+            },
+          }],
+        }),
+      }
+    );
+
+    return true;
+  } catch (error) {
+    console.error("Error unhiding tab:", error);
+    return false;
+  }
+}
+
+// ============================================
+// COLUMN BUILDING
 // ============================================
 
 /**
@@ -356,18 +576,14 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
 
   // ─────────────────────────────────────────
   // SECTION 5: General Symptoms (append-only)
-  // All general symptoms grouped together: defaults first, then custom
   // ─────────────────────────────────────────
   if (settings.symptoms.enabled && settings.symptoms.intensityTracking.enabled) {
-    // Collect all general symptoms (selected built-in + custom)
-    // Exclude symptoms that are ONLY period symptoms
     const periodOnlySymptoms = new Set(
       settings.periodTracking.customPeriodSymptoms.filter(
         s => !settings.symptoms.custom.includes(s)
       )
     );
 
-    // First: selected built-in symptoms (in their selection order)
     for (const symptom of settings.symptoms.selected) {
       if (periodOnlySymptoms.has(symptom)) continue;
       
@@ -378,8 +594,6 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
       });
     }
 
-    // Then: custom general symptoms that weren't already added via selected
-    // (This handles the case where custom symptoms aren't in 'selected' yet)
     for (const symptom of settings.symptoms.custom) {
       if (!settings.symptoms.selected.includes(symptom)) {
         columns.push({
@@ -393,10 +607,8 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
 
   // ─────────────────────────────────────────
   // SECTION 6: Period Symptoms (append-only)
-  // All period symptoms grouped together: selected first, then custom-only
   // ─────────────────────────────────────────
   if (settings.periodTracking.enabled) {
-    // First: symptoms selected for period tracking (may overlap with general)
     for (const symptom of settings.periodTracking.periodSymptoms) {
       columns.push({
         header: `Per. Sym: ${symptom}`,
@@ -405,7 +617,6 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
       });
     }
 
-    // Then: custom period symptoms not already in periodSymptoms
     for (const symptom of settings.periodTracking.customPeriodSymptoms) {
       if (!settings.periodTracking.periodSymptoms.includes(symptom)) {
         columns.push({
@@ -452,17 +663,25 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   return columns;
 }
 
+// ============================================
+// ENTRIES SHEET OPERATIONS
+// ============================================
+
 /**
- * Gets the existing headers from the entries sheet.
+ * Gets the existing headers from a specific entries sheet.
  * Returns null if the sheet doesn't exist.
  */
 export async function getEntriesSheetHeaders(
   spreadsheetId: string,
-  accessToken: string
+  accessToken: string,
+  sheetName?: string
 ): Promise<string[] | null> {
+  const targetSheet = sheetName ?? getEntriesSheetName();
+  const range = `'${targetSheet}'!1:1`;
+  
   try {
     const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(ENTRIES_HEADERS_RANGE)}`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -472,7 +691,6 @@ export async function getEntriesSheetHeaders(
 
     if (!response.ok) {
       const error = await response.json();
-      // Sheet doesn't exist
       if (error.error?.status === 'NOT_FOUND' || response.status === 400) {
         return null;
       }
@@ -488,13 +706,16 @@ export async function getEntriesSheetHeaders(
 }
 
 /**
- * Creates the entries sheet with headers based on current settings.
+ * Creates an entries sheet for a specific month with headers.
  */
 export async function createEntriesSheet(
   spreadsheetId: string,
   accessToken: string,
-  headers: string[]
+  headers: string[],
+  sheetName?: string
 ): Promise<boolean> {
+  const targetSheet = sheetName ?? getEntriesSheetName();
+  
   try {
     // First, create the sheet
     const createResponse = await fetch(
@@ -510,7 +731,7 @@ export async function createEntriesSheet(
             {
               addSheet: {
                 properties: {
-                  title: ENTRIES_SHEET_NAME,
+                  title: targetSheet,
                   hidden: false,
                 },
               },
@@ -522,7 +743,6 @@ export async function createEntriesSheet(
 
     if (!createResponse.ok) {
       const error = await createResponse.json();
-      // Sheet might already exist
       if (!error.error?.message?.includes('already exists')) {
         console.error('Error creating entries sheet:', error);
         return false;
@@ -531,7 +751,7 @@ export async function createEntriesSheet(
 
     // Then, add headers
     const headersResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!A1?valueInputOption=RAW`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${targetSheet}'!A1?valueInputOption=RAW`,
       {
         method: 'PUT',
         headers: {
@@ -558,12 +778,6 @@ export async function createEntriesSheet(
 
 /**
  * Reconciles existing sheet headers with canonical headers from current settings.
- * 
- * Rules:
- * 1. Fixed columns (Date, Start, End, Pain Scale, Notes) maintain their positions
- * 2. New dynamic columns are APPENDED to the end of their section
- * 3. Existing columns that are no longer in settings are LEFT IN PLACE (for historical data)
- * 4. Column order in the sheet is preserved - we only add, never remove or reorder
  */
 export function reconcileHeaders(
   existingHeaders: string[],
@@ -577,28 +791,23 @@ export function reconcileHeaders(
   const finalHeaders = [...existingHeaders];
   const columnsToInsert: Array<{ header: string; position: number }> = [];
 
-  // Define section boundaries for insertion
-  // Order matters: this is the order sections appear in the sheet
   const sectionOrder: SheetColumn['section'][] = [
-    'metadata',       // Date, Start Time, End Time, Pain Scale (fixed)
-    'stool',          // Stool: Type, Stool: Feeling
-    'period',         // Cycle Phase, Period: Flow
-    'products',       // Product: X, Product: Y...
-    'symptoms',       // Gen. Sym: A, Gen. Sym: B...
-    'periodSymptoms', // Per. Sym: A, Per. Sym: B...
-    'medicines',      // Med: X, Med: Y...
-    'closing',        // Notes (fixed at end)
+    'metadata',
+    'stool',
+    'period',
+    'products',
+    'symptoms',
+    'periodSymptoms',
+    'medicines',
+    'closing',
   ];
 
-  // Helper: find the last column index of a given section in the current headers
   const findSectionEndIndex = (section: SheetColumn['section']): number => {
     let lastIndex = -1;
     
     for (let i = 0; i < finalHeaders.length; i++) {
       const header = finalHeaders[i];
       const column = canonicalColumns.find(c => c.header === header);
-      
-      // Also check existing columns that might not be in canonical anymore
       const inferredSection = inferSectionFromHeader(header);
       
       if (column?.section === section || inferredSection === section) {
@@ -609,19 +818,15 @@ export function reconcileHeaders(
     return lastIndex;
   };
 
-  // Helper: find where a section SHOULD start (after previous sections)
   const findSectionInsertPoint = (section: SheetColumn['section']): number => {
     const sectionIdx = sectionOrder.indexOf(section);
     
-    // Special case: Notes always goes at the very end
     if (section === 'closing') {
-      // Find if Notes already exists
       const notesIdx = finalHeaders.indexOf('Notes');
       if (notesIdx !== -1) return notesIdx;
       return finalHeaders.length;
     }
     
-    // Find the end of the previous section, or start of next section
     for (let i = sectionIdx - 1; i >= 0; i--) {
       const prevSectionEnd = findSectionEndIndex(sectionOrder[i]);
       if (prevSectionEnd !== -1) {
@@ -629,41 +834,28 @@ export function reconcileHeaders(
       }
     }
     
-    // No previous sections found, insert after metadata
-    // Metadata is always first 4 columns
     return 4;
   };
 
-  // Process each canonical column
   for (const column of canonicalColumns) {
     if (!existingSet.has(column.header)) {
-      // This is a new column - need to insert it
-      
       let insertPosition: number;
       
       if (column.section === 'closing') {
-        // Notes always at the end
         insertPosition = finalHeaders.length;
       } else if (column.section === 'metadata') {
-        // Metadata columns should be at fixed positions (0-3)
-        // But if sheet already exists, they should already be there
-        // This handles edge case of upgrading old sheets
         const metadataHeaders = ['Date', 'Start Time', 'End Time', 'Pain Scale'];
         insertPosition = metadataHeaders.indexOf(column.header);
-        if (insertPosition === -1) insertPosition = 4; // After metadata
+        if (insertPosition === -1) insertPosition = 4;
       } else {
-        // Dynamic section: append at end of its section
         const sectionEnd = findSectionEndIndex(column.section);
         
         if (sectionEnd !== -1) {
-          // Section exists, append after last column in section
           insertPosition = sectionEnd + 1;
         } else {
-          // Section doesn't exist yet, find where it should go
           insertPosition = findSectionInsertPoint(column.section);
         }
         
-        // Make sure we don't insert after Notes
         const notesIdx = finalHeaders.indexOf('Notes');
         if (notesIdx !== -1 && insertPosition > notesIdx) {
           insertPosition = notesIdx;
@@ -685,8 +877,6 @@ export function reconcileHeaders(
 
 /**
  * Infers the section of a header based on its prefix.
- * Used for columns that exist in the sheet but aren't in current settings
- * (e.g., archived symptoms).
  */
 function inferSectionFromHeader(header: string): SheetColumn['section'] | null {
   if (header === 'Date' || header === 'Start Time' || header === 'End Time' || header === 'Pain Scale') {
@@ -723,12 +913,14 @@ export async function insertSheetColumns(
   spreadsheetId: string,
   accessToken: string,
   sheetId: number,
-  columnsToInsert: Array<{ header: string; position: number }>
+  columnsToInsert: Array<{ header: string; position: number }>,
+  sheetName?: string
 ): Promise<boolean> {
   if (columnsToInsert.length === 0) return true;
+  
+  const targetSheet = sheetName ?? getEntriesSheetName();
 
   try {
-    // Sort by position descending so insertions don't affect other positions
     const sortedColumns = [...columnsToInsert].sort((a, b) => b.position - a.position);
 
     const requests = sortedColumns.map(col => ({
@@ -743,7 +935,6 @@ export async function insertSheetColumns(
       },
     }));
 
-    // First, insert the columns
     const insertResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
       {
@@ -761,12 +952,10 @@ export async function insertSheetColumns(
       return false;
     }
 
-    // Then, update the header row with new column names
-    // We need to update each new column's header
     for (const col of columnsToInsert) {
       const columnLetter = getColumnLetter(col.position);
       const updateResponse = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!${columnLetter}1?valueInputOption=RAW`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${targetSheet}'!${columnLetter}1?valueInputOption=RAW`,
         {
           method: 'PUT',
           headers: {
@@ -807,12 +996,15 @@ function getColumnLetter(index: number): string {
 }
 
 /**
- * Gets the sheet ID for the entries sheet.
+ * Gets the sheet ID for a specific entries sheet.
  */
 export async function getEntriesSheetId(
   spreadsheetId: string,
-  accessToken: string
+  accessToken: string,
+  sheetName?: string
 ): Promise<number | null> {
+  const targetSheet = sheetName ?? getEntriesSheetName();
+  
   try {
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
@@ -830,7 +1022,7 @@ export async function getEntriesSheetId(
     const data = await response.json();
     const entriesSheet = data.sheets?.find(
       (sheet: { properties: { title: string } }) => 
-        sheet.properties.title === ENTRIES_SHEET_NAME
+        sheet.properties.title === targetSheet
     );
 
     return entriesSheet?.properties?.sheetId ?? null;
@@ -841,7 +1033,7 @@ export async function getEntriesSheetId(
 }
 
 /**
- * Appends an entry row to the entries sheet.
+ * Appends an entry row to the entries sheet for the current month.
  * This is the main function called when submitting an entry.
  */
 export async function appendEntryToSheet(
@@ -850,17 +1042,21 @@ export async function appendEntryToSheet(
   spreadsheetId: string,
   accessToken: string
 ): Promise<{ success: boolean; error?: string }> {
+  // Determine which month's sheet to use based on entry date
+  const entryDate = new Date(entry.date);
+  const sheetName = getEntriesSheetName(entryDate);
+  
   try {
     // Step 1: Build canonical columns based on current settings
     const canonicalColumns = buildCanonicalColumns(settings);
     const canonicalHeaders = canonicalColumns.map(c => c.header);
 
     // Step 2: Get existing headers (or null if sheet doesn't exist)
-    let existingHeaders = await getEntriesSheetHeaders(spreadsheetId, accessToken);
+    let existingHeaders = await getEntriesSheetHeaders(spreadsheetId, accessToken, sheetName);
 
     // Step 3: Create sheet if it doesn't exist
     if (existingHeaders === null) {
-      const created = await createEntriesSheet(spreadsheetId, accessToken, canonicalHeaders);
+      const created = await createEntriesSheet(spreadsheetId, accessToken, canonicalHeaders, sheetName);
       if (!created) {
         return { success: false, error: 'Failed to create entries sheet' };
       }
@@ -872,12 +1068,11 @@ export async function appendEntryToSheet(
 
     // Step 5: Insert any new columns
     if (columnsToInsert.length > 0) {
-      const sheetId = await getEntriesSheetId(spreadsheetId, accessToken);
+      const sheetId = await getEntriesSheetId(spreadsheetId, accessToken, sheetName);
       if (sheetId !== null) {
-        await insertSheetColumns(spreadsheetId, accessToken, sheetId, columnsToInsert);
-        // Update header row with all headers
+        await insertSheetColumns(spreadsheetId, accessToken, sheetId, columnsToInsert, sheetName);
         await fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!A1?valueInputOption=RAW`,
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A1?valueInputOption=RAW`,
           {
             method: 'PUT',
             headers: {
@@ -898,14 +1093,12 @@ export async function appendEntryToSheet(
       if (column) {
         return column.getValue(entry);
       }
-      // Column exists in sheet but not in current settings (disabled feature)
-      // Return empty string to preserve column alignment
       return '';
     });
 
-    // Step 7: Append the row using the APPEND endpoint (this adds, doesn't overwrite)
+    // Step 7: Append the row
     const appendResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${ENTRIES_SHEET_NAME}'!A:A:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sheetName}'!A:A:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
       {
         method: 'POST',
         headers: {
@@ -923,6 +1116,9 @@ export async function appendEntryToSheet(
       console.error('Error appending entry:', error);
       return { success: false, error: error.error?.message || 'Failed to append entry' };
     }
+
+    // Step 8: Hide old monthly tabs (if conditions are met)
+    await hideOldMonthlyTabs(spreadsheetId, accessToken);
 
     return { success: true };
   } catch (error) {
