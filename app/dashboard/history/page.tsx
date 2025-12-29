@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
+import { useHistoryFilters } from "@/hooks/useHistoryFilters";
+import { FilterBar } from "@/components/history";
 import type { StoredEntry, TimeFormat } from "@/types";
 import { BRISTOL_TYPES, POST_BOWEL_FEELINGS, CYCLE_PHASES } from "@/lib/constants";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -54,6 +56,7 @@ export default function HistoryPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [showStats, setShowStats] = useState(true);
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   // Pagination state
   const [visibleCount, setVisibleCount] = useState(ENTRIES_PER_PAGE);
@@ -63,34 +66,9 @@ export default function HistoryPage() {
     imported: number;
     skipped: number;
   } | null>(null);
-  
-  // Check if user should see backup prompt (anonymous mode, has entries, hasn't dismissed recently)
-  useEffect(() => {
-    setIsClient(true);
-    
-    // Show backup prompt for anonymous users with entries
-    if (!isGoogleSheetConnected && entries.length > 0) {
-      const lastDismissed = localStorage.getItem("trackwell-backup-prompt-dismissed");
-      if (!lastDismissed) {
-        setShowBackupPrompt(true);
-      } else {
-        // Show again after 7 days
-        const dismissed = new Date(lastDismissed);
-        const daysSince = (Date.now() - dismissed.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysSince > 7) {
-          setShowBackupPrompt(true);
-        }
-      }
-    }
-  }, [isGoogleSheetConnected, entries.length]);
-  
-  // Reset pagination when filters change
-  useEffect(() => {
-    setVisibleCount(ENTRIES_PER_PAGE);
-  }, [dateRangeFilter, customRange]);
-  
-  // Filter entries based on date range
-  const filteredEntries = useMemo(() => {
+
+  // Date-filtered entries (before advanced filters)
+  const dateFilteredEntries = useMemo(() => {
     const now = new Date();
     now.setHours(23, 59, 59, 999); // End of today
     
@@ -138,6 +116,58 @@ export default function HistoryPage() {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [entries, dateRangeFilter, customRange]);
+
+  // Advanced filters hook - operates on date-filtered entries
+  const {
+    filters,
+    filteredEntries,
+    activeFilters,
+    activeFilterCount,
+    categoryFilterCounts,
+    availableOptions,
+    hasFilters,
+    toggleSymptom,
+    toggleCyclePhase,
+    toggleFlowLevel,
+    toggleBristolType,
+    toggleFeeling,
+    toggleMedicine,
+    removeFilter,
+    clearCategory,
+    clearAllFilters,
+  } = useHistoryFilters(dateFilteredEntries);
+  
+  // Check if user should see backup prompt (anonymous mode, has entries, hasn't dismissed recently)
+  useEffect(() => {
+    setIsClient(true);
+    
+    // Show backup prompt for anonymous users with entries
+    if (!isGoogleSheetConnected && entries.length > 0) {
+      const lastDismissed = localStorage.getItem("trackwell-backup-prompt-dismissed");
+      if (!lastDismissed) {
+        setShowBackupPrompt(true);
+      } else {
+        // Show again after 7 days
+        const dismissed = new Date(lastDismissed);
+        const daysSince = (Date.now() - dismissed.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSince > 7) {
+          setShowBackupPrompt(true);
+        }
+      }
+    }
+  }, [isGoogleSheetConnected, entries.length]);
+  
+  // Reset pagination when filters change
+  useEffect(() => {
+    setVisibleCount(ENTRIES_PER_PAGE);
+  }, [dateRangeFilter, customRange, filters]);
+
+  // Auto-expand advanced filters when filters are active
+  useEffect(() => {
+    if (hasFilters && !showAdvancedFilters) {
+      setShowAdvancedFilters(true);
+    }
+  }, [hasFilters]);
   
   // Get visible entries for pagination
   const visibleEntries = useMemo(() => {
@@ -223,6 +253,11 @@ export default function HistoryPage() {
           <p className="text-app-gray">
             {filteredEntries.length} of {entries.length} entries
             {dateRangeFilter !== "all" && ` (${getFilterLabel(dateRangeFilter)})`}
+            {activeFilterCount > 0 && (
+              <span className="text-app-teal">
+                {" "}· {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active
+              </span>
+            )}
           </p>
         </div>
         
@@ -293,7 +328,7 @@ export default function HistoryPage() {
         
         {/* Refresh result notification */}
         {refreshResult && (
-          <div className="mt-2 p-2 bg-app-green/10 rounded-lg text-sm text-app-green flex items-center gap-2">
+          <div className="mt-2 p-2 bg-app-teal/10 rounded-lg text-sm text-app-teal flex items-center gap-2">
             <span>✓</span>
             <span>
               {refreshResult.imported > 0 
@@ -359,8 +394,7 @@ export default function HistoryPage() {
                 </svg>
               </button>
             </div>
-            
-            {/* Stats Toggle */}
+                        {/* Stats Toggle */}
             <button
               onClick={() => setShowStats(!showStats)}
               className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
@@ -401,6 +435,51 @@ export default function HistoryPage() {
             </div>
           </div>
         )}
+
+        {/* Advanced Filters Toggle */}
+        <div className="mt-4 pt-4 border-t border-app-border">
+          <button
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="flex items-center gap-2 text-sm text-app-charcoal hover:text-app-teal transition-colors"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform ${showAdvancedFilters ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span>Advanced Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="px-1.5 py-0.5 text-xs bg-app-teal text-white rounded-full">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          {/* Advanced Filters Content */}
+          {showAdvancedFilters && (
+            <div className="mt-4">
+              <FilterBar
+                filters={filters}
+                availableOptions={availableOptions}
+                activeFilters={activeFilters}
+                categoryFilterCounts={categoryFilterCounts}
+                hasFilters={hasFilters}
+                toggleSymptom={toggleSymptom}
+                toggleCyclePhase={toggleCyclePhase}
+                toggleFlowLevel={toggleFlowLevel}
+                toggleBristolType={toggleBristolType}
+                toggleFeeling={toggleFeeling}
+                toggleMedicine={toggleMedicine}
+                removeFilter={removeFilter}
+                clearCategory={clearCategory}
+                clearAllFilters={clearAllFilters}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Summary Statistics Panel */}
@@ -410,7 +489,12 @@ export default function HistoryPage() {
 
       {/* Entries Display */}
       {filteredEntries.length === 0 ? (
-        <EmptyState hasAnyEntries={entries.length > 0} />
+        <EmptyState 
+          hasAnyEntries={entries.length > 0} 
+          hasDateFilteredEntries={dateFilteredEntries.length > 0}
+          hasActiveFilters={hasFilters}
+          onClearFilters={clearAllFilters}
+        />
       ) : viewMode === "cards" ? (
         <div className="space-y-4">
           {/* Card List */}
@@ -835,7 +919,7 @@ function SummaryTableRow({ entry, timeFormat }: { entry: StoredEntry; timeFormat
       {/* Medicines */}
       <td className="p-3 whitespace-nowrap">
         {medCount > 0 ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-app-taupe/20 text-app-taupe text-xs rounded-full">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-app-taupe/20 text-app-charcoal text-xs rounded-full">
             {medCount} taken
           </span>
         ) : (
@@ -981,7 +1065,7 @@ function EntryCard({ entry, timeFormat }: EntryCardProps) {
           </span>
         )}
         {medicineCount > 0 && (
-          <span className="text-xs bg-app-taupe/20 text-app-taupe px-2 py-1 rounded-full">
+          <span className="text-xs bg-app-taupe/20 text-app-charcoal px-2 py-1 rounded-full">
             {medicineCount} medicine{medicineCount !== 1 ? "s" : ""}
           </span>
         )}
@@ -1152,20 +1236,57 @@ function DataRow({
   );
 }
 
-function EmptyState({ hasAnyEntries }: { hasAnyEntries: boolean }) {
+interface EmptyStateProps {
+  hasAnyEntries: boolean;
+  hasDateFilteredEntries: boolean;
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
+}
+
+function EmptyState({ 
+  hasAnyEntries, 
+  hasDateFilteredEntries, 
+  hasActiveFilters,
+  onClearFilters 
+}: EmptyStateProps) {
+  // Determine which message to show
+  const getMessage = () => {
+    if (!hasAnyEntries) {
+      return {
+        title: "No entries yet",
+        description: "Start logging to see your history here",
+        showLogButton: true,
+      };
+    }
+    
+    if (hasActiveFilters && hasDateFilteredEntries) {
+      return {
+        title: "No entries match your filters",
+        description: "Try adjusting or clearing your filters to see more entries",
+        showClearFilters: true,
+      };
+    }
+    
+    return {
+      title: "No entries in this date range",
+      description: "Try adjusting your date filters or select 'All Time'",
+      showLogButton: false,
+    };
+  };
+
+  const message = getMessage();
+
   return (
     <div className="card text-center py-12">
       <span className="text-4xl block mb-4">📋</span>
       <h3 className="text-lg font-semibold text-app-charcoal mb-2">
-        {hasAnyEntries ? "No entries in this date range" : "No entries yet"}
+        {message.title}
       </h3>
       <p className="text-app-gray mb-4">
-        {hasAnyEntries 
-          ? "Try adjusting your date filters or select 'All Time'"
-          : "Start logging to see your history here"
-        }
+        {message.description}
       </p>
-      {!hasAnyEntries && (
+      
+      {message.showLogButton && (
         <Link
           href="/entry"
           className="inline-flex items-center gap-2 px-6 py-3 bg-app-teal text-white font-medium rounded-lg hover:bg-app-teal/90 transition-colors"
@@ -1175,6 +1296,18 @@ function EmptyState({ hasAnyEntries }: { hasAnyEntries: boolean }) {
           </svg>
           Log Your First Entry
         </Link>
+      )}
+      
+      {message.showClearFilters && (
+        <button
+          onClick={onClearFilters}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-app-teal text-white font-medium rounded-lg hover:bg-app-teal/90 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Clear All Filters
+        </button>
       )}
     </div>
   );

@@ -21,8 +21,8 @@ interface FeatureInfo {
 const FEATURES: FeatureInfo[] = [
   {
     icon: "🏷️",
-    label: "Symptom Tracking",
-    description: "Log and monitor symptoms with optional intensity tracking.",
+    label: "Log Symptoms",
+    description: "Log and monitor symptoms with optional intensity logging.",
     bullets: [
       "Choose from common symptoms or add custom ones",
       "Track intensity using Simple or Mankoski pain scales",
@@ -32,7 +32,7 @@ const FEATURES: FeatureInfo[] = [
   },
   {
     icon: "🧻",
-    label: "Bowel Health",
+    label: "Track Bowel Health",
     description: "Track bowel movements using the Bristol Stool Scale.",
     bullets: [
       "Log stool type (1-7 on Bristol Scale)",
@@ -43,7 +43,7 @@ const FEATURES: FeatureInfo[] = [
   },
   {
     icon: "🌸",
-    label: "Cycle Logging",
+    label: "See Your Cycles",
     description: "Comprehensive menstrual cycle and period tracking.",
     bullets: [
       "Track cycle phases (menstrual, follicular, ovulation, luteal)",
@@ -54,11 +54,11 @@ const FEATURES: FeatureInfo[] = [
   },
   {
     icon: "💊",
-    label: "Medicine Log",
+    label: "Log Medicine",
     description: "Keep track of medications and supplements.",
     bullets: [
-      "Add medicines with default dosages",
-      "Categorize by purpose (symptom, bowel, period, other)",
+      "Add custom medicine and dosages",
+      "Tag each medicine by purpose (symptom, bowel, period, other)",
       "Optional time tracking for time-sensitive meds",
     ],
     color: "app-taupe",
@@ -70,7 +70,17 @@ const FEATURES: FeatureInfo[] = [
     bullets: [
       "Weekly, monthly, and quarterly summaries",
       "Charts showing symptom frequency",
-      "Export data as CSV anytime",
+      "Add and save custom filters"
+    ],
+    color: "app-green",
+  },
+    {
+    icon: "💾",
+    label: "Export & Save",
+    description: "Export your data at any time.",
+    bullets: [
+      "Download all entries as a CSV to your device for safekeeping",
+      "Export data based on filters",
     ],
     color: "app-green",
   },
@@ -89,17 +99,17 @@ const PRIVACY_POINTS: PrivacyInfo[] = [
     description: "We don't store your data on our servers. Ever.",
   },
   {
-    icon: "🔒",
+    icon: "🚫",
     label: "No Data Selling",
     description: "Your health information is never sold or shared.",
   },
   {
-    icon: "👤",
+    icon: "🚫",
     label: "No Account Required",
     description: "Use anonymously or connect your own Google Sheet.",
   },
   {
-    icon: "🎯",
+    icon: "🚫",
     label: "No Tracking",
     description: "No analytics, no ads, no third-party trackers.",
   },
@@ -179,7 +189,7 @@ export default function WelcomePage() {
         {/* What You Can Track Section */}
         <div className="w-full max-w-2xl mx-auto mb-8">
           <h2 className="text-sm font-semibold text-app-gray uppercase tracking-wide mb-4">
-            What You Can Track
+            What You Can Do
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {FEATURES.map((feature) => (
@@ -191,7 +201,7 @@ export default function WelcomePage() {
         {/* What TrackWell Doesn't Do Section */}
         <div className="w-full max-w-2xl mx-auto mb-10">
           <h2 className="text-sm font-semibold text-app-gray uppercase tracking-wide mb-4">
-            Your Privacy, Protected
+            Your Privacy Protected
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {PRIVACY_POINTS.map((point) => (
@@ -220,11 +230,6 @@ export default function WelcomePage() {
             />
           </svg>
         </button>
-
-        {/* Privacy Note */}
-        <p className="text-xs text-app-gray mt-6 max-w-xs">
-          Your data stays yours. Choose to keep it local or sync to your own Google Sheet.
-        </p>
       </div>
     </>
   );

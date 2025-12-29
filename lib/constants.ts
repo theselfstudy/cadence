@@ -29,7 +29,7 @@ export const PAIN_SCALE_INFO = {
     name: "Simple 1-10 Scale",
     shortDescription: "A straightforward numeric scale",
     description:
-      "A general-purpose scale where 1 means minimal discomfort and 10 means the worst imaginable. Best for occasional symptom tracking and those new to symptom intensity journaling.",
+      "A general-purpose scale where 1 means minimal discomfort and 10 means the worst imaginable. Best for occasional symptom tracking or those new to symptom intensity journaling.",
     levels: [
       { value: 1, label: "Minimal" },
       { value: 2, label: "Mild" },

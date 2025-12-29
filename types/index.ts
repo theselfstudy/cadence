@@ -586,3 +586,66 @@ export interface ImportEntriesResult {
   /** Error message if failed */
   error?: string;
 }
+
+// ============================================
+// History Filter Types
+// ============================================
+
+/**
+ * Filter categories available in history view
+ */
+export type FilterCategory = "symptoms" | "cycle" | "bowel" | "medicine";
+
+/**
+ * Flow level options for period tracking
+ */
+export type FlowLevel = "spotting" | "light" | "medium" | "heavy";
+
+/**
+ * Complete filter state for history page
+ */
+export interface HistoryFilters {
+  /** Selected symptoms (includes both general and period symptoms) */
+  selectedSymptoms: string[];
+  
+  /** Selected cycle phases */
+  selectedCyclePhases: CyclePhase[];
+  
+  /** Selected flow levels */
+  selectedFlowLevels: FlowLevel[];
+  
+  /** Selected Bristol stool types */
+  selectedBristolTypes: BristolScaleType[];
+  
+  /** Selected post-bowel feelings */
+  selectedFeelings: PostBowelFeeling[];
+  
+  /** Selected medicine names */
+  selectedMedicines: string[];
+}
+
+/**
+ * Represents a single active filter for display as a chip
+ */
+export interface ActiveFilter {
+  /** Which category this filter belongs to */
+  category: FilterCategory;
+  /** Subcategory for removal logic (e.g., 'phase' vs 'flow' within cycle) */
+  type: "symptom" | "phase" | "flow" | "bristol" | "feeling" | "medicine";
+  /** The actual filter value */
+  value: string;
+  /** Human-readable label for display */
+  label: string;
+}
+
+/**
+ * Available filter options derived from entries
+ */
+export interface AvailableFilterOptions {
+  symptoms: string[];
+  cyclePhases: CyclePhase[];
+  flowLevels: FlowLevel[];
+  bristolTypes: BristolScaleType[];
+  feelings: PostBowelFeeling[];
+  medicines: string[];
+}
