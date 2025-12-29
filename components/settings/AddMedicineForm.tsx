@@ -22,7 +22,8 @@ export function AddMedicineForm({
   showValidationError = false,
 }: AddMedicineFormProps) {
   const [name, setName] = useState("");
-  const [dosage, setDosage] = useState("");
+  const [dosageInput, setDosageInput] = useState("");
+  const [dosages, setDosages] = useState<string[]>([]);
   const [categories, setCategories] = useState<MedicineCategory[]>([]);
   const [timeSensitive, setTimeSensitive] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
@@ -39,7 +40,6 @@ export function AddMedicineForm({
     setDuplicateMatch(null);
 
     if (value.trim()) {
-      // Check for similar existing items (fuzzy match)
       const similar = findSimilarItems(value.trim(), existingNames);
       if (similar.length > 0 && !existsCaseInsensitive(value.trim(), existingNames)) {
         setWarning(`Did you mean "${similar[0]}"?`);
@@ -47,23 +47,50 @@ export function AddMedicineForm({
     }
   };
 
+  // Add a dosage chip
+  const handleAddDosage = () => {
+    const trimmed = dosageInput.trim();
+    if (!trimmed) return;
+    
+    // Check for duplicates (case-insensitive)
+    if (dosages.some(d => d.toLowerCase() === trimmed.toLowerCase())) {
+      return;
+    }
+    
+    setDosages([...dosages, trimmed]);
+    setDosageInput("");
+  };
+
+  // Remove a dosage chip
+  const handleRemoveDosage = (dosage: string) => {
+    setDosages(dosages.filter(d => d !== dosage));
+  };
+
+  // Handle Enter key in dosage input
+  const handleDosageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddDosage();
+    }
+  };
+
   const handleSubmit = () => {
     if (!name.trim() || categories.length === 0 || !canAddMore) return;
 
     const trimmedName = name.trim();
-    const trimmedDosage = dosage.trim();
 
-    // Find any medicine with similar name (case-insensitive + fuzzy)
+    // Find any medicine with similar name
     const matchingMedicine = existingMedicines.find((m) => 
       isSimilar(m.name, trimmedName)
     );
 
     if (matchingMedicine) {
-      // Check if exact same medicine (same name AND same dosage)
-      const exactDosageMatch = (matchingMedicine.dosage || "").toLowerCase() === trimmedDosage.toLowerCase();
+      // Check if exact same medicine
+      const sameDosages = JSON.stringify([...dosages].sort()) === 
+                          JSON.stringify([...(matchingMedicine.dosages || [])].sort());
 
-      if (exactDosageMatch) {
-        // Same name + same dosage: just merge categories
+      if (sameDosages) {
+        // Same name + same dosages: merge categories
         const mergedCategories = Array.from(
           new Set([...matchingMedicine.categories, ...categories])
         ) as MedicineCategory[];
@@ -74,18 +101,16 @@ export function AddMedicineForm({
           timeSensitive: matchingMedicine.timeSensitive || timeSensitive,
         });
 
-        // Reset form
         resetForm();
         return;
       } else {
-        // Same name but different dosage: prompt user
+        // Same name but different dosages: prompt user
         setDuplicateMatch(matchingMedicine);
         setShowDuplicatePrompt(true);
         return;
       }
     }
 
-    // No match found, add as new
     addNewMedicine();
   };
 
@@ -93,7 +118,7 @@ export function AddMedicineForm({
     onAdd({
       id: Date.now().toString(),
       name: name.trim(),
-      dosage: dosage.trim() || undefined,
+      dosages: dosages,
       categories,
       timeSensitive,
     });
@@ -102,7 +127,8 @@ export function AddMedicineForm({
 
   const resetForm = () => {
     setName("");
-    setDosage("");
+    setDosageInput("");
+    setDosages([]);
     setCategories([]);
     setTimeSensitive(false);
     setWarning(null);
@@ -133,19 +159,21 @@ export function AddMedicineForm({
     );
   }
 
-  // Show duplicate prompt dialog
+  // Duplicate prompt dialog
   if (showDuplicatePrompt && duplicateMatch) {
     return (
       <div className="p-4 bg-app-taupe/10 rounded-lg border border-app-taupe/30 space-y-4">
         <div>
           <p className="font-medium text-app-charcoal">Similar medicine found</p>
           <p className="text-sm text-app-gray mt-1">
-            You already have <strong>"{duplicateMatch.name}"</strong>
-            {duplicateMatch.dosage && <span> ({duplicateMatch.dosage})</span>}.
+            You already have <strong>&quot;{duplicateMatch.name}&quot;</strong>
+            {duplicateMatch.dosages && duplicateMatch.dosages.length > 0 && (
+              <span> with dosages: {duplicateMatch.dosages.join(", ")}</span>
+            )}.
           </p>
           <p className="text-sm text-app-gray mt-1">
-            You're trying to add <strong>"{name.trim()}"</strong>
-            {dosage.trim() && <span> ({dosage.trim()})</span>}.
+            You&apos;re trying to add <strong>&quot;{name.trim()}&quot;</strong>
+            {dosages.length > 0 && <span> with dosages: {dosages.join(", ")}</span>}.
           </p>
         </div>
         <p className="text-sm text-app-charcoal">
@@ -164,7 +192,7 @@ export function AddMedicineForm({
             onClick={handleCancel}
             className="flex-1 px-4 py-2 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border"
           >
-            No
+            Cancel
           </button>
         </div>
       </div>
@@ -178,7 +206,7 @@ export function AddMedicineForm({
         <label className={`block text-sm mb-1 ${
           showValidationError ? "text-app-red font-medium" : "text-app-gray"
         }`}>
-          Medicine Name * {showValidationError}
+          Medicine Name *
         </label>
         <input
           type="text"
@@ -192,16 +220,55 @@ export function AddMedicineForm({
         )}
       </div>
 
-      {/* Default Dosage */}
+      {/* Dosage Options - Chip Based */}
       <div>
-        <label className="block text-sm text-app-gray mb-1">Default Dosage (optional)</label>
-        <input
-          type="text"
-          value={dosage}
-          onChange={(e) => setDosage(e.target.value)}
-          placeholder="e.g., 200mg, 2 pills..."
-          className="w-full px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe"
-        />
+        <label className="block text-sm text-app-gray mb-1">
+          Dosage Options (optional)
+        </label>
+        <p className="text-xs text-app-gray mb-2">
+          Add one or more dosage options you typically take
+        </p>
+        
+        {/* Dosage Chips */}
+        {dosages.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {dosages.map((dosage) => (
+              <span
+                key={dosage}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium bg-app-taupe/20 text-app-charcoal"
+              >
+                {dosage}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDosage(dosage)}
+                  className="ml-1 text-app-gray hover:text-app-red transition-colors"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        
+        {/* Dosage Input */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={dosageInput}
+            onChange={(e) => setDosageInput(e.target.value)}
+            onKeyDown={handleDosageKeyDown}
+            placeholder="e.g., 200mg, 2 pills..."
+            className="flex-1 px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe"
+          />
+          <button
+            type="button"
+            onClick={handleAddDosage}
+            disabled={!dosageInput.trim()}
+            className="px-4 py-2 rounded-lg bg-app-taupe/20 text-app-charcoal font-medium hover:bg-app-taupe/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            + Add
+          </button>
+        </div>
       </div>
 
       {/* Tags */}
@@ -209,7 +276,7 @@ export function AddMedicineForm({
         <label className={`block text-sm mb-2 ${
           showValidationError ? "text-app-red font-medium" : "text-app-gray"
         }`}>
-          Add at least one tag to the medicine {showValidationError && "*"}
+          Add at least one tag *
         </label>        
         {availableCategories.length > 0 ? (
           <div className="flex flex-wrap gap-2">
@@ -230,8 +297,7 @@ export function AddMedicineForm({
           </div>
         ) : (
           <p className="text-sm text-app-gray italic">
-            Enable Bowel Tracking or Period Tracking to add category-specific medicines,
-            or medicines will be linked to Symptoms only.
+            Enable Bowel Tracking or Period Tracking to add category-specific medicines.
           </p>
         )}
       </div>
@@ -253,7 +319,7 @@ export function AddMedicineForm({
         </button>
         <div>
           <p className="text-sm font-medium text-app-charcoal">Time-sensitive Medication</p>
-          <p className="text-xs text-app-gray">Toggle option to log the time the medicine was taken</p>
+          <p className="text-xs text-app-gray">Require time when logging this medicine</p>
         </div>
       </div>
 

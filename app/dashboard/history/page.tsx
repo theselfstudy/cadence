@@ -7,6 +7,8 @@ import { useSettings } from "@/stores/useSettings";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import type { StoredEntry, TimeFormat } from "@/types";
 import { BRISTOL_TYPES, POST_BOWEL_FEELINGS, CYCLE_PHASES } from "@/lib/constants";
+import { useGoogleLogin } from "@react-oauth/google";
+
 
 // ============================================
 // TYPES
@@ -37,6 +39,9 @@ export default function HistoryPage() {
   // Store data
   const entries = useEntries((state) => state.entries);
   const { isGoogleSheetConnected, timeFormat } = useSettings();
+
+  const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
+
   
   // Filter state
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>("30");
@@ -52,6 +57,12 @@ export default function HistoryPage() {
   
   // Pagination state
   const [visibleCount, setVisibleCount] = useState(ENTRIES_PER_PAGE);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshResult, setRefreshResult] = useState<{
+    imported: number;
+    skipped: number;
+  } | null>(null);
   
   // Check if user should see backup prompt (anonymous mode, has entries, hasn't dismissed recently)
   useEffect(() => {
@@ -157,6 +168,35 @@ export default function HistoryPage() {
     localStorage.setItem("trackwell-backup-prompt-dismissed", new Date().toISOString());
     setShowBackupPrompt(false);
   };
+
+  // Handle refresh from sheet
+  const refreshFromSheet = useGoogleLogin({
+    scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
+    onSuccess: async (tokenResponse) => {
+      setIsRefreshing(true);
+      setRefreshResult(null);
+      
+      const result = await importEntriesFromSheet(tokenResponse.access_token);
+      
+      setIsRefreshing(false);
+      
+      if (result.success) {
+        setRefreshResult({
+          imported: result.imported,
+          skipped: result.skipped,
+        });
+        
+        // Clear the result after 5 seconds
+        setTimeout(() => setRefreshResult(null), 5000);
+      } else {
+        alert(`Failed to refresh: ${result.error}`);
+      }
+    },
+    onError: () => {
+      setIsRefreshing(false);
+      alert("Google Authentication failed. Please try again.");
+    },
+  });
   
   // Handle load more
   const handleLoadMore = () => {
@@ -213,14 +253,56 @@ export default function HistoryPage() {
 
       {/* Mode Indicator */}
       <div className="p-3 bg-app-cream rounded-lg border border-app-border">
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
-          <span className="text-sm text-app-charcoal">
-            {isGoogleSheetConnected 
-              ? "Syncing with Google Sheets" 
-              : "Local storage only (Anonymous Mode)"}
-          </span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
+            <span className="text-sm text-app-charcoal">
+              {isGoogleSheetConnected 
+                ? "Syncing with Google Sheets" 
+                : "Local storage only (Anonymous Mode)"}
+            </span>
+          </div>
+          
+          {/* Refresh from Sheet button - only for connected users */}
+          {isGoogleSheetConnected && (
+            <button
+              onClick={() => refreshFromSheet()}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-app-teal/10 text-app-teal 
+                         rounded-lg hover:bg-app-teal/20 disabled:opacity-50 disabled:cursor-not-allowed
+                         transition-colors"
+              title="Pull latest entries from your Google Sheet"
+            >
+              <svg 
+                className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                />
+              </svg>
+              {isRefreshing ? "Refreshing..." : "Refresh from Sheet"}
+            </button>
+          )}
         </div>
+        
+        {/* Refresh result notification */}
+        {refreshResult && (
+          <div className="mt-2 p-2 bg-app-green/10 rounded-lg text-sm text-app-green flex items-center gap-2">
+            <span>✓</span>
+            <span>
+              {refreshResult.imported > 0 
+                ? `Imported ${refreshResult.imported} new ${refreshResult.imported === 1 ? 'entry' : 'entries'}`
+                : 'Already up to date'}
+              {refreshResult.skipped > 0 && ` (${refreshResult.skipped} skipped)`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Filters & Controls */}

@@ -37,6 +37,13 @@ export function levenshteinDistance(a: string, b: string): number {
  * @param threshold Max allowed distance (default 2 for short strings)
  * @returns true if strings are similar enough
  */
+/**
+ * Checks if two strings are similar (case-insensitive + fuzzy match)
+ * @param a First string
+ * @param b Second string
+ * @param threshold Max allowed distance (default calculated based on length)
+ * @returns true if strings are similar enough
+ */
 export function isSimilar(a: string, b: string, threshold?: number): boolean {
   const normalizedA = a.toLowerCase().trim();
   const normalizedB = b.toLowerCase().trim();
@@ -45,7 +52,25 @@ export function isSimilar(a: string, b: string, threshold?: number): boolean {
   if (normalizedA === normalizedB) return true;
 
   // Calculate threshold based on string length if not provided
-  const autoThreshold = threshold ?? Math.max(1, Math.floor(Math.min(normalizedA.length, normalizedB.length) / 4));
+  // More lenient for short words (common medicine names are 4-8 chars)
+  // - 1-3 chars: threshold 1
+  // - 4-6 chars: threshold 2
+  // - 7-10 chars: threshold 3
+  // - 11+ chars: threshold 4
+  const minLength = Math.min(normalizedA.length, normalizedB.length);
+  let autoThreshold: number;
+  
+  if (threshold !== undefined) {
+    autoThreshold = threshold;
+  } else if (minLength <= 3) {
+    autoThreshold = 1;
+  } else if (minLength <= 6) {
+    autoThreshold = 2;
+  } else if (minLength <= 10) {
+    autoThreshold = 3;
+  } else {
+    autoThreshold = 4;
+  }
 
   // Fuzzy match
   const distance = levenshteinDistance(normalizedA, normalizedB);

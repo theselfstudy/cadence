@@ -29,6 +29,17 @@ const UserIcon = () => (
   </svg>
 );
 
+const RefreshIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+    />
+  </svg>
+);
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -92,6 +103,17 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                   Connect a Google Sheet to backup and sync your data across devices. 
                   Your settings and entries are saved securely to your own spreadsheet.
                 </p>
+                
+                {/* Recovery Note */}
+                <div className="mt-2 p-2 bg-app-teal/10 rounded-md flex items-start gap-2">
+                  <span className="text-app-teal mt-0.5">
+                    <RefreshIcon />
+                  </span>
+                  <p className="text-xs text-app-teal">
+                    <strong>Already set up?</strong> If you connect a sheet with existing 
+                    TrackWell data, we&apos;ll offer to restore your settings and entries.
+                  </p>
+                </div>
               </div>
             </div>
           </label>
@@ -125,6 +147,9 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                 <p className="text-sm text-app-gray mt-1">
                   Keep your data stored locally on this device only. 
                   No sign-in required — quick and private.
+                </p>
+                <p className="text-xs text-app-gray/70 mt-2 italic">
+                  You can connect a Google Sheet later anytime.
                 </p>
               </div>
             </div>

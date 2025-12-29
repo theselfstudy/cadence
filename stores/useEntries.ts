@@ -5,20 +5,22 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-import type { 
-  EntryStore, 
-  StoredEntry, 
-  UserSettings, 
-  BatchSyncProgress,
-  BatchSyncResult } from '@/types';
-
 import { 
   appendEntryToSheet, 
   getSpreadsheetIdFromUrl,
   getExistingEntryKeys,
   groupEntriesByMonth,
   appendEntriesToSheet,
+  fetchAllEntriesFromSheet,
 } from '@/lib/googleSheets';
+
+import type { 
+  EntryStore, 
+  StoredEntry, 
+  UserSettings, 
+  BatchSyncProgress, 
+  BatchSyncResult, 
+  ImportEntriesResult } from '@/types';
 
 
 import { STORAGE_KEYS } from '@/lib/constants';
@@ -319,6 +321,103 @@ export const useEntries = create<EntryStore>()(
        */
       clearBatchSyncProgress: () => {
         set({ batchSyncProgress: null });
+      },
+
+            /**
+       * Imports entries from the connected Google Sheet.
+       * Merges with local entries, skipping duplicates based on date+time.
+       */
+      importEntriesFromSheet: async (accessToken: string): Promise<ImportEntriesResult> => {
+        // Get settings to find the connected sheet
+        const { useSettings } = await import('./useSettings');
+        const settings = useSettings.getState();
+        
+        if (!settings.googleSheet.url) {
+          return { 
+            success: false, 
+            imported: 0, 
+            skipped: 0, 
+            total: 0,
+            error: 'No Google Sheet connected' 
+          };
+        }
+
+        const spreadsheetId = getSpreadsheetIdFromUrl(settings.googleSheet.url);
+        if (!spreadsheetId) {
+          return { 
+            success: false, 
+            imported: 0, 
+            skipped: 0, 
+            total: 0,
+            error: 'Invalid spreadsheet URL' 
+          };
+        }
+
+        set({ isSyncing: true });
+
+        try {
+          // Fetch all entries from the sheet
+          const result = await fetchAllEntriesFromSheet(spreadsheetId, accessToken);
+          
+          if (result.error) {
+            set({ isSyncing: false });
+            return { 
+              success: false, 
+              imported: 0, 
+              skipped: 0, 
+              total: 0,
+              error: result.error 
+            };
+          }
+
+          const sheetEntries = result.entries;
+          const { entries: localEntries } = get();
+          
+          // Create a set of existing entry keys for duplicate detection
+          // Key format: "date|startTime|endTime"
+          const existingKeys = new Set(
+            localEntries.map(e => `${e.date}|${e.startTime}|${e.endTime}`)
+          );
+          
+          // Filter out duplicates
+          const newEntries = sheetEntries.filter(entry => {
+            const key = `${entry.date}|${entry.startTime}|${entry.endTime}`;
+            return !existingKeys.has(key);
+          });
+          
+          // Merge new entries with existing (prepend so newest first after sort)
+          if (newEntries.length > 0) {
+            set((state) => ({
+              entries: [...state.entries, ...newEntries].sort((a, b) => {
+                // Sort by date descending, then by startTime descending
+                const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
+                if (dateCompare !== 0) return dateCompare;
+                return b.startTime.localeCompare(a.startTime);
+              }),
+            }));
+          }
+          
+          set({ 
+            isSyncing: false,
+            lastSyncAt: new Date().toISOString(),
+          });
+
+          return {
+            success: true,
+            imported: newEntries.length,
+            skipped: sheetEntries.length - newEntries.length,
+            total: sheetEntries.length,
+          };
+        } catch (error) {
+          set({ isSyncing: false });
+          return {
+            success: false,
+            imported: 0,
+            skipped: 0,
+            total: 0,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          };
+        }
       },
 
       /**

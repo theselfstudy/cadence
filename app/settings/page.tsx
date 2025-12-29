@@ -29,6 +29,7 @@ import {
   SavePromptModal,
   AnonymousContinueModal,
   SyncEntriesModal,
+  ImportEntriesModal,
 } from "@/components/settings";
 
 // =============================================================================
@@ -124,6 +125,7 @@ function SettingsPageContent() {
     state.entries.filter(e => e.syncStatus === 'pending' || e.syncStatus === 'error').length
   );
   const batchSyncEntries = useEntries((state) => state.batchSyncEntries);
+  const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
 
   // ---------------------------------------------------------------------------
   // LOCAL STATE
@@ -154,6 +156,8 @@ function SettingsPageContent() {
   const [showAnonymousContinueModal, setShowAnonymousContinueModal] = useState(false);
   const [showLocalSaveModal, setShowLocalSaveModal] = useState(false);
   const [showSyncEntriesModal, setShowSyncEntriesModal] = useState(false);
+  const [showImportEntriesModal, setShowImportEntriesModal] = useState(false);
+  const [pendingImportAccessToken, setPendingImportAccessToken] = useState<string | null>(null);
   const [pendingSyncAccessToken, setPendingSyncAccessToken] = useState<string | null>(null);
 
   
@@ -467,7 +471,9 @@ function SettingsPageContent() {
     const success = await loadSettingsFromSheet(spreadsheetId, pendingAccessToken);
 
     if (success) {
-      alert("Settings restored successfully!");
+      // Settings restored - now offer to import entries
+      setPendingImportAccessToken(pendingAccessToken);
+      setShowImportEntriesModal(true);
     } else {
       alert("Failed to restore settings. Starting fresh.");
       setGoogleSheet(pendingSheetUrl, pendingSheetName || undefined);
@@ -532,6 +538,36 @@ function SettingsPageContent() {
   };
 
     // ---------------------------------------------------------------------------
+  // IMPORT ENTRIES HANDLERS
+  // ---------------------------------------------------------------------------
+
+  const handleImportEntries = async () => {
+    if (!pendingImportAccessToken) {
+      return { 
+        success: false, 
+        imported: 0, 
+        skipped: 0, 
+        total: 0,
+        error: 'No access token available' 
+      };
+    }
+    
+    return await importEntriesFromSheet(pendingImportAccessToken);
+  };
+
+  const handleImportSkip = () => {
+    setShowImportEntriesModal(false);
+    setPendingImportAccessToken(null);
+    alert("Settings restored! You can import entries later from the History page.");
+  };
+
+  const handleImportComplete = () => {
+    setShowImportEntriesModal(false);
+    setPendingImportAccessToken(null);
+    router.push("/dashboard/history");
+  };
+
+  // ---------------------------------------------------------------------------
   // SAVE SETTINGS HANDLER
   // ---------------------------------------------------------------------------
 
@@ -903,6 +939,14 @@ function SettingsPageContent() {
           onSync={handleSyncEntries}
           onSkip={handleSyncSkip}
           onCancel={handleSyncComplete}
+        />
+      )}
+
+      {showImportEntriesModal && pendingImportAccessToken && (
+        <ImportEntriesModal
+          onImport={handleImportEntries}
+          onSkip={handleImportSkip}
+          onClose={handleImportComplete}
         />
       )}
 

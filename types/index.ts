@@ -359,7 +359,7 @@ export interface Medicine {
   id: string;
   name: string;
   categories: MedicineCategory[];
-  dosage?: string; // Default dosage, e.g., "500mg"
+  dosages: string[]; // Array of dosage options, e.g., ["200mg", "400mg", "600mg"]
   timeSensitive: boolean; // Requires time logging
 }
 
@@ -496,6 +496,9 @@ export interface EntryStoreActions {
   
   /** Clear batch sync progress state */
   clearBatchSyncProgress: () => void;
+  
+  /** Import entries from connected Google Sheet, merging with local entries */
+  importEntriesFromSheet: (accessToken: string) => Promise<ImportEntriesResult>;
 }
 
 /**
@@ -566,4 +569,20 @@ export interface BatchSyncResult {
   failed: number;
   /** IDs of entries that failed */
   failedEntryIds: string[];
+}
+
+/**
+ * Result of importing entries from Google Sheet
+ */
+export interface ImportEntriesResult {
+  /** Whether the import completed successfully */
+  success: boolean;
+  /** Number of new entries imported */
+  imported: number;
+  /** Number of entries skipped (duplicates) */
+  skipped: number;
+  /** Total entries found in sheet */
+  total: number;
+  /** Error message if failed */
+  error?: string;
 }

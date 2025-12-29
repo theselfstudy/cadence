@@ -139,6 +139,8 @@ function ConsolidatedMedicineLog({
   onChange,
   is24Hour,
 }: ConsolidatedMedicineLogProps) {
+  const [customDosageInputs, setCustomDosageInputs] = useState<Record<string, string>>({});
+
   if (medicines.length === 0) {
     return (
       <p className="text-sm text-app-gray italic">
@@ -151,13 +153,22 @@ function ConsolidatedMedicineLog({
     const exists = loggedMedicines.find((l) => l.medicineId === medicine.id);
     if (exists) {
       onChange(loggedMedicines.filter((l) => l.medicineId !== medicine.id));
+      // Clear custom dosage input when deselecting
+      setCustomDosageInputs((prev) => {
+        const { [medicine.id]: _, ...rest } = prev;
+        return rest;
+      });
     } else {
+      // Default to first dosage if available
+      const defaultDosage = medicine.dosages && medicine.dosages.length > 0 
+        ? medicine.dosages[0] 
+        : "";
       onChange([
         ...loggedMedicines,
         {
           medicineId: medicine.id,
           medicineName: medicine.name,
-          dosage: medicine.dosage || "",
+          dosage: defaultDosage,
           time: medicine.timeSensitive ? getCurrentTime(is24Hour) : undefined,
         },
       ]);
@@ -172,6 +183,14 @@ function ConsolidatedMedicineLog({
     );
   };
 
+  const handleCustomDosageAdd = (medicineId: string) => {
+    const customDosage = customDosageInputs[medicineId]?.trim();
+    if (!customDosage) return;
+    
+    updateLogEntry(medicineId, { dosage: customDosage });
+    setCustomDosageInputs((prev) => ({ ...prev, [medicineId]: "" }));
+  };
+
   return (
     <div className="space-y-4">
       {/* Category Legend */}
@@ -180,7 +199,7 @@ function ConsolidatedMedicineLog({
           medicines.some((m) => m.categories.includes(cat.value))
         ).map((cat) => (
           <div key={cat.value} className="flex items-center gap-1.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${MEDICINE_CATEGORY_COLORS[cat.value].bg}`} />
+            <span className={`w-2.5 h-2.5 rounded-full ${MEDICINE_CATEGORY_COLORS[cat.value]?.bg ?? 'bg-app-gray'}`} />
             <span className="text-app-gray">{cat.label}</span>
           </div>
         ))}
@@ -206,7 +225,7 @@ function ConsolidatedMedicineLog({
                 {medicine.categories.map((cat) => (
                   <span
                     key={cat}
-                    className={`w-2 h-2 rounded-full ${MEDICINE_CATEGORY_COLORS[cat].bg} ${
+                    className={`w-2 h-2 rounded-full ${MEDICINE_CATEGORY_COLORS[cat]?.bg ?? 'bg-app-gray'} ${
                       isSelected ? "opacity-70" : ""
                     }`}
                     title={cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -227,18 +246,21 @@ function ConsolidatedMedicineLog({
             const medicine = medicines.find((m) => m.id === entry.medicineId);
             if (!medicine) return null;
 
+            const hasPredefinedDosages = medicine.dosages && medicine.dosages.length > 0;
+            const customInput = customDosageInputs[medicine.id] || "";
+
             return (
               <div
                 key={entry.medicineId}
                 className="p-3 bg-app-taupe/5 rounded-lg border border-app-taupe/20"
               >
                 {/* Medicine Name with Category Dots */}
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   <span className="flex items-center gap-0.5">
                     {medicine.categories.map((cat) => (
                       <span
                         key={cat}
-                        className={`w-2.5 h-2.5 rounded-full ${MEDICINE_CATEGORY_COLORS[cat].bg}`}
+                        className={`w-2.5 h-2.5 rounded-full ${MEDICINE_CATEGORY_COLORS[cat]?.bg ?? 'bg-app-gray'}`}
                         title={cat.charAt(0).toUpperCase() + cat.slice(1)}
                       />
                     ))}
@@ -248,18 +270,80 @@ function ConsolidatedMedicineLog({
                   </p>
                 </div>
 
-                {/* Dosage Input */}
-                <div className="mb-2">
-                  <label className="block text-xs text-app-gray mb-1">Dosage taken:</label>
-                  <input
-                    type="text"
-                    value={entry.dosage}
-                    onChange={(e) =>
-                      updateLogEntry(entry.medicineId, { dosage: e.target.value })
-                    }
-                    placeholder={medicine.dosage || "e.g., 2 pills, 200mg..."}
-                    className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
-                  />
+                {/* Dosage Selection - Chip Based */}
+                <div className="mb-3">
+                  <label className="block text-xs text-app-gray mb-2">Dosage:</label>
+                  
+                  {hasPredefinedDosages ? (
+                    <div className="space-y-2">
+                      {/* Predefined Dosage Chips */}
+                      <div className="flex flex-wrap gap-2">
+                        {medicine.dosages!.map((dosage) => (
+                          <button
+                            key={dosage}
+                            type="button"
+                            onClick={() => updateLogEntry(entry.medicineId, { dosage })}
+                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                              entry.dosage === dosage
+                                ? "bg-app-taupe text-white"
+                                : "bg-app-white text-app-charcoal border border-app-border hover:border-app-taupe"
+                            }`}
+                          >
+                            {dosage}
+                          </button>
+                        ))}
+                        
+                        {/* Custom option indicator */}
+                        {entry.dosage && !medicine.dosages!.includes(entry.dosage) && (
+                          <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-app-taupe text-white">
+                            {entry.dosage} (custom)
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Custom Dosage Input */}
+                      <div className="flex gap-2 items-center">
+                        <span className="text-xs text-app-gray">or custom:</span>
+                        <input
+                          type="text"
+                          value={customInput}
+                          onChange={(e) => setCustomDosageInputs((prev) => ({
+                            ...prev,
+                            [medicine.id]: e.target.value,
+                          }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleCustomDosageAdd(medicine.id);
+                            }
+                          }}
+                          placeholder="Enter custom dosage"
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleCustomDosageAdd(medicine.id)}
+                          disabled={!customInput.trim()}
+                          className="px-3 py-1.5 rounded-lg bg-app-taupe/20 text-app-charcoal text-sm font-medium hover:bg-app-taupe/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Set
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // No predefined dosages - just show input
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={entry.dosage}
+                        onChange={(e) =>
+                          updateLogEntry(entry.medicineId, { dosage: e.target.value })
+                        }
+                        placeholder="e.g., 2 pills, 200mg..."
+                        className="flex-1 px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Time Input (if time-sensitive) */}

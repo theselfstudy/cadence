@@ -2,9 +2,9 @@
 // Google Sheets API Helpers
 // ============================================
 
-import type { StoredEntry, UserSettings, SheetColumn } from '@/types';
-import { PRODUCT_OPTIONS } from '@/lib/constants';
+import type { StoredEntry, UserSettings, SheetColumn, MedicineLogEntry, ProductUsageEntry } from '@/types';
 
+import { PRODUCT_OPTIONS } from '@/lib/constants';
 
 // Entry sheet naming: TrackWell-YYYY-MM (e.g., TrackWell-2024-01)
 export const ENTRIES_SHEET_PREFIX = "TrackWell";
@@ -1351,6 +1351,356 @@ export async function appendEntriesToSheet(
       syncedIds, 
       skippedIds, 
       failedIds, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
+// ============================================
+// IMPORT FROM SHEET OPERATIONS
+// ============================================
+
+/**
+ * Fetches all data from a specific monthly sheet tab.
+ * Returns headers and row data.
+ */
+export async function fetchSheetData(
+  spreadsheetId: string,
+  accessToken: string,
+  sheetName: string
+): Promise<{ headers: string[]; rows: string[][] } | null> {
+  try {
+    const range = `'${sheetName}'!A:ZZ`; // Wide range to capture all columns
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      // Sheet might not exist or be empty - that's okay
+      if (response.status === 400 || error.error?.status === 'NOT_FOUND') {
+        return { headers: [], rows: [] };
+      }
+      console.error('Failed to fetch sheet data:', error);
+      return null;
+    }
+
+    const data = await response.json();
+    const values = data.values ?? [];
+    
+    if (values.length === 0) {
+      return { headers: [], rows: [] };
+    }
+
+    const headers = values[0] as string[];
+    const rows = values.slice(1) as string[][];
+    
+    return { headers, rows };
+  } catch (error) {
+    console.error('Error fetching sheet data:', error);
+    return null;
+  }
+}
+
+/**
+ * Parses an intensity value from sheet cell.
+ * Returns number, null (for logged without intensity), or undefined (not logged).
+ */
+function parseIntensityValue(value: string): number | null | undefined {
+  if (!value || value.trim() === '') return undefined;
+  
+  const trimmed = value.trim();
+  
+  // Check for "Yes" or checkmark (logged without intensity tracking)
+  if (trimmed.toLowerCase() === 'yes' || trimmed === '✓') {
+    return null;
+  }
+  
+  // Try to parse as number
+  const num = parseInt(trimmed, 10);
+  if (!isNaN(num)) {
+    return num;
+  }
+  
+  return undefined;
+}
+
+/**
+ * Parses a medicine column value back into a MedicineLogEntry.
+ * Format in sheet: "{dosage} @ {time}" or "Taken" or just dosage
+ */
+function parseMedicineColumnValue(
+  value: string,
+  medicineName: string
+): MedicineLogEntry | null {
+  if (!value || value.trim() === '') return null;
+  
+  const trimmed = value.trim();
+  
+  // Simple "Taken" case
+  if (trimmed.toLowerCase() === 'taken') {
+    return {
+      medicineId: `imported_${medicineName}`.replace(/\s+/g, '_'),
+      medicineName,
+      dosage: '',
+    };
+  }
+  
+  // Parse "{dosage} @ {time}" format
+  const atIndex = trimmed.lastIndexOf(' @ ');
+  if (atIndex > 0) {
+    const dosage = trimmed.substring(0, atIndex).trim();
+    const timeStr = trimmed.substring(atIndex + 3).trim();
+    
+    // Parse time like "10:30 AM"
+    const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (timeMatch) {
+      return {
+        medicineId: `imported_${medicineName}`.replace(/\s+/g, '_'),
+        medicineName,
+        dosage,
+        time: {
+          hour: parseInt(timeMatch[1], 10),
+          minute: parseInt(timeMatch[2], 10),
+          period: timeMatch[3].toUpperCase() as 'AM' | 'PM',
+        },
+      };
+    }
+    
+    // Time parsing failed, just use dosage
+    return {
+      medicineId: `imported_${medicineName}`.replace(/\s+/g, '_'),
+      medicineName,
+      dosage,
+    };
+  }
+  
+  // Just a value, treat as dosage
+  return {
+    medicineId: `imported_${medicineName}`.replace(/\s+/g, '_'),
+    medicineName,
+    dosage: trimmed,
+  };
+}
+
+/**
+ * Parses a product column header and value back into ProductUsageEntry.
+ * Header format: "Product: {Label}" or "Product: {customName} ({type})"
+ * Value: size or "Used"
+ */
+function parseProductColumnValue(
+  header: string,
+  value: string
+): ProductUsageEntry | null {
+  if (!value || value.trim() === '') return null;
+  
+  // Remove "Product: " prefix
+  const productPart = header.replace('Product: ', '');
+  
+  // Check if it's a custom product format: "CustomName (type)"
+  const customMatch = productPart.match(/^(.+)\s+$(\w+(?:-\w+)*)$$/);
+  
+  let productType: string;
+  let customProductId: string | undefined;
+  
+  if (customMatch) {
+    // Custom product - e.g., "My Cup (cup)"
+    const customName = customMatch[1];
+    productType = customMatch[2];
+    customProductId = `imported_${customName}`.replace(/\s+/g, '_');
+  } else {
+    // Standard product - map label back to type
+    const labelToType: Record<string, string> = {
+      'Pad': 'pad',
+      'Tampon': 'tampon',
+      'Cup': 'cup',
+      'Disc': 'disc',
+      'Liner': 'liner',
+      'Period Underwear': 'period-underwear',
+      'Other': 'other',
+    };
+    productType = labelToType[productPart] || productPart.toLowerCase().replace(/\s+/g, '-');
+  }
+  
+  const trimmedValue = value.trim();
+  const size = trimmedValue.toLowerCase() === 'used' ? undefined : trimmedValue;
+  
+  return {
+    productType,
+    customProductId,
+    size,
+  };
+}
+
+/**
+ * Parses a sheet row back into a StoredEntry object.
+ */
+export function parseSheetRowToEntry(
+  headers: string[],
+  row: string[]
+): StoredEntry | null {
+  // Create a map of header -> value for easy lookup
+  const data: Record<string, string> = {};
+  headers.forEach((header, index) => {
+    data[header] = row[index] ?? '';
+  });
+
+  // Required fields
+  const date = data['Date'];
+  const startTime = data['Start Time'];
+  const endTime = data['End Time'];
+  
+  if (!date || !startTime) {
+    return null; // Invalid row - skip
+  }
+
+  // Generate a deterministic ID based on date+time to avoid duplicates
+  const idBase = `${date}_${startTime}_${endTime || 'noend'}`;
+  const entryId = `imported_${idBase}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+  // Parse symptom intensities from "Gen. Sym: {name}" columns
+  const symptomIntensities: Record<string, number | null> = {};
+  const periodSymptomIntensities: Record<string, number | null> = {};
+  
+  headers.forEach(header => {
+    const value = data[header];
+    
+    if (header.startsWith('Gen. Sym: ')) {
+      const symptomName = header.replace('Gen. Sym: ', '');
+      const intensity = parseIntensityValue(value);
+      if (intensity !== undefined) {
+        symptomIntensities[symptomName] = intensity;
+      }
+    } else if (header.startsWith('Per. Sym: ')) {
+      const symptomName = header.replace('Per. Sym: ', '');
+      const intensity = parseIntensityValue(value);
+      if (intensity !== undefined) {
+        periodSymptomIntensities[symptomName] = intensity;
+      }
+    }
+  });
+
+  // Parse medicine log from "Med: {name}" columns
+  const medicineLog: MedicineLogEntry[] = [];
+  headers.forEach(header => {
+    const value = data[header];
+    if (!header.startsWith('Med: ')) return;
+    
+    const medicineName = header.replace('Med: ', '');
+    const parsed = parseMedicineColumnValue(value, medicineName);
+    if (parsed) {
+      medicineLog.push(parsed);
+    }
+  });
+
+  // Parse product usage from "Product: {name}" columns
+  const productUsage: ProductUsageEntry[] = [];
+  headers.forEach(header => {
+    const value = data[header];
+    if (!header.startsWith('Product: ')) return;
+    
+    const parsed = parseProductColumnValue(header, value);
+    if (parsed) {
+      productUsage.push(parsed);
+    }
+  });
+
+  // Parse stool data
+  const stoolTypeStr = data['Stool: Type'];
+  const stoolType = stoolTypeStr ? parseInt(stoolTypeStr, 10) as StoredEntry['stoolType'] : null;
+  const stoolFeeling = (data['Stool: Feeling'] || null) as StoredEntry['stoolFeeling'];
+
+  // Parse period data
+  const cyclePhase = (data['Cycle Phase'] || null) as StoredEntry['cyclePhase'];
+  const periodFlow = data['Period: Flow'] || null;
+
+  // Parse pain scale
+  const painScale = (data['Pain Scale'] || 'simple') as StoredEntry['painScale'];
+
+  // Build the entry
+  const entry: StoredEntry = {
+    id: entryId,
+    createdAt: new Date().toISOString(), // Original creation time not available
+    updatedAt: new Date().toISOString(),
+    date,
+    startTime,
+    endTime: endTime || startTime, // Default to start time if missing
+    painScale,
+    symptomIntensities,
+    periodSymptomIntensities,
+    cyclePhase,
+    periodFlow,
+    productUsage,
+    stoolType,
+    stoolFeeling,
+    medicineLog,
+    notes: data['Notes'] || '',
+    syncStatus: 'synced', // Imported from sheet = already synced
+  };
+
+  return entry;
+}
+
+/**
+ * Fetches and parses all entries from all monthly tabs in the spreadsheet.
+ */
+export async function fetchAllEntriesFromSheet(
+  spreadsheetId: string,
+  accessToken: string
+): Promise<{ entries: StoredEntry[]; error?: string }> {
+  try {
+    // Get all entry sheet tabs
+    const sheets = await getAllEntriesSheets(spreadsheetId, accessToken);
+    
+    if (sheets.length === 0) {
+      return { entries: [] };
+    }
+
+    const allEntries: StoredEntry[] = [];
+    
+    for (const sheet of sheets) {
+      const data = await fetchSheetData(spreadsheetId, accessToken, sheet.name);
+      
+      if (!data) {
+        console.warn(`Failed to fetch data from sheet: ${sheet.name}`);
+        continue;
+      }
+      
+      if (data.rows.length === 0) {
+        continue;
+      }
+      
+      for (const row of data.rows) {
+        // Skip empty rows
+        if (row.every(cell => !cell || cell.trim() === '')) {
+          continue;
+        }
+        
+        const entry = parseSheetRowToEntry(data.headers, row);
+        if (entry) {
+          allEntries.push(entry);
+        }
+      }
+    }
+
+    // Sort by date descending (most recent first)
+    allEntries.sort((a, b) => {
+      const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      // If same date, sort by start time
+      return b.startTime.localeCompare(a.startTime);
+    });
+
+    return { entries: allEntries };
+  } catch (error) {
+    console.error('Error fetching entries from sheet:', error);
+    return { 
+      entries: [], 
       error: error instanceof Error ? error.message : 'Unknown error' 
     };
   }
