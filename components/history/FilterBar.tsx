@@ -4,14 +4,13 @@ import { useState, useRef } from "react";
 
 import { FilterCategoryButton } from "./FilterCategoryButton";
 import { FilterDropdown } from "./FilterDropdown";
-import { FilterChips } from "./FilterChips";
+import { FilterBottomSheet } from "./FilterBottomSheet";
 
-import { getCategoryLabel, getCategoryIcon } from "@/lib/filterUtils";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import { CYCLE_PHASES, BRISTOL_TYPES, POST_BOWEL_FEELINGS } from "@/lib/constants";
 
 import type {
   HistoryFilters,
-  ActiveFilter,
   AvailableFilterOptions,
   CyclePhase,
   BristolScaleType,
@@ -28,7 +27,6 @@ type CategoryKey = "symptoms" | "cycle" | "bowel" | "medicine";
 interface FilterBarProps {
   filters: HistoryFilters;
   availableOptions: AvailableFilterOptions;
-  activeFilters: ActiveFilter[];
   categoryFilterCounts: Record<string, number>;
   hasFilters: boolean;
   
@@ -40,8 +38,13 @@ interface FilterBarProps {
   toggleFeeling: (feeling: PostBowelFeeling) => void;
   toggleMedicine: (medicine: string) => void;
   
+  // Select all actions
+  selectAllSymptoms: () => void;
+  selectAllCycle: () => void;
+  selectAllBowel: () => void;
+  selectAllMedicine: () => void;
+  
   // Clear actions
-  removeFilter: (filter: ActiveFilter) => void;
   clearCategory: (category: string) => void;
   clearAllFilters: () => void;
 }
@@ -71,7 +74,6 @@ const CATEGORIES: { key: CategoryKey; label: string; icon: string }[] = [
 export function FilterBar({
   filters,
   availableOptions,
-  activeFilters,
   categoryFilterCounts,
   hasFilters,
   toggleSymptom,
@@ -80,13 +82,17 @@ export function FilterBar({
   toggleBristolType,
   toggleFeeling,
   toggleMedicine,
-  removeFilter,
+  selectAllSymptoms,
+  selectAllCycle,
+  selectAllBowel,
+  selectAllMedicine,
   clearCategory,
   clearAllFilters,
 }: FilterBarProps) {
   const [openCategory, setOpenCategory] = useState<CategoryKey | null>(null);
+  const isMobile = useIsMobile();
   
-  // Refs for each category button (for focus management)
+  // Refs for each category button (for focus management on desktop)
   const buttonRefs = {
     symptoms: useRef<HTMLButtonElement>(null),
     cycle: useRef<HTMLButtonElement>(null),
@@ -102,8 +108,24 @@ export function FilterBar({
     setOpenCategory(null);
   };
 
-  // Build dropdown sections for each category
-  const getDropdownSections = (category: CategoryKey) => {
+  // Get select all function for a category
+  const getSelectAllForCategory = (category: CategoryKey): (() => void) => {
+    switch (category) {
+      case "symptoms":
+        return selectAllSymptoms;
+      case "cycle":
+        return selectAllCycle;
+      case "bowel":
+        return selectAllBowel;
+      case "medicine":
+        return selectAllMedicine;
+      default:
+        return () => {};
+    }
+  };
+
+  // Build dropdown/sheet sections for each category
+  const getFilterSections = (category: CategoryKey) => {
     switch (category) {
       case "symptoms":
         return [
@@ -215,6 +237,11 @@ export function FilterBar({
     }
   };
 
+  // Get current open category info
+  const openCategoryInfo = openCategory 
+    ? CATEGORIES.find(c => c.key === openCategory) 
+    : null;
+
   return (
     <div className="space-y-3">
       {/* Category Buttons Row */}
@@ -233,24 +260,44 @@ export function FilterBar({
               disabled={!categoryHasOptions(category.key)}
             />
             
-            <FilterDropdown
-              isOpen={openCategory === category.key}
-              onClose={handleCloseDropdown}
-              sections={getDropdownSections(category.key)}
-              triggerRef={buttonRefs[category.key]}
-              onClearCategory={() => clearCategory(category.key)}
-              categoryCount={categoryFilterCounts[category.key] || 0}
-            />
+            {/* Desktop: Dropdown */}
+            {!isMobile && (
+              <FilterDropdown
+                isOpen={openCategory === category.key}
+                onClose={handleCloseDropdown}
+                sections={getFilterSections(category.key)}
+                triggerRef={buttonRefs[category.key]}
+                onClearCategory={() => clearCategory(category.key)}
+                onSelectAll={getSelectAllForCategory(category.key)}
+                categoryCount={categoryFilterCounts[category.key] || 0}
+              />
+            )}
           </div>
         ))}
+
+        {/* Clear All button - shown when any filters are active */}
+        {hasFilters && (
+          <button
+            onClick={clearAllFilters}
+            className="px-3 py-1.5 text-sm text-app-red hover:text-app-red/80 
+                       hover:bg-app-red/10 rounded-lg transition-colors"
+          >
+            Clear All
+          </button>
+        )}
       </div>
 
-      {/* Active Filter Chips */}
-      {hasFilters && (
-        <FilterChips
-          filters={activeFilters}
-          onRemove={removeFilter}
-          onClearAll={clearAllFilters}
+      {/* Mobile: Bottom Sheet (rendered once, content changes based on category) */}
+      {isMobile && openCategory && openCategoryInfo && (
+        <FilterBottomSheet
+          isOpen={true}
+          onClose={handleCloseDropdown}
+          title={openCategoryInfo.label}
+          icon={openCategoryInfo.icon}
+          sections={getFilterSections(openCategory)}
+          onClearCategory={() => clearCategory(openCategory)}
+          onSelectAll={getSelectAllForCategory(openCategory)}
+          categoryCount={categoryFilterCounts[openCategory] || 0}
         />
       )}
     </div>

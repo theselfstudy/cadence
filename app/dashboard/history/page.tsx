@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+
+import type { StoredEntry, TimeFormat } from "@/types";
+import { useEffect, useState, useMemo } from "react";
 import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
 import { FilterBar } from "@/components/history";
-import type { StoredEntry, TimeFormat } from "@/types";
 import { BRISTOL_TYPES, POST_BOWEL_FEELINGS, CYCLE_PHASES } from "@/lib/constants";
 import { useGoogleLogin } from "@react-oauth/google";
+import { getLocalDateString } from '@/lib/dateUtils';
 
 
 // ============================================
@@ -46,7 +48,7 @@ export default function HistoryPage() {
 
   
   // Filter state
-  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>("30");
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>("all");
   const [customRange, setCustomRange] = useState<DateRange>({
     start: "",
     end: "",
@@ -67,61 +69,57 @@ export default function HistoryPage() {
     skipped: number;
   } | null>(null);
 
-  // Date-filtered entries (before advanced filters)
+    // Date-filtered entries (before advanced filters)
   const dateFilteredEntries = useMemo(() => {
-    const now = new Date();
-    now.setHours(23, 59, 59, 999); // End of today
+    const todayStr = getLocalDateString();
     
-    let startDate: Date;
-    let endDate: Date = now;
+    let startDateStr: string;
+    let endDateStr: string;
     
     switch (dateRangeFilter) {
-      case "7":
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 7);
+      case "7": {
+        const start = new Date();
+        start.setDate(start.getDate() - 6); // Today + 6 previous days = 7 days
+        startDateStr = getLocalDateString(start);
+        endDateStr = todayStr;
         break;
-      case "30":
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 30);
+      }
+      case "30": {
+        const start = new Date();
+        start.setDate(start.getDate() - 29); // Today + 29 previous days = 30 days
+        startDateStr = getLocalDateString(start);
+        endDateStr = todayStr;
         break;
-      case "90":
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 90);
+      }
+      case "90": {
+        const start = new Date();
+        start.setDate(start.getDate() - 89); // Today + 89 previous days = 90 days
+        startDateStr = getLocalDateString(start);
+        endDateStr = todayStr;
         break;
+      }
       case "custom":
         if (customRange.start && customRange.end) {
-          startDate = new Date(customRange.start);
-          endDate = new Date(customRange.end);
-          endDate.setHours(23, 59, 59, 999);
+          startDateStr = customRange.start;
+          endDateStr = customRange.end;
         } else {
-          // If custom but no dates set, show all
-          return [...entries].sort((a, b) => 
-            new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
+          return [...entries].sort((a, b) => b.date.localeCompare(a.date));
         }
         break;
       case "all":
       default:
-        return [...entries].sort((a, b) => 
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
+        return [...entries].sort((a, b) => b.date.localeCompare(a.date));
     }
     
-    startDate.setHours(0, 0, 0, 0);
-    
     return entries
-      .filter(entry => {
-        const entryDate = new Date(entry.date);
-        return entryDate >= startDate && entryDate <= endDate;
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .filter(entry => entry.date >= startDateStr && entry.date <= endDateStr)
+      .sort((a, b) => b.date.localeCompare(a.date));
   }, [entries, dateRangeFilter, customRange]);
 
   // Advanced filters hook - operates on date-filtered entries
-  const {
+    const {
     filters,
     filteredEntries,
-    activeFilters,
     activeFilterCount,
     categoryFilterCounts,
     availableOptions,
@@ -132,7 +130,10 @@ export default function HistoryPage() {
     toggleBristolType,
     toggleFeeling,
     toggleMedicine,
-    removeFilter,
+    selectAllSymptoms,
+    selectAllCycle,
+    selectAllBowel,
+    selectAllMedicine,
     clearCategory,
     clearAllFilters,
   } = useHistoryFilters(dateFilteredEntries);
@@ -461,22 +462,24 @@ export default function HistoryPage() {
           {/* Advanced Filters Content */}
           {showAdvancedFilters && (
             <div className="mt-4">
-              <FilterBar
-                filters={filters}
-                availableOptions={availableOptions}
-                activeFilters={activeFilters}
-                categoryFilterCounts={categoryFilterCounts}
-                hasFilters={hasFilters}
-                toggleSymptom={toggleSymptom}
-                toggleCyclePhase={toggleCyclePhase}
-                toggleFlowLevel={toggleFlowLevel}
-                toggleBristolType={toggleBristolType}
-                toggleFeeling={toggleFeeling}
-                toggleMedicine={toggleMedicine}
-                removeFilter={removeFilter}
-                clearCategory={clearCategory}
-                clearAllFilters={clearAllFilters}
-              />
+                          <FilterBar
+              filters={filters}
+              availableOptions={availableOptions}
+              categoryFilterCounts={categoryFilterCounts}
+              hasFilters={hasFilters}
+              toggleSymptom={toggleSymptom}
+              toggleCyclePhase={toggleCyclePhase}
+              toggleFlowLevel={toggleFlowLevel}
+              toggleBristolType={toggleBristolType}
+              toggleFeeling={toggleFeeling}
+              toggleMedicine={toggleMedicine}
+              selectAllSymptoms={selectAllSymptoms}
+              selectAllCycle={selectAllCycle}
+              selectAllBowel={selectAllBowel}
+              selectAllMedicine={selectAllMedicine}
+              clearCategory={clearCategory}
+              clearAllFilters={clearAllFilters}
+            />
             </div>
           )}
         </div>
@@ -1175,7 +1178,7 @@ function EntryCard({ entry, timeFormat }: EntryCardProps) {
                 {entry.medicineLog.map((log, idx) => (
                   <div key={idx} className="text-sm">
                     <span className="text-app-charcoal font-medium">{log.medicineName}</span>
-                    {log.dosage && <span className="text-app-gray"> — {log.dosage}</span>}
+                    {log.dosage && <span className="text-app-gray">: {log.dosage}</span>}
                     {log.time && (
                       <span className="text-app-taupe">
                         {" "}@ {log.time.hour}:{log.time.minute.toString().padStart(2, "0")} {log.time.period}
@@ -1352,7 +1355,10 @@ function getFilterLabel(filter: DateRangeFilter): string {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
+  // Parse YYYY-MM-DD as local date, not UTC
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // month is 0-indexed
+  
   return date.toLocaleDateString("en-US", {
     weekday: "short",
     year: "numeric",
@@ -1362,7 +1368,9 @@ function formatDate(dateStr: string): string {
 }
 
 function formatDateShort(dateStr: string): string {
-  const date = new Date(dateStr);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -1426,7 +1434,8 @@ function calculateDuration(startTime: string, endTime: string): string {
 }
 
 function getDayOfWeek(dateStr: string): string {
-  const date = new Date(dateStr);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return days[date.getDay()];
 }

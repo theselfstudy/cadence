@@ -444,8 +444,8 @@ export default function SettingsOverviewPage() {
                   className="px-3 py-1.5 rounded-full text-sm font-medium text-white bg-app-taupe"
                 >
                   {medicine.name}
-                  {medicine.dosage && (
-                    <span className="ml-1 opacity-80">({medicine.dosage})</span>
+                  {medicine.dosages && (
+                    <span className="ml-1 opacity-80">({medicine.dosages})</span>
                   )}
                 </span>
               ))}

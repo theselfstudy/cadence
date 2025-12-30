@@ -49,6 +49,12 @@ interface UseHistoryFiltersReturn {
   toggleFeeling: (feeling: PostBowelFeeling) => void;
   toggleMedicine: (medicine: string) => void;
   
+  // Select all actions
+  selectAllSymptoms: () => void;
+  selectAllCycle: () => void;
+  selectAllBowel: () => void;
+  selectAllMedicine: () => void;
+  
   // Removal actions
   removeFilter: (filter: ActiveFilter) => void;
   clearCategory: (category: string) => void;
@@ -166,6 +172,40 @@ export function useHistoryFilters(entries: StoredEntry[]): UseHistoryFiltersRetu
   }, []);
 
   // ═══════════════════════════════════════
+  // SELECT ALL ACTIONS
+  // ═══════════════════════════════════════
+
+  const selectAllSymptoms = useCallback(() => {
+    setFilters(prev => ({
+      ...prev,
+      selectedSymptoms: [...availableOptions.symptoms],
+    }));
+  }, [availableOptions.symptoms]);
+
+  const selectAllCycle = useCallback(() => {
+    setFilters(prev => ({
+      ...prev,
+      selectedCyclePhases: [...availableOptions.cyclePhases],
+      selectedFlowLevels: [...availableOptions.flowLevels],
+    }));
+  }, [availableOptions.cyclePhases, availableOptions.flowLevels]);
+
+  const selectAllBowel = useCallback(() => {
+    setFilters(prev => ({
+      ...prev,
+      selectedBristolTypes: [...availableOptions.bristolTypes],
+      selectedFeelings: [...availableOptions.feelings],
+    }));
+  }, [availableOptions.bristolTypes, availableOptions.feelings]);
+
+  const selectAllMedicine = useCallback(() => {
+    setFilters(prev => ({
+      ...prev,
+      selectedMedicines: [...availableOptions.medicines],
+    }));
+  }, [availableOptions.medicines]);
+
+  // ═══════════════════════════════════════
   // REMOVAL ACTIONS
   // ═══════════════════════════════════════
 
@@ -257,6 +297,10 @@ export function useHistoryFilters(entries: StoredEntry[]): UseHistoryFiltersRetu
     toggleBristolType,
     toggleFeeling,
     toggleMedicine,
+    selectAllSymptoms,
+    selectAllCycle,
+    selectAllBowel,
+    selectAllMedicine,
     removeFilter,
     clearCategory,
     clearAllFilters,

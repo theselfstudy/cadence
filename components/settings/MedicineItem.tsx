@@ -137,7 +137,7 @@ export function MedicineItem({
             type="text"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
-            placeholder="e.g., Ibuprofen, Metamucil..."
+            placeholder="e.g., Ibuprofen, Metamucil, Spironolactone..."
             className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
           />
         </div>
@@ -176,7 +176,7 @@ export function MedicineItem({
               value={editDosageInput}
               onChange={(e) => setEditDosageInput(e.target.value)}
               onKeyDown={handleDosageKeyDown}
-              placeholder="e.g., 200mg, 2 pills..."
+              placeholder="e.g., 200mg, 2 pills, 1000IUs..."
               className="flex-1 px-3 py-1.5 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
             />
             <button

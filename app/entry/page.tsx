@@ -7,6 +7,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { useEntries } from "@/stores/useEntries";
 import type { MedicineCategory, LogSection } from "@/types";
 import { LogSelectionModal } from "@/components/entry/LogSelectionModal";
+import { getLocalDateString } from '@/lib/dateUtils';
 
 
 import {
@@ -339,7 +340,7 @@ function ConsolidatedMedicineLog({
                         onChange={(e) =>
                           updateLogEntry(entry.medicineId, { dosage: e.target.value })
                         }
-                        placeholder="e.g., 2 pills, 200mg..."
+                        placeholder="e.g., 2 pills, 200mg, 1000IUs..."
                         className="flex-1 px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
                       />
                     </div>
@@ -645,7 +646,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
     // Build the stored entry in the format expected by the entry store
     const entryData: Omit<StoredEntry, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'> = {
-      date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format for sheets
+      date: getLocalDateString(), // YYYY-MM-DD format in local timezone
       startTime: formatTimeToString(startTime),
       endTime: formatTimeToString(endTime),
       painScale: painScaleType as PainScaleType,

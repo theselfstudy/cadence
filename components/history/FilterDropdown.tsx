@@ -18,8 +18,9 @@ interface FilterDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   sections: FilterSection[];
-  triggerRef: React.RefObject<HTMLButtonElement>;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
   onClearCategory: () => void;
+  onSelectAll: () => void;
   categoryCount: number;
 }
 
@@ -29,6 +30,7 @@ export function FilterDropdown({
   sections,
   triggerRef,
   onClearCategory,
+  onSelectAll,
   categoryCount,
 }: FilterDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -69,6 +71,7 @@ export function FilterDropdown({
 
   // Check if there are any options at all
   const hasAnyOptions = sections.some(section => section.options.length > 0);
+  const hasSelections = categoryCount > 0;
 
   return (
     <div
@@ -79,19 +82,21 @@ export function FilterDropdown({
       role="listbox"
       aria-multiselectable="true"
     >
-      {/* Header with clear button */}
-      {categoryCount > 0 && (
+      {/* Header with Select All / Clear All toggle */}
+      {hasAnyOptions && (
         <div className="flex items-center justify-between px-3 py-2 border-b border-app-border">
           <span className="text-xs text-app-gray">
             {categoryCount} selected
           </span>
           <button
-            onClick={() => {
-              onClearCategory();
-            }}
-            className="text-xs text-app-red hover:text-app-red/80 transition-colors"
+            onClick={hasSelections ? onClearCategory : onSelectAll}
+            className={`text-xs font-medium transition-colors ${
+              hasSelections 
+                ? "text-app-red hover:text-app-red/80" 
+                : "text-app-teal hover:text-app-teal/80"
+            }`}
           >
-            Clear
+            {hasSelections ? "Clear All" : "Select All"}
           </button>
         </div>
       )}
