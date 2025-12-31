@@ -7,6 +7,8 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { useEntries } from "@/stores/useEntries";
 import type { MedicineCategory, LogSection } from "@/types";
 import { LogSelectionModal, SegmentedIntensityBar } from "@/components/entry";
+import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
+import { SuccessModal } from "@/components/ui/SuccessModal";
 import { getLocalDateString } from '@/lib/dateUtils';
 
 
@@ -412,15 +414,70 @@ export default function EntryPage() {
   const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
   const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
 
-  // Google OAuth for syncing entries
+  // Store pending entry data for OAuth-first flow
+  const [pendingEntryData, setPendingEntryData] = useState<Omit<StoredEntry, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'> | null>(null);
+
+  // OAuth error modal state
+  const [showOAuthError, setShowOAuthError] = useState(false);
+
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalConfig, setSuccessModalConfig] = useState({
+    title: "",
+    description: "",
+    secondaryText: "",
+  });
+
+  // Google OAuth for syncing entries - OAuth-first
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      console.log("OAuth success, got access token");
-      setPendingAccessToken(tokenResponse.access_token);
+      console.log("OAuth success, saving and syncing entry...");
+      
+      if (pendingEntryData) {
+        // Step 1: Save to localStorage
+        const savedEntry = addEntry(pendingEntryData);
+        console.log("Entry saved to localStorage:", savedEntry.id);
+        
+        // Step 2: Sync to Google Sheet
+        let syncedToSheet = false;
+        try {
+          syncedToSheet = await syncEntryToSheet(savedEntry.id, tokenResponse.access_token);
+          
+          if (syncedToSheet) {
+            console.log("Entry synced to Google Sheets successfully!");
+          } else {
+            console.warn("Entry saved locally but failed to sync to Google Sheets.");
+          }
+        } catch (error) {
+          console.error("Error syncing to sheet:", error);
+        }
+        
+        // Step 3: Clear pending data and show success modal
+        setPendingEntryData(null);
+        setIsSubmitting(false);
+        
+        setSuccessModalConfig({
+          title: "Entry Logged!",
+          description: syncedToSheet 
+            ? "Your entry has been saved and synced to your Google Sheet."
+            : "Your entry has been saved locally. It will sync to your sheet later.",
+          secondaryText: "",
+        });
+        setShowSuccessModal(true);
+      }
     },
     onError: (error) => {
-      console.error("Google login error:", error);
+      console.error("Google OAuth error:", error);
+      setPendingEntryData(null);
       setIsSubmitting(false);
+      setShowOAuthError(true);
+    },
+    onNonOAuthError: (error) => {
+      // This fires when user closes the popup
+      console.log("Google login popup closed or non-OAuth error:", error);
+      setPendingEntryData(null);
+      setIsSubmitting(false);
+      setShowOAuthError(true);
     },
     scope: "https://www.googleapis.com/auth/spreadsheets",
   });
@@ -505,45 +562,6 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [notes, setNotes] = useState("");
   const [notesWarning, setNotesWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-
-  // Effect to sync entry after OAuth completes
-  // This runs when pendingAccessToken is set by the OAuth callback
-  useEffect(() => {
-    const syncPendingEntry = async () => {
-      if (pendingAccessToken && pendingEntryId) {
-        console.log("OAuth complete, syncing entry to Google Sheets...");
-        
-        try {
-          const success = await syncEntryToSheet(pendingEntryId, pendingAccessToken);
-          
-          if (success) {
-            console.log("Entry synced to Google Sheets successfully!");
-          } else {
-            console.warn("Entry saved locally but failed to sync to Google Sheets. Will retry later.");
-          }
-        } catch (error) {
-          console.error("Error syncing to sheet:", error);
-        }
-        
-        // Clear pending state
-        setPendingAccessToken(null);
-        setPendingEntryId(null);
-        
-        // Show success and reset form
-        setIsSubmitting(false);
-        setSubmitSuccess(true);
-
-        setTimeout(() => {
-          resetForm();
-          setSubmitSuccess(false);
-        }, 2000);
-      }
-    };
-
-    syncPendingEntry();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingAccessToken, pendingEntryId]);
 
   // Toggle symptom selection
   const toggleSymptom = (symptomName: string) => {
@@ -598,8 +616,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     return `${time.hour}:${time.minute.toString().padStart(2, '0')} ${time.period}`;
   };
 
-  // Handle form submission
-    const handleSubmit = async () => {
+  const handleSubmit = async () => {
     // Validation
     if (!isNoteSafe(notes)) {
       alert("Please remove any code-like content from the notes field.");
@@ -661,30 +678,29 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       notes: notes ? sanitizeText(notes) : '',
     };
 
-    // Step 1: Always save to localStorage first (works offline)
-    const savedEntry = addEntry(entryData);
-    console.log("Entry saved to localStorage:", savedEntry.id);
-
-    // Step 2: If Google Sheet is connected, sync to sheet
+    // If Google Sheet is connected, use OAuth-first approach
     if (isGoogleSheetConnected && googleSheet.url) {
-      console.log("Google Sheet connected, initiating sync...");
+      console.log("Google Sheet connected, initiating OAuth-first save...");
       
-      // Store the entry ID so we can sync it after OAuth completes
-      setPendingEntryId(savedEntry.id);
+      // Store entry data - will be saved only if OAuth succeeds
+      setPendingEntryData(entryData);
       
-      // Trigger OAuth to get fresh access token
-      // The onSuccess callback will set pendingAccessToken
+      // Trigger OAuth - entry will be saved in onSuccess callback
       googleLogin();
     } else {
-      // No Google Sheet connected - just show success
-      console.log("No Google Sheet connected, entry saved locally only");
+      // No Google Sheet connected - save locally immediately
+      console.log("No Google Sheet connected, saving locally only");
+      const savedEntry = addEntry(entryData);
+      console.log("Entry saved to localStorage:", savedEntry.id);
+      
       setIsSubmitting(false);
-      setSubmitSuccess(true);
-
-      setTimeout(() => {
-        resetForm();
-        setSubmitSuccess(false);
-      }, 2000);
+      
+      setSuccessModalConfig({
+        title: "Entry Logged!",
+        description: "Your entry has been saved to this device.",
+        secondaryText: "Connect a Google Sheet in Settings to back up your entries.",
+      });
+      setShowSuccessModal(true);
     }
   };
 
@@ -1086,35 +1102,16 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isSubmitting || submitSuccess || !!notesWarning}
+          disabled={isSubmitting || !!notesWarning}
           className={`w-full py-4 rounded-lg font-semibold text-white transition-all ${
-            submitSuccess
-              ? "bg-app-green"
-              : isSubmitting
+            isSubmitting
               ? "bg-app-teal/70 cursor-wait"
               : notesWarning
               ? "bg-app-gray cursor-not-allowed"
               : "bg-app-teal hover:bg-app-teal"
           }`}
         >
-          {submitSuccess ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              Entry Saved!
-            </span>
-          ) : isSubmitting ? (
+          {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle
@@ -1154,6 +1151,32 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         </button>
       </div>
     </div>
+    
+    {/* OAuth Error Modal */}
+    <OAuthErrorModal
+      isOpen={showOAuthError}
+      onClose={() => setShowOAuthError(false)}
+      onRetry={() => {
+        if (pendingEntryData) {
+          setIsSubmitting(true);
+          googleLogin();
+        }
+      }}
+      actionDescription="save your entry to Google Sheets"
+    />
+
+    {/* Success Modal */}
+    <SuccessModal
+      isOpen={showSuccessModal}
+      onClose={() => {
+        setShowSuccessModal(false);
+        resetForm();
+      }}
+      title={successModalConfig.title}
+      description={successModalConfig.description}
+      secondaryText={successModalConfig.secondaryText}
+      buttonText="Log Another Entry"
+    />
     </>
   );
 }

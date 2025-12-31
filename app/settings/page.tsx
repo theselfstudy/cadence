@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { checkForExistingSettings, deleteSettingsSheet } from "@/lib/googleSheets";
 import { useSettings } from "@/stores/useSettings";
 import { validateSettings } from "@/lib/settingsValidation";
+import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
+import { SuccessModal } from "@/components/ui/SuccessModal";
 
 import {
   DEFAULT_SYMPTOMS,
@@ -32,6 +34,7 @@ import {
   SyncEntriesModal,
   ImportEntriesModal,
 } from "@/components/settings";
+
 
 // =============================================================================
 // CONSTANTS
@@ -161,6 +164,18 @@ function SettingsPageContent() {
   const [showAnonymousContinueModal, setShowAnonymousContinueModal] = useState(false);
   const [showLocalSaveModal, setShowLocalSaveModal] = useState(false);
   const [showSyncEntriesModal, setShowSyncEntriesModal] = useState(false);
+  // OAuth error modal
+  const [showOAuthError, setShowOAuthError] = useState(false);
+  const [oauthErrorAction, setOauthErrorAction] = useState("");
+  const [oauthRetryFn, setOauthRetryFn] = useState<(() => void) | null>(null);
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalConfig, setSuccessModalConfig] = useState({
+    title: "",
+    description: "",
+    secondaryText: "",
+  });
+  const [navigateAfterSuccess, setNavigateAfterSuccess] = useState<string | null>(null);
   const [showImportEntriesModal, setShowImportEntriesModal] = useState(false);
   const [pendingImportAccessToken, setPendingImportAccessToken] = useState<string | null>(null);
   const [pendingSyncAccessToken, setPendingSyncAccessToken] = useState<string | null>(null);
@@ -347,7 +362,14 @@ function SettingsPageContent() {
       }
     },
     onError: () => {
-      setSheetError("Google Authentication failed. Please try again.");
+      setOauthErrorAction("connect your Google Sheet");
+      setOauthRetryFn(() => () => connectSheetLogin());
+      setShowOAuthError(true);
+    },
+    onNonOAuthError: () => {
+      setOauthErrorAction("connect your Google Sheet");
+      setOauthRetryFn(() => () => connectSheetLogin());
+      setShowOAuthError(true);
     },
   });
 
@@ -360,13 +382,25 @@ function SettingsPageContent() {
       await savedFiltersSyncToSheet(tokenResponse.access_token);
       
       if (success) {
-        alert("Settings saved to your Google Sheet successfully!");
+        setSuccessModalConfig({
+          title: "Settings Saved!",
+          description: "Your settings have been saved to your Google Sheet.",
+          secondaryText: "Your preferences will sync across all your devices.",
+        });
+        setShowSuccessModal(true);
       } else {
         alert("Failed to save settings. Please check console for errors.");
       }
     },
     onError: () => {
-      alert("Google Authentication failed. Please try again.");
+      setOauthErrorAction("save your settings");
+      setOauthRetryFn(() => () => saveLogin());
+      setShowOAuthError(true);
+    },
+    onNonOAuthError: () => {
+      setOauthErrorAction("save your settings");
+      setOauthRetryFn(() => () => saveLogin());
+      setShowOAuthError(true);
     },
   });
 
@@ -399,7 +433,15 @@ function SettingsPageContent() {
       router.push(destination === "tutorial" ? "/tutorial" : "/entry");
     },
     onError: () => {
-      alert("Google Authentication failed. Please try again.");
+      // Don't clear pendingNavigation so retry works
+      setOauthErrorAction("save your settings and continue");
+      setOauthRetryFn(() => () => saveLoginThenNavigate());
+      setShowOAuthError(true);
+    },
+    onNonOAuthError: () => {
+      setOauthErrorAction("save your settings and continue");
+      setOauthRetryFn(() => () => saveLoginThenNavigate());
+      setShowOAuthError(true);
     },
   });
 
@@ -424,7 +466,14 @@ function SettingsPageContent() {
       router.push("/settings");
     },
     onError: () => {
-      alert("Google Authentication failed. Settings were not reset.");
+      setOauthErrorAction("reset your settings");
+      setOauthRetryFn(() => () => resetWithSheetDelete());
+      setShowOAuthError(true);
+    },
+    onNonOAuthError: () => {
+      setOauthErrorAction("reset your settings");
+      setOauthRetryFn(() => () => resetWithSheetDelete());
+      setShowOAuthError(true);
     },
   });
 
@@ -688,9 +737,15 @@ function SettingsPageContent() {
 
   const handleLocalSaveConfirm = () => {
     setShowLocalSaveModal(false);
-    router.push("/dashboard");
+    // Show success modal for anonymous users, then navigate
+    setSuccessModalConfig({
+      title: "Settings Saved!",
+      description: "Your settings have been saved to this device.",
+      secondaryText: "Note: Clearing browser data will delete your settings. Consider connecting a Google Sheet for backup.",
+    });
+    setNavigateAfterSuccess("/dashboard");
+    setShowSuccessModal(true);
   };
-
   // ---------------------------------------------------------------------------
   // SYMPTOM HANDLERS
   // ---------------------------------------------------------------------------
@@ -1876,7 +1931,7 @@ function SettingsPageContent() {
           </section>
         )}
 
-                {/* Continue / Tutorial */}
+        {/* Continue / Tutorial */}
         {!setupComplete && (
           <section className="card border-2 border-app-green bg-app-green/5">
             <h2 className="text-lg font-semibold text-app-charcoal mb-2">▶️ Ready to Start?</h2>
@@ -1923,6 +1978,32 @@ function SettingsPageContent() {
           </section>
         )}
       </div>
+      {/* OAuth Error Modal */}
+      <OAuthErrorModal
+        isOpen={showOAuthError}
+        onClose={() => {
+          setShowOAuthError(false);
+          setOauthRetryFn(null);
+        }}
+        onRetry={oauthRetryFn || undefined}
+        actionDescription={oauthErrorAction}
+      />
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          if (navigateAfterSuccess) {
+            router.push(navigateAfterSuccess);
+            setNavigateAfterSuccess(null);
+          }
+        }}
+        title={successModalConfig.title}
+        description={successModalConfig.description}
+        secondaryText={successModalConfig.secondaryText}
+        buttonText="Continue"
+      />
     </>
   );
 }

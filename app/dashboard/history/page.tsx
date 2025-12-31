@@ -6,6 +6,8 @@ import type { StoredEntry, TimeFormat } from "@/types";
 import { useEffect, useState, useMemo } from "react";
 import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
+import { useSavedFilters } from "@/stores/useSavedFilters";
+import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
 import { FilterBar } from "@/components/history";
@@ -46,6 +48,8 @@ export default function HistoryPage() {
 
   const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
 
+  // Saved filters store
+  const loadSavedFiltersFromSheet = useSavedFilters((state) => state.loadFromSheet);
   
   // Filter state
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>("all");
@@ -67,7 +71,12 @@ export default function HistoryPage() {
   const [refreshResult, setRefreshResult] = useState<{
     imported: number;
     skipped: number;
+    filtersLoaded?: number;
   } | null>(null);
+
+  // OAuth error state
+  const [showOAuthError, setShowOAuthError] = useState(false);
+  const [oauthErrorAction, setOauthErrorAction] = useState("");
 
     // Date-filtered entries (before advanced filters)
   const dateFilteredEntries = useMemo(() => {
@@ -208,7 +217,21 @@ export default function HistoryPage() {
       setIsRefreshing(true);
       setRefreshResult(null);
       
+      // Import entries
       const result = await importEntriesFromSheet(tokenResponse.access_token);
+      
+      // Also refresh saved filters
+      let filtersLoaded = 0;
+      const googleSheetUrl = useSettings.getState().googleSheet?.url;
+      if (googleSheetUrl) {
+        const spreadsheetId = googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+        if (spreadsheetId) {
+          const filtersBefore = useSavedFilters.getState().savedFilters.length;
+          await loadSavedFiltersFromSheet(spreadsheetId, tokenResponse.access_token);
+          const filtersAfter = useSavedFilters.getState().savedFilters.length;
+          filtersLoaded = Math.max(0, filtersAfter - filtersBefore);
+        }
+      }
       
       setIsRefreshing(false);
       
@@ -216,6 +239,7 @@ export default function HistoryPage() {
         setRefreshResult({
           imported: result.imported,
           skipped: result.skipped,
+          filtersLoaded,
         });
         
         // Clear the result after 5 seconds
@@ -226,7 +250,13 @@ export default function HistoryPage() {
     },
     onError: () => {
       setIsRefreshing(false);
-      alert("Google Authentication failed. Please try again.");
+      setOauthErrorAction("refresh from your Google Sheet");
+      setShowOAuthError(true);
+    },
+    onNonOAuthError: () => {
+      setIsRefreshing(false);
+      setOauthErrorAction("refresh from your Google Sheet");
+      setShowOAuthError(true);
     },
   });
   
@@ -337,6 +367,8 @@ export default function HistoryPage() {
                 ? `Imported ${refreshResult.imported} new ${refreshResult.imported === 1 ? 'entry' : 'entries'}`
                 : 'Already up to date'}
               {refreshResult.skipped > 0 && ` (${refreshResult.skipped} skipped)`}
+              {refreshResult.filtersLoaded != null && refreshResult.filtersLoaded > 0 && 
+                ` · ${refreshResult.filtersLoaded} saved filter${refreshResult.filtersLoaded === 1 ? '' : 's'} synced`}
             </span>
           </div>
         )}
@@ -396,7 +428,7 @@ export default function HistoryPage() {
                 </svg>
               </button>
             </div>
-                        {/* Stats Toggle */}
+            {/* Stats Toggle */}
             <button
               onClick={() => setShowStats(!showStats)}
               className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
@@ -545,6 +577,13 @@ export default function HistoryPage() {
           </pre>
         </details>
       )}
+      {/* OAuth Error Modal */}
+      <OAuthErrorModal
+        isOpen={showOAuthError}
+        onClose={() => setShowOAuthError(false)}
+        onRetry={() => refreshFromSheet()}
+        actionDescription={oauthErrorAction}
+      />
     </div>
   );
 }

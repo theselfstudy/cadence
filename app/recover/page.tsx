@@ -48,6 +48,9 @@ export default function RecoverPage() {
     onError: () => {
       setError('Google Authentication failed. Please try again.');
     },
+    onNonOAuthError: () => {
+      setError('Google sign-in was cancelled. Please try again.');
+  },
   });
 
   const handleRestore = () => {
