@@ -39,7 +39,7 @@ const FEATURES: FeatureInfo[] = [
       "Record how you feel after",
       "Identify digestive patterns",
     ],
-    color: "app-plumb",
+    color: "app-green",
   },
   {
     icon: "🌸",
@@ -61,10 +61,10 @@ const FEATURES: FeatureInfo[] = [
       "Tag each medicine by purpose (symptom, bowel, period, other)",
       "Optional time tracking for time-sensitive meds",
     ],
-    color: "app-taupe",
+    color: "app-teal",
   },
   {
-    icon: "📊",
+    icon: "",
     label: "Insights & Trends",
     description: "See your health data visualized over time.",
     bullets: [
@@ -75,14 +75,14 @@ const FEATURES: FeatureInfo[] = [
     color: "app-green",
   },
     {
-    icon: "💾",
+    icon: "",
     label: "Export & Save",
     description: "Export your data at any time.",
     bullets: [
       "Download all entries as a CSV to your device for safekeeping",
       "Export data based on filters",
     ],
-    color: "app-green",
+    color: "app-teal",
   },
 ];
 

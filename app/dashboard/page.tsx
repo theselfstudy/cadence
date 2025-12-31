@@ -88,7 +88,7 @@ export default function DashboardPage() {
           href="/dashboard/weekly"
           icon="📅"
           title="Weekly Overview"
-          description="Last 7 days at a glance"
+          description="Last 7 days at a glance (coming soon!)"
           color="teal"
           comingSoon
         />
@@ -96,7 +96,7 @@ export default function DashboardPage() {
           href="/dashboard/monthly"
           icon="📊"
           title="Monthly Overview"
-          description="Monthly patterns and trends"
+          description="Monthly patterns and trends (coming soon!)"
           color="plumb"
           comingSoon
         />
@@ -104,7 +104,7 @@ export default function DashboardPage() {
           href="/dashboard/quarterly"
           icon="📈"
           title="Quarterly Overview"
-          description="Long-term insights"
+          description="Long-term insights (coming soon!)"
           color="taupe"
           comingSoon
         />

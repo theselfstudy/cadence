@@ -34,7 +34,7 @@ const SECTION_OPTIONS: SectionOption[] = [
   {
     id: "bowel",
     label: "Bowel Movement",
-    icon: "💩",
+    icon: "🧻",
     description: "Bristol Stool Scale tracking",
     settingsKey: "bowel",
   },

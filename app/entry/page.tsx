@@ -6,7 +6,7 @@ import { useSettings } from "@/stores/useSettings";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useEntries } from "@/stores/useEntries";
 import type { MedicineCategory, LogSection } from "@/types";
-import { LogSelectionModal } from "@/components/entry/LogSelectionModal";
+import { LogSelectionModal, SegmentedIntensityBar } from "@/components/entry";
 import { getLocalDateString } from '@/lib/dateUtils';
 
 
@@ -739,7 +739,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       {safeStoolTracking.enabled && shouldShowSection("bowel") && (
         <section className="card">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
-            💩 Bristol Stool Scale
+            🧻 Bristol Stool Scale
           </h2>
           
           {/* Bristol Type - Circular Buttons */}
@@ -955,141 +955,76 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
           {/* Intensity Selection for Selected Symptoms */}
           {intensityEnabled && selectedSymptoms.length > 0 && (
-            <div className="space-y-4 pt-4 border-t border-app-border">
-              <p className="text-sm font-medium text-app-charcoal">Intensity levels:</p>
-              {selectedSymptoms.map((symptom) => {
-                const isPeriodRelated = periodSymptomsList.includes(symptom.name);
-                const accentColor = isMenstrualPhase && isPeriodRelated ? "red" : "teal";
-                const scaleInfo = PAIN_SCALE_INFO[painScaleType];
-                const minValue = painScaleType === "mankoski" ? 0 : 1;
-                const maxValue = 10;
-                const currentValue = symptom.intensity ?? minValue;
+          <div className="space-y-4 pt-4 border-t border-app-border">
+            <p className="text-sm font-medium text-app-charcoal">Intensity levels:</p>
+            {selectedSymptoms.map((symptom) => {
+              const isPeriodRelated = periodSymptomsList.includes(symptom.name);
+              const accentColor = isMenstrualPhase && isPeriodRelated ? "red" : "teal";
+              const scaleInfo = PAIN_SCALE_INFO[painScaleType];
+              const minValue = painScaleType === "mankoski" ? 0 : 1;
+              const maxValue = 10;
+              const currentValue = symptom.intensity ?? minValue;
 
-                // Generate array of values for the buttons
-                const values = Array.from(
-                  { length: maxValue - minValue + 1 },
-                  (_, i) => minValue + i
-                );
+              // Get description for current value
+              const currentLevel = scaleInfo.levels.find((l) => l.value === currentValue);
 
-                // Get description for current value
-                const currentLevel = scaleInfo.levels.find((l) => l.value === currentValue);
-
-                // Split values into two rows for mobile
-                // Mankoski (0-10): Row 1 = 0-5, Row 2 = 6-10 (+ 1 empty)
-                // Simple (1-10): Row 1 = 1-5 (+ 1 empty), Row 2 = 6-10
-                const mobileRow1 = painScaleType === "mankoski" 
-                ? values.filter((v) => v <= 4)  // 0,1,2,3,4
-                : values.filter((v) => v <= 5); // 1,2,3,4,5
-              const mobileRow2 = painScaleType === "mankoski"
-                ? values.filter((v) => v >= 5)  // 5,6,7,8,9,10
-                : values.filter((v) => v > 5);  // 6,7,8,9,10
-
-                return (
-                  <div
-                    key={symptom.name}
-                    className={`p-3 rounded-lg ${
-                      accentColor === "red" ? "bg-app-red/5" : "bg-app-teal/5"
-                    }`}
-                  >
-                    {/* Symptom name and current value */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-app-charcoal">
-                        {symptom.name}
-                      </span>
-                      <span
-                        className={`text-sm font-semibold px-2 py-0.5 rounded ${
-                          accentColor === "red"
-                            ? "bg-app-red/20 text-app-red"
-                            : "bg-app-teal/20 text-app-teal"
-                        }`}
-                      >
-                        {currentValue}
-                      </span>
-                    </div>
-                    {/* Mobile: Horizontal scroll layout (hidden on sm+) */}
-                    <div className="sm:hidden">
-                      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        {values.map((value) => {
-                          const isSelected = currentValue === value;
-                          return (
-                            <button
-                              key={value}
-                              type="button"
-                              onClick={() => updateSymptomIntensity(symptom.name, value)}
-                              className={`
-                                w-10 h-10 rounded-full text-lg font-semibold transition-all
-                                flex items-center justify-center flex-shrink-0
-                                ${isSelected
-                                  ? accentColor === "red"
-                                    ? "bg-app-red text-white scale-110"
-                                    : "bg-app-teal text-white scale-110"
-                                  : `bg-app-cream text-app-charcoal border-2 border-app-border ${accentColor === "red" ? "hover:border-app-red" : "hover:border-app-teal"} active:bg-app-taupe/20`
-                                }
-                              `}
-                              aria-label={`Intensity ${value}`}
-                              aria-pressed={isSelected}
-                            >
-                              {value}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-xs text-app-gray text-center mt-1">Swipe to see all options →</p>
-                    </div>
-
-                    {/* Desktop: Single row (hidden on mobile) */}
-                    <div className={`hidden sm:grid sm:gap-1 ${painScaleType === "mankoski" ? "sm:grid-cols-11" : "sm:grid-cols-10"}`}>
-                      {values.map((value) => {
-                        const isSelected = currentValue === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => updateSymptomIntensity(symptom.name, value)}
-                            className={`
-                              w-10 h-10 rounded-full text-lg font-semibold transition-all
-                              flex items-center justify-center
-                              ${isSelected
-                                ? accentColor === "red"
-                                  ? "bg-app-red text-white scale-110"
-                                  : "bg-app-teal text-white scale-110"
-                                : `bg-app-cream text-app-charcoal border-2 border-app-border ${accentColor === "red" ? "hover:border-app-red" : "hover:border-app-teal"} active:bg-app-taupe/20`
-                              }
-                            `}
-                            aria-label={`Intensity ${value}`}
-                            aria-pressed={isSelected}
-                          >
-                            {value}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Scale endpoints labels */}
-                    <div className="flex justify-between text-xs text-app-gray mt-2 px-1">
-                      <span>{scaleInfo.levels[0].label.split(" — ")[0]}</span>
-                      <span>{scaleInfo.levels[scaleInfo.levels.length - 1].label.split(" — ")[0]}</span>
-                    </div>
-
-                    {/* Description for selected value */}
-                    {currentLevel && (
-                      <div
-                        className={`mt-3 p-2 rounded-md text-xs ${
-                          accentColor === "red"
-                            ? "bg-app-red/10 text-app-red"
-                            : "bg-app-teal/10 text-app-teal"
-                        }`}
-                      >
-                        <span>
-                          <strong>{currentValue}:</strong> {currentLevel.label}
-                        </span>
-                      </div>
-                    )}
+              return (
+                <div
+                  key={symptom.name}
+                  className={`p-3 rounded-lg ${
+                    accentColor === "red" ? "bg-app-red/5" : "bg-app-teal/5"
+                  }`}
+                >
+                  {/* Symptom name and current value */}
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-app-charcoal">
+                      {symptom.name}
+                    </span>
+                    <span
+                      className={`text-sm font-semibold px-2 py-0.5 rounded ${
+                        accentColor === "red"
+                          ? "bg-app-red/20 text-app-red"
+                          : "bg-app-teal/20 text-app-teal"
+                      }`}
+                    >
+                      {currentValue}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          )}
+
+                  {/* Segmented intensity bar */}
+                  <SegmentedIntensityBar
+                    value={currentValue}
+                    onChange={(newValue) => updateSymptomIntensity(symptom.name, newValue)}
+                    min={minValue}
+                    max={maxValue}
+                    accentColor={accentColor}
+                  />
+
+                  {/* Scale endpoints labels */}
+                  <div className="flex justify-between text-xs text-app-gray mt-2 px-1">
+                    <span>{scaleInfo.levels[0].label.split(" — ")[0]}</span>
+                    <span>{scaleInfo.levels[scaleInfo.levels.length - 1].label.split(" — ")[0]}</span>
+                  </div>
+
+                  {/* Description for selected value */}
+                  {currentLevel && (
+                    <div
+                      className={`mt-3 p-2 rounded-md text-xs ${
+                        accentColor === "red"
+                          ? "bg-app-red/10 text-app-red"
+                          : "bg-app-teal/10 text-app-teal"
+                      }`}
+                    >
+                      <span>
+                        <strong>{currentValue}:</strong> {currentLevel.label}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
         </section>
       )}
 

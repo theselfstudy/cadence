@@ -146,7 +146,7 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                 </div>
                 <p className="text-sm text-app-gray mt-1">
                   Keep your data stored locally on this device only. 
-                  No sign-in required — quick and private.
+                  No sign-in required. Get started quickly and privately.
                 </p>
                 <p className="text-xs text-app-gray/70 mt-2 italic">
                   You can connect a Google Sheet later anytime.

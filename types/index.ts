@@ -359,7 +359,7 @@ export interface Medicine {
   id: string;
   name: string;
   categories: MedicineCategory[];
-  dosages: string[]; // Array of dosage options, e.g., ["200mg", "400mg", "600mg"]
+  dosages: string[];
   timeSensitive: boolean; // Requires time logging
 }
 
