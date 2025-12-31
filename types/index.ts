@@ -1,5 +1,5 @@
 // ============================================
-// TrackWell Type Definitions
+// Cadence Type Definitions
 // ============================================
 
 /**
@@ -649,3 +649,62 @@ export interface AvailableFilterOptions {
   feelings: PostBowelFeeling[];
   medicines: string[];
 }
+
+// ============================================
+// Saved Filter Types
+// ============================================
+
+/**
+ * A saved filter configuration
+ */
+export interface SavedFilter {
+  /** Unique identifier */
+  id: string;
+  /** User-defined name (max 30 characters) */
+  name: string;
+  /** The filter configuration */
+  filters: HistoryFilters;
+  /** When the filter was created */
+  createdAt: string;
+  /** When the filter was last updated */
+  updatedAt: string;
+}
+
+/**
+ * Saved filters store state
+ */
+export interface SavedFiltersState {
+  /** Array of saved filters (max 3) */
+  savedFilters: SavedFilter[];
+  /** Whether we're syncing with Google Sheets */
+  isSyncing: boolean;
+}
+
+/**
+ * Saved filters store actions
+ */
+export interface SavedFiltersActions {
+  /** Save current filters with a name (returns false if at max capacity) */
+  saveFilter: (name: string, filters: HistoryFilters) => SavedFilter | null;
+  /** Delete a saved filter by ID */
+  deleteFilter: (id: string) => void;
+  /** Update an existing filter's configuration */
+  updateFilter: (id: string, filters: HistoryFilters) => void;
+  /** Rename an existing filter */
+  renameFilter: (id: string, newName: string) => void;
+  /** Check if we can save more filters */
+  canSaveMore: () => boolean;
+  /** Get remaining slot count */
+  getRemainingSlots: () => number;
+  /** Sync saved filters to Google Sheet */
+  syncToSheet: (accessToken: string) => Promise<boolean>;
+  /** Load saved filters from Google Sheet */
+  loadFromSheet: (spreadsheetId: string, accessToken: string) => Promise<boolean>;
+  /** Clear all saved filters */
+  clearAll: () => void;
+}
+
+/**
+ * Combined saved filters store type
+ */
+export type SavedFiltersStore = SavedFiltersState & SavedFiltersActions;

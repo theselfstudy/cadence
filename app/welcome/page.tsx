@@ -64,7 +64,7 @@ const FEATURES: FeatureInfo[] = [
     color: "app-teal",
   },
   {
-    icon: "",
+    icon: "💡",
     label: "Insights & Trends",
     description: "See your health data visualized over time.",
     bullets: [
@@ -75,7 +75,7 @@ const FEATURES: FeatureInfo[] = [
     color: "app-green",
   },
     {
-    icon: "",
+    icon: "💾",
     label: "Export & Save",
     description: "Export your data at any time.",
     bullets: [
@@ -174,7 +174,7 @@ export default function WelcomePage() {
             <span className="text-white text-5xl">✿</span>
           </div>
           <h1 className="text-3xl font-bold text-app-charcoal">
-            Welcome to TrackWell
+            Welcome to Cadence
           </h1>
         </div>
 
@@ -198,7 +198,7 @@ export default function WelcomePage() {
           </div>
         </div>
 
-        {/* What TrackWell Doesn't Do Section */}
+        {/* What Cadence Doesn't Do Section */}
         <div className="w-full max-w-2xl mx-auto mb-10">
           <h2 className="text-sm font-semibold text-app-gray uppercase tracking-wide mb-4">
             Your Privacy Protected

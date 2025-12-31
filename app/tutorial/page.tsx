@@ -12,7 +12,7 @@ import { useSettings } from "@/stores/useSettings";
 const TUTORIAL_STEPS = [
   {
     id: "welcome",
-    title: "Welcome to TrackWell!",
+    title: "Welcome to Cadence!",
     description:
       "Let's take a quick tour of how to use the app. This will only take a couple of minutes, and we'll tailor it to the features you've enabled!",
     illustration: "welcome",

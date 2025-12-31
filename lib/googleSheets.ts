@@ -6,18 +6,20 @@ import type { StoredEntry, UserSettings, SheetColumn, MedicineLogEntry, ProductU
 
 import { PRODUCT_OPTIONS } from '@/lib/constants';
 
-// Entry sheet naming: TrackWell-YYYY-MM (e.g., TrackWell-2024-01)
-export const ENTRIES_SHEET_PREFIX = "TrackWell";
+// Entry sheet naming: Cadence-YYYY-MM (e.g., Cadence-2024-01)
+export const ENTRIES_SHEET_PREFIX = "Cadence";
 
 // ============================================
 // SHEET NAMES & CONFIGURATION
 // ============================================
 
-const SETTINGS_SHEET_NAME = ".TrackWell-settings";
+const SETTINGS_SHEET_NAME = ".Cadence-settings";
+const SAVED_FILTERS_SHEET_NAME = ".Cadence-savedfilters";
+const SAVED_FILTERS_RANGE = `${SAVED_FILTERS_SHEET_NAME}!A1`;
 
 /**
  * Generates the sheet name for a given date's month.
- * Format: TrackWell-YYYY-MM
+ * Format: Cadence-YYYY-MM
  */
 function getEntriesSheetName(date: Date = new Date()): string {
   const year = date.getFullYear();
@@ -30,7 +32,7 @@ function getEntriesSheetName(date: Date = new Date()): string {
  * Returns null if not a valid entries sheet name.
  */
 function parseEntriesSheetName(sheetName: string): { year: number; month: number } | null {
-  const match = sheetName.match(/^TrackWell-(\d{4})-(\d{2})$/);
+  const match = sheetName.match(/^Cadence-(\d{4})-(\d{2})$/);
   if (!match) return null;
   return {
     year: parseInt(match[1], 10),
@@ -39,7 +41,7 @@ function parseEntriesSheetName(sheetName: string): { year: number; month: number
 }
 
 /**
- * Checks if a sheet name is a TrackWell entries sheet.
+ * Checks if a sheet name is a Cadence entries sheet.
  */
 function isEntriesSheet(sheetName: string): boolean {
   return parseEntriesSheetName(sheetName) !== null;
@@ -256,7 +258,7 @@ export async function deleteSettingsSheet(
 // ============================================
 
 /**
- * Gets all TrackWell entry sheet tabs from the spreadsheet.
+ * Gets all Cadence entry sheet tabs from the spreadsheet.
  * Returns array of { name, sheetId, year, month, hidden }
  */
 export async function getAllEntriesSheets(
@@ -1703,5 +1705,150 @@ export async function fetchAllEntriesFromSheet(
       entries: [], 
       error: error instanceof Error ? error.message : 'Unknown error' 
     };
+  }
+}
+
+// ============================================
+// SAVED FILTERS SHEET OPERATIONS
+// ============================================
+
+/**
+ * Reads saved filters JSON from the hidden tab in the user's Google Sheet.
+ */
+export async function getSavedFiltersFromSheet(
+  spreadsheetId: string,
+  accessToken: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SAVED_FILTERS_RANGE)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      // Sheet might not exist yet - that's okay
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.values?.[0]?.[0] || null;
+  } catch (error) {
+    console.error("Error getting saved filters from sheet:", error);
+    return null;
+  }
+}
+
+/**
+ * Writes saved filters JSON to the hidden tab in the user's Google Sheet.
+ * Creates the hidden tab if it doesn't exist.
+ */
+export async function saveSavedFiltersToSheet(
+  filtersJson: string,
+  spreadsheetId: string,
+  accessToken: string
+): Promise<boolean> {
+  try {
+    const updateResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SAVED_FILTERS_RANGE)}?valueInputOption=RAW`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          values: [[filtersJson]],
+        }),
+      }
+    );
+
+    // If sheet doesn't exist, create it and retry
+    if (updateResponse.status === 400) {
+      await _createHiddenSheet(spreadsheetId, accessToken, SAVED_FILTERS_SHEET_NAME);
+      return await saveSavedFiltersToSheet(filtersJson, spreadsheetId, accessToken);
+    }
+
+    if (!updateResponse.ok) {
+      const errorBody = await updateResponse.json();
+      console.error("Google Sheets API error (saved filters):", errorBody);
+      throw new Error("Failed to update saved filters in sheet.");
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error saving filters to sheet:", error);
+    return false;
+  }
+}
+
+/**
+ * Deletes the saved filters sheet from the user's Google Sheet.
+ */
+export async function deleteSavedFiltersSheet(
+  spreadsheetId: string,
+  accessToken: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Failed to get spreadsheet info");
+      return false;
+    }
+
+    const data = await response.json();
+    const filtersSheet = data.sheets?.find(
+      (sheet: { properties: { title: string } }) =>
+        sheet.properties.title === SAVED_FILTERS_SHEET_NAME
+    );
+
+    if (!filtersSheet) {
+      // Sheet doesn't exist, nothing to delete
+      return true;
+    }
+
+    const sheetId = filtersSheet.properties.sheetId;
+
+    const deleteResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              deleteSheet: {
+                sheetId: sheetId,
+              },
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!deleteResponse.ok) {
+      const error = await deleteResponse.json();
+      console.error("Failed to delete saved filters sheet:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error deleting saved filters sheet:", error);
+    return false;
   }
 }

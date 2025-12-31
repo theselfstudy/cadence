@@ -135,6 +135,7 @@ export default function HistoryPage() {
     selectAllBowel,
     selectAllMedicine,
     clearCategory,
+    setFilters,
     clearAllFilters,
   } = useHistoryFilters(dateFilteredEntries);
   
@@ -144,7 +145,7 @@ export default function HistoryPage() {
     
     // Show backup prompt for anonymous users with entries
     if (!isGoogleSheetConnected && entries.length > 0) {
-      const lastDismissed = localStorage.getItem("trackwell-backup-prompt-dismissed");
+      const lastDismissed = localStorage.getItem("Cadence-backup-prompt-dismissed");
       if (!lastDismissed) {
         setShowBackupPrompt(true);
       } else {
@@ -196,7 +197,7 @@ export default function HistoryPage() {
   
   // Handle backup prompt dismiss
   const dismissBackupPrompt = () => {
-    localStorage.setItem("trackwell-backup-prompt-dismissed", new Date().toISOString());
+    localStorage.setItem("Cadence-backup-prompt-dismissed", new Date().toISOString());
     setShowBackupPrompt(false);
   };
 
@@ -462,11 +463,12 @@ export default function HistoryPage() {
           {/* Advanced Filters Content */}
           {showAdvancedFilters && (
             <div className="mt-4">
-                          <FilterBar
+            <FilterBar
               filters={filters}
               availableOptions={availableOptions}
               categoryFilterCounts={categoryFilterCounts}
               hasFilters={hasFilters}
+              onLoadSavedFilter={setFilters}
               toggleSymptom={toggleSymptom}
               toggleCyclePhase={toggleCyclePhase}
               toggleFlowLevel={toggleFlowLevel}

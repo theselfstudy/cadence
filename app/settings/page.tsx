@@ -16,6 +16,7 @@ import {
 
 import type { PainScaleType, Medicine, MedicineCategory } from "@/types";
 
+import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useEntries } from "@/stores/useEntries";
 
 import {
@@ -126,6 +127,10 @@ function SettingsPageContent() {
   );
   const batchSyncEntries = useEntries((state) => state.batchSyncEntries);
   const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
+
+  // Saved filters store
+  const savedFiltersLoadFromSheet = useSavedFilters((state) => state.loadFromSheet);
+  const savedFiltersSyncToSheet = useSavedFilters((state) => state.syncToSheet);
 
   // ---------------------------------------------------------------------------
   // LOCAL STATE
@@ -316,6 +321,9 @@ function SettingsPageContent() {
         setGoogleSheet(sheetUrl, sheetName);
         const success = await saveSettingsToSheet(tokenResponse.access_token);
         
+        // Also sync any existing saved filters to the new sheet
+        await savedFiltersSyncToSheet(tokenResponse.access_token);
+        
         if (success) {
           // Check if there are local entries to sync
           const currentSyncableCount = useEntries.getState().entries.filter(
@@ -347,6 +355,10 @@ function SettingsPageContent() {
     scope: "https://www.googleapis.com/auth/spreadsheets",
     onSuccess: async (tokenResponse) => {
       const success = await saveSettingsToSheet(tokenResponse.access_token);
+      
+      // Also sync saved filters to sheet
+      await savedFiltersSyncToSheet(tokenResponse.access_token);
+      
       if (success) {
         alert("Settings saved to your Google Sheet successfully!");
       } else {
@@ -374,6 +386,9 @@ function SettingsPageContent() {
       
       // Now save with the correct flags
       const success = await saveSettingsToSheet(tokenResponse.access_token);
+      
+      // Also sync saved filters to sheet
+      await savedFiltersSyncToSheet(tokenResponse.access_token);
 
       if (success) {
         alert("Settings saved successfully!");
@@ -471,6 +486,9 @@ function SettingsPageContent() {
     const success = await loadSettingsFromSheet(spreadsheetId, pendingAccessToken);
 
     if (success) {
+      // Also restore saved filters from the sheet
+      await savedFiltersLoadFromSheet(spreadsheetId, pendingAccessToken);
+      
       // Settings restored - now offer to import entries
       setPendingImportAccessToken(pendingAccessToken);
       setShowImportEntriesModal(true);
@@ -958,7 +976,7 @@ function SettingsPageContent() {
           </h1>
           <p className="text-app-gray">
             {setupComplete
-              ? "Customize your TrackWell experience"
+              ? "Customize your Cadence experience"
               : "Configure how you want to keep a log of your health"}
           </p>
         </div>
@@ -969,7 +987,7 @@ function SettingsPageContent() {
             <div className="flex items-start gap-3">
               <span className="text-2xl">👋</span>
               <div>
-                <p className="font-medium text-app-charcoal">Welcome to TrackWell!</p>
+                <p className="font-medium text-app-charcoal">Welcome to Cadence!</p>
                 <p className="text-sm text-app-gray mt-1">
                   Take a moment to customize your tracking preferences below. You can always change
                   these settings later.
@@ -1178,7 +1196,7 @@ function SettingsPageContent() {
                   <div className="p-3 bg-app-cream rounded-lg border border-app-border">
                     <p className="text-xs text-app-gray">
                       💡 <strong>Tip:</strong> You&apos;ll be asked to sign in with Google to authorize
-                      TrackWell to read/write to your sheet.
+                      Cadence to read/write to your sheet.
                     </p>
                   </div>
                 </div>

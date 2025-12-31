@@ -64,7 +64,7 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
         {/* Header */}
         <div className="text-center">
           <h2 className="text-xl font-bold text-app-charcoal">
-            How would you like to use TrackWell?
+            How would you like to use Cadence?
           </h2>
           <p className="text-sm text-app-gray mt-2">
             Choose how you want to store your health data
@@ -111,7 +111,7 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                   </span>
                   <p className="text-xs text-app-teal">
                     <strong>Already set up?</strong> If you connect a sheet with existing 
-                    TrackWell data, we&apos;ll offer to restore your settings and entries.
+                    Cadence data, we&apos;ll offer to restore your settings and entries.
                   </p>
                 </div>
               </div>

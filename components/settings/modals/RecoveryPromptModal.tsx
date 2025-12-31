@@ -15,12 +15,12 @@ export function RecoveryPromptModal({ onRestore, onStartFresh, onCancel }: Recov
           <h3 className="text-xl font-bold text-app-charcoal">Existing Settings Found</h3>
         </div>
         <p className="text-sm text-app-gray">
-          This Google Sheet already contains TrackWell settings. Would you like to restore them,
+          This Google Sheet already contains Cadence settings. Would you like to restore them,
           or start fresh with new settings?
         </p>
         <div className="p-3 bg-app-cream rounded-lg border border-app-border">
           <p className="text-xs text-app-gray">
-            💡 <strong>Tip:</strong> Choose "Restore" if you've used TrackWell with this sheet before
+            💡 <strong>Tip:</strong> Choose "Restore" if you've used Cadence with this sheet before
             and want to recover your preferences.
           </p>
         </div>

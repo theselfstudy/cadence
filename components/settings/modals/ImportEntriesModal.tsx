@@ -76,7 +76,7 @@ export function ImportEntriesModal({
 
       <div className="space-y-3 mb-6">
         <p className="text-app-gray">
-          Your Google Sheet may contain entries from a previous device or session. 
+          Your Google Sheet may contain entries or saved filters from a previous device or session. 
           Would you like to import them to this device?
         </p>
         
@@ -85,9 +85,10 @@ export function ImportEntriesModal({
             <strong>What happens during import:</strong>
           </p>
           <ul className="text-sm text-app-gray mt-2 space-y-1">
-            <li>• All entries from your sheet will be downloaded</li>
+            <li>• All entries from your sheet will be imported</li>
             <li>• Duplicate entries will be automatically skipped</li>
             <li>• Your history and stats will update immediately</li>
+            <li>• All saved filters saved to your sheet will be imported</li>
           </ul>
         </div>
       </div>
@@ -97,7 +98,7 @@ export function ImportEntriesModal({
           onClick={handleImport}
           className="flex-1 py-3 px-4 rounded-lg bg-app-teal text-white font-semibold hover:opacity-90 transition-colors"
         >
-          Import Entries
+          Import Entries & Filters
         </button>
         <button
           onClick={onSkip}

@@ -432,7 +432,7 @@ export const useEntries = create<EntryStore>()(
     // PERSIST CONFIGURATION
     // ═══════════════════════════════════════
     {
-      name: STORAGE_KEYS.entries || 'TrackWell-entries',
+      name: STORAGE_KEYS.entries || 'Cadence-entries',
       storage: createJSONStorage(() => localStorage),
     }
   )

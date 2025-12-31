@@ -39,7 +39,7 @@ export default function RootPage() {
         <div className="w-16 h-16 rounded-full bg-app-green/20 mx-auto mb-4 flex items-center justify-center">
           <span className="text-3xl">✿</span>
         </div>
-        <p className="text-app-gray">Loading TrackWell...</p>
+        <p className="text-app-gray">Loading Cadence...</p>
       </div>
     </div>
   );

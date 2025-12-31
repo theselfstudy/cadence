@@ -260,7 +260,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
 // ============================================
 
 export const APP_CONFIG = {
-  name: "TrackWell",
+  name: "Cadence",
   description: "Understand you better",
   version: "1.0.0",
 } as const;
@@ -270,8 +270,8 @@ export const APP_CONFIG = {
 // ============================================
 
 export const STORAGE_KEYS = {
-  settings: "TrackWell-settings",
-  entries: 'TrackWell-entries', 
+  settings: "Cadence-settings",
+  entries: 'Cadence-entries', 
 } as const;
 
 export const PRODUCT_OPTIONS: ProductOption[] = [

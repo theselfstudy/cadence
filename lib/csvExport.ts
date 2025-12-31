@@ -1,6 +1,6 @@
 // lib/csvExport.ts
 // ============================================
-// CSV Export Utilities for TrackWell
+// CSV Export Utilities for Cadence
 // ============================================
 
 import type { StoredEntry, TimeFormat, PainScaleType } from "@/types";
@@ -436,7 +436,7 @@ export function downloadEntriesAsCSV(
  */
 function generateFilename(entries: StoredEntry[]): string {
   if (entries.length === 0) {
-    return `trackwell-export-${new Date().toISOString().split("T")[0]}.csv`;
+    return `Cadence-export-${new Date().toISOString().split("T")[0]}.csv`;
   }
   
   // Sort to get date range
@@ -448,10 +448,10 @@ function generateFilename(entries: StoredEntry[]): string {
   const endDate = sorted[sorted.length - 1].date;
   
   if (startDate === endDate) {
-    return `trackwell-${startDate}.csv`;
+    return `Cadence-${startDate}.csv`;
   }
   
-  return `trackwell-${startDate}-to-${endDate}.csv`;
+  return `Cadence-${startDate}-to-${endDate}.csv`;
 }
 
 // ============================================

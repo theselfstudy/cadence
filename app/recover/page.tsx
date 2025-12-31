@@ -1,9 +1,11 @@
 "use client";
 
+import Link from 'next/link';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/stores/useSettings';
-import Link from 'next/link';
+import { useSavedFilters } from '@/stores/useSavedFilters';
 import { useGoogleLogin } from '@react-oauth/google';
 import { GOOGLE_SHEET_URL_PATTERN } from '@/lib/constants';
 
@@ -16,6 +18,7 @@ function getSpreadsheetIdFromUrl(url: string): string | null {
 export default function RecoverPage() {
   const router = useRouter();
   const { loadSettingsFromSheet, isSyncing } = useSettings();
+  const loadSavedFiltersFromSheet = useSavedFilters((state) => state.loadFromSheet);
   const [sheetUrl, setSheetUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -31,12 +34,15 @@ export default function RecoverPage() {
 
       console.log("Google Auth Success! Restoring settings...");
       const success = await loadSettingsFromSheet(spreadsheetId, tokenResponse.access_token);
-      
+
       if (success) {
+        // Also restore saved filters
+        await loadSavedFiltersFromSheet(spreadsheetId, tokenResponse.access_token);
+        
         alert("Settings restored successfully!");
         router.push('/');
       } else {
-        setError("Could not find or load settings from this sheet. Please ensure it's a valid TrackWell sheet and that you have granted permission.");
+        setError("Could not find or load settings from this sheet. Please ensure it's a valid Cadence sheet and that you have granted permission.");
       }
     },
     onError: () => {
@@ -75,7 +81,7 @@ export default function RecoverPage() {
         {/* THIS IS THE NEW, WORKING FORM */}
         <div className="text-left">
           <label htmlFor="sheetUrl" className="block text-sm font-medium text-app-charcoal mb-1">
-            Your TrackWell Google Sheet URL
+            Your Cadence Google Sheet URL
           </label>
           <input
             id="sheetUrl"

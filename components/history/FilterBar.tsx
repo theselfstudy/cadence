@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 
 import { FilterCategoryButton } from "./FilterCategoryButton";
+import { SavedFiltersSection } from "./SavedFiltersSection";
 import { FilterDropdown } from "./FilterDropdown";
 import { FilterBottomSheet } from "./FilterBottomSheet";
 
@@ -29,6 +30,8 @@ interface FilterBarProps {
   availableOptions: AvailableFilterOptions;
   categoryFilterCounts: Record<string, number>;
   hasFilters: boolean;
+  // Saved filter action
+  onLoadSavedFilter: (filters: HistoryFilters) => void;
   
   // Toggle actions
   toggleSymptom: (symptom: string) => void;
@@ -76,6 +79,7 @@ export function FilterBar({
   availableOptions,
   categoryFilterCounts,
   hasFilters,
+  onLoadSavedFilter,
   toggleSymptom,
   toggleCyclePhase,
   toggleFlowLevel,
@@ -285,7 +289,13 @@ export function FilterBar({
             Clear All
           </button>
         )}
-      </div>
+      </div>      
+      {/* Saved Filters Section */}
+      <SavedFiltersSection
+        currentFilters={filters}
+        onLoadFilter={onLoadSavedFilter}
+        hasActiveFilters={hasFilters}
+      />
 
       {/* Mobile: Bottom Sheet (rendered once, content changes based on category) */}
       {isMobile && openCategory && openCategoryInfo && (
