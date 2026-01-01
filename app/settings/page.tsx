@@ -98,6 +98,7 @@ function SettingsPageContent() {
     tutorialComplete,
     timeFormat,
     symptoms,
+    weekStartDay,
     periodTracking,
     stoolTracking,
     googleSheet,
@@ -105,6 +106,7 @@ function SettingsPageContent() {
     isSyncing,
     isGoogleSheetConnected,
     setTimeFormat,
+    setWeekStartDay,
     toggleSymptom,
     addCustomSymptom,
     removeCustomSymptom,
@@ -1288,7 +1290,38 @@ function SettingsPageContent() {
             </button>
           </div>
         </section>
-
+        {/* Week Start Day */}
+        <section className="card border-2 border-app-taupe/50">
+          <h2 className="text-lg font-semibold text-app-charcoal mb-4">📅 Week Starts On</h2>
+          <p className="text-sm text-app-gray mb-4">
+            Choose which day your week begins. This affects weekly views and statistics.
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setWeekStartDay("sunday")}
+              className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
+                weekStartDay === "sunday"
+                  ? "bg-app-green text-white"
+                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-green hover:bg-app-green/10"
+              }`}
+            >
+              Sunday
+            </button>
+            <button
+              type="button"
+              onClick={() => setWeekStartDay("monday")}
+              className={`flex-1 py-3 rounded-lg font-medium transition-colors ${
+                weekStartDay === "monday"
+                  ? "bg-app-green text-white"
+                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-green hover:bg-app-green/10"
+              }`}
+            >
+              Monday
+            </button>
+          </div>
+        </section>
+        
         {/* Master Toggle */}
         <section className="card border-2 border-app-green/30">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">⚡ Quick Setup</h2>

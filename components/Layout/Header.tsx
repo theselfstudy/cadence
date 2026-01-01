@@ -3,7 +3,7 @@
 import { SafeLink } from "@/components/ui/SafeLink";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { APP_CONFIG, NAV_ITEMS } from "@/lib/constants";
+import { APP_CONFIG, NAV_ITEMS, SETTINGS_NAV_ITEM } from "@/lib/constants";
 
 /**
  * Header component with hamburger menu and navigation
@@ -51,59 +51,36 @@ export function Header() {
               </SafeLink>
             </div>
 
-            {/* Right side: User + Settings */}
-            {/* <div className="flex items-center gap-2"> */}
-              {/* User Avatar */}
-              {/* <button
-                className="p-2 rounded-lg text-app-gray hover:text-app-charcoal hover:bg-app-cream transition-colors"
-                aria-label="User profile"
+            {/* Right side: Settings Link */}
+            <SafeLink
+              href="/settings"
+              className={`p-2 rounded-lg transition-colors ${
+                pathname === "/settings"
+                  ? "text-app-green bg-app-green/10"
+                  : "text-app-gray hover:text-app-charcoal hover:bg-app-cream"
+              }`}
+              aria-label="Settings"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                  />
-                </svg>
-              </button> */}
-
-              {/* Settings Link */}
-              <SafeLink
-                href="/settings"
-                className={`p-2 rounded-lg transition-colors ${
-                  pathname === "/settings"
-                    ? "text-app-green bg-app-green/10"
-                    : "text-app-gray hover:text-app-charcoal hover:bg-app-cream"
-                }`}
-                aria-label="Settings"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-              </SafeLink>
-            {/* </div> */}
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </SafeLink>
           </div>
         </div>
       </header>
@@ -138,12 +115,12 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Sidebar Panel */}
       <div
-        className={`fixed top-0 left-0 h-full w-72 bg-app-white border-r border-app-border z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-72 bg-app-white border-r border-app-border z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-app-border">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-app-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-app-green flex items-center justify-center">
               <span className="text-white text-lg">✿</span>
@@ -173,8 +150,8 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="p-4">
+        {/* Main Navigation Links */}
+        <nav className="flex-1 p-4 overflow-y-auto">
           <ul className="space-y-1">
             {NAV_ITEMS.map((item) => (
               <li key={item.href}>
@@ -194,6 +171,22 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
             ))}
           </ul>
         </nav>
+
+        {/* Settings at Bottom */}
+        <div className="p-4 border-t border-app-border flex-shrink-0">
+          <SafeLink
+            href={SETTINGS_NAV_ITEM.href}
+            onClick={onClose}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
+              pathname === SETTINGS_NAV_ITEM.href
+                ? "bg-app-green text-white"
+                : "text-app-charcoal hover:bg-app-cream"
+            }`}
+          >
+            <NavIcon label={SETTINGS_NAV_ITEM.label} />
+            {SETTINGS_NAV_ITEM.label}
+          </SafeLink>
+        </div>
       </div>
     </>
   );
@@ -218,10 +211,10 @@ function NavIcon({ label }: { label: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       );
-    case "Dashboard":
+    case "Settings Overview":
       return (
         <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
       );
     case "Settings":

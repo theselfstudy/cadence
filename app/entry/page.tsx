@@ -1,6 +1,6 @@
 "use client";
 
-
+import { useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import { useSettings } from "@/stores/useSettings";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -131,6 +131,7 @@ const MEDICINE_CATEGORY_COLORS: Record<MedicineCategory, { bg: string; text: str
   symptom: { bg: "bg-app-teal", text: "text-app-teal" },
   other: { bg: "bg-app-gray", text: "text-app-gray" },
 };
+
 
 // =============================================================================
 // CONSOLIDATED MEDICINE LOG COMPONENT
@@ -406,6 +407,7 @@ function ConsolidatedMedicineLog({
 }
 
 export default function EntryPage() {
+  const router = useRouter();
   const { timeFormat, symptoms, periodTracking, stoolTracking, medicineTracking, googleSheet, isGoogleSheetConnected } = useSettings();
   const { addEntry, syncEntryToSheet } = useEntries();
   const is24Hour = timeFormat === "24h";
@@ -1170,12 +1172,16 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       isOpen={showSuccessModal}
       onClose={() => {
         setShowSuccessModal(false);
-        resetForm();
+        // reset form logic for logging another entry...
       }}
-      title={successModalConfig.title}
-      description={successModalConfig.description}
-      secondaryText={successModalConfig.secondaryText}
+      title="Entry Logged"
+      description="Your entry has been saved successfully."
       buttonText="Log Another Entry"
+      secondaryButtonText="Back to Dashboard"
+      onSecondaryClick={() => {
+        setShowSuccessModal(false);
+        router.push("/dashboard");
+      }}
     />
     </>
   );

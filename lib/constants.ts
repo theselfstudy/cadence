@@ -192,11 +192,22 @@ export const FLOW_LEVELS: readonly { value: string; label: string }[] = [
 ] as const;
 
 // ============================================
+// Week Start Options
+// ============================================
+
+export const WEEK_START_OPTIONS: { value: "sunday" | "monday"; label: string }[] = [
+  { value: "sunday", label: "Sunday" },
+  { value: "monday", label: "Monday" },
+];
+
+// ============================================
 // Default User Settings
 // ============================================
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
-  timeFormat: "12h",
+  timeFormat: "12h" as const,
+  weekStartDay: "sunday" as const,
+  
     symptoms: {
     enabled: false,
     selected: [],
@@ -240,6 +251,7 @@ export const GOOGLE_SHEET_URL_PATTERN = /^https:\/\/docs\.google\.com\/spreadshe
 // Navigation Items
 // ============================================
 
+// Main navigation items (shown in sidebar body)
 export const NAV_ITEMS: readonly NavItem[] = [
   {
     label: "Dashboard",
@@ -250,10 +262,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/entry",
   },
   {
-    label: "Settings",
-    href: "/settings",
+    label: "Settings Overview",
+    href: "/dashboard/settings-overview",
   },
 ] as const;
+
+// Settings item (shown at bottom of sidebar)
+export const SETTINGS_NAV_ITEM: NavItem = {
+  label: "Settings",
+  href: "/settings",
+};
 
 // ============================================
 // App Metadata

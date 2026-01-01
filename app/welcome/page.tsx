@@ -96,7 +96,7 @@ const PRIVACY_POINTS: PrivacyInfo[] = [
   {
     icon: "🚫",
     label: "No Data Storage",
-    description: "We don't store your data on our servers. Ever.",
+    description: "We do not store your data on any servers or databases.",
   },
   {
     icon: "🚫",

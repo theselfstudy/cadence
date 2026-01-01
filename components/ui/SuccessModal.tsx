@@ -16,8 +16,12 @@ interface SuccessModalProps {
   description: string;
   /** Optional secondary description */
   secondaryText?: string;
-  /** Button text (defaults to "Continue") */
+  /** Primary button text (defaults to "Continue") */
   buttonText?: string;
+  /** Optional secondary button text (e.g., "Back to Dashboard") */
+  secondaryButtonText?: string;
+  /** Optional callback for secondary button */
+  onSecondaryClick?: () => void;
   /** Optional auto-close after X milliseconds */
   autoCloseMs?: number;
 }
@@ -29,6 +33,8 @@ export function SuccessModal({
   description,
   secondaryText,
   buttonText = "Continue",
+  secondaryButtonText,
+  onSecondaryClick,
   autoCloseMs,
 }: SuccessModalProps) {
   // Auto-close functionality
@@ -42,6 +48,8 @@ export function SuccessModal({
   }, [isOpen, autoCloseMs, onClose]);
 
   if (!isOpen) return null;
+
+  const hasSecondaryButton = secondaryButtonText && onSecondaryClick;
 
   return (
     <>
@@ -102,16 +110,41 @@ export function SuccessModal({
             )}
           </div>
 
-          {/* Button */}
+          {/* Buttons */}
           <div className="px-6 pb-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full px-4 py-3 rounded-xl bg-[#3F592E] text-white 
-                       font-medium hover:bg-[#3F592E]/90 transition-colors"
-            >
-              {buttonText}
-            </button>
+            {hasSecondaryButton ? (
+              // Two buttons: stacked on mobile, side-by-side on larger screens
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={onSecondaryClick}
+                  className="flex-1 px-4 py-3 rounded-xl border-2 border-app-border 
+                           text-app-charcoal font-medium hover:bg-app-cream 
+                           transition-colors order-2 sm:order-1"
+                >
+                  {secondaryButtonText}
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 px-4 py-3 rounded-xl bg-[#3F592E] text-white 
+                           font-medium hover:bg-[#3F592E]/90 transition-colors 
+                           order-1 sm:order-2"
+                >
+                  {buttonText}
+                </button>
+              </div>
+            ) : (
+              // Single button (original behavior)
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full px-4 py-3 rounded-xl bg-[#3F592E] text-white 
+                         font-medium hover:bg-[#3F592E]/90 transition-colors"
+              >
+                {buttonText}
+              </button>
+            )}
           </div>
         </div>
       </div>

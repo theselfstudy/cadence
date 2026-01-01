@@ -3,6 +3,11 @@
 // ============================================
 
 /**
+ * Week start day preference
+ */
+export type WeekStartDay = "sunday" | "monday";
+
+/**
  * Time format preference for displaying times throughout the app
  */
 export type TimeFormat = "12h" | "24h";
@@ -133,6 +138,9 @@ export interface MedicineSection {
  * User settings stored in Zustand with localStorage persistence
  */
 export interface UserSettings {
+  /** Week start day preference */
+  weekStartDay: WeekStartDay;
+
   /** Time display format preference */
   timeFormat: TimeFormat;
   
@@ -167,6 +175,9 @@ export interface UserSettings {
  * Actions available on the settings store
  */
 export interface SettingsActions {
+  /** Update week start day preference */
+  setWeekStartDay: (day: WeekStartDay) => void;
+  
   /** Update time format preference */
   setTimeFormat: (format: TimeFormat) => void;
   

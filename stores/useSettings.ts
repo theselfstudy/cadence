@@ -11,6 +11,7 @@ import {
 import type {
   SettingsStore,
   TimeFormat,
+  WeekStartDay,
   PeriodTrackingConfig,
   IntensityTrackingConfig,
   StoolTrackingConfig,
@@ -93,6 +94,7 @@ export const useSettings = create<SettingsStore>()(
 
         const settingsToSave = {
           timeFormat: allSettings.timeFormat,
+          weekStartDay: allSettings.weekStartDay,
           symptoms: allSettings.symptoms,
           periodTracking: allSettings.periodTracking,
           stoolTracking: allSettings.stoolTracking,
@@ -186,6 +188,15 @@ export const useSettings = create<SettingsStore>()(
       setTimeFormat: (format: TimeFormat) => {
         set({ timeFormat: format, hasUnsavedChanges: true });
       },
+
+      // =======================================================================
+      // WEEK START DAY
+      // =======================================================================
+
+      setWeekStartDay: (day: WeekStartDay) => {
+        set({ weekStartDay: day, hasUnsavedChanges: true });
+      },
+
 
       // =======================================================================
       // SYMPTOM ACTIONS
@@ -393,6 +404,7 @@ export const useSettings = create<SettingsStore>()(
           isGoogleSheetConnected: false,
           googleSheet: { url: null, name: null, addedAt: null },
           timeFormat: "12h",
+          weekStartDay: "sunday",
           symptoms: {
             enabled: true,
             selected: [...DEFAULT_SYMPTOMS],
@@ -426,6 +438,7 @@ export const useSettings = create<SettingsStore>()(
       // Note: hasUnsavedChanges and lastSavedSnapshot are intentionally excluded
       partialize: (state) => ({
         timeFormat: state.timeFormat,
+        weekStartDay: state.weekStartDay,
         symptoms: state.symptoms,
         periodTracking: state.periodTracking,
         stoolTracking: state.stoolTracking,
@@ -444,6 +457,7 @@ export const useSettings = create<SettingsStore>()(
 // =============================================================================
 
 export const useTimeFormat = () => useSettings((state) => state.timeFormat);
+export const useWeekStartDay = () => useSettings((state) => state.weekStartDay);
 export const useSymptoms = () => useSettings((state) => state.symptoms);
 export const usePeriodTracking = () => useSettings((state) => state.periodTracking);
 export const useStoolTracking = () => useSettings((state) => state.stoolTracking);
