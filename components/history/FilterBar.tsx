@@ -30,6 +30,7 @@ interface FilterBarProps {
   availableOptions: AvailableFilterOptions;
   categoryFilterCounts: Record<string, number>;
   hasFilters: boolean;
+  hideSavedFilters?: boolean;
   // Saved filter action
   onLoadSavedFilter: (filters: HistoryFilters) => void;
   
@@ -79,6 +80,7 @@ export function FilterBar({
   availableOptions,
   categoryFilterCounts,
   hasFilters,
+  hideSavedFilters,
   onLoadSavedFilter,
   toggleSymptom,
   toggleCyclePhase,
@@ -290,12 +292,14 @@ export function FilterBar({
           </button>
         )}
       </div>      
-      {/* Saved Filters Section */}
-      <SavedFiltersSection
-        currentFilters={filters}
-        onLoadFilter={onLoadSavedFilter}
-        hasActiveFilters={hasFilters}
-      />
+      {/* Saved Filters Section - hidden in Weekly/Monthly views */}
+      {!hideSavedFilters && (
+        <SavedFiltersSection
+          currentFilters={filters}
+          onLoadFilter={onLoadSavedFilter}
+          hasActiveFilters={hasFilters}
+        />
+      )}
 
       {/* Mobile: Bottom Sheet (rendered once, content changes based on category) */}
       {isMobile && openCategory && openCategoryInfo && (

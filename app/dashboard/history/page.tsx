@@ -648,6 +648,8 @@ interface SummaryStatsPanelProps {
 }
 
 function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
   // Get top symptoms
   const topSymptoms = Object.entries(stats.symptomCounts)
     .sort((a, b) => b[1] - a[1])
@@ -667,149 +669,144 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
 
   return (
     <div className="card bg-gradient-to-br from-app-cream to-white">
-      <h3 className="text-lg font-semibold text-app-charcoal mb-4 flex items-center gap-2">
-        <svg className="w-5 h-5 text-app-plumb" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-        Summary Statistics
-      </h3>
+      {/* Collapsible Header */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="w-full flex items-center justify-between"
+      >
+        <h3 className="text-lg font-semibold text-app-charcoal flex items-center gap-2">
+          <svg className="w-5 h-5 text-app-plumb" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Summary Statistics
+        </h3>
+        <span className="text-app-gray text-xl">
+          {isCollapsed ? "+" : "−"}
+        </span>
+      </button>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {/* Total Entries */}
-        <StatCard
-          label="Total Entries"
-          value={stats.totalEntries}
-          icon="📊"
-        />
-        
-        {/* Date Range */}
-        <StatCard
-          label="Date Range"
-          value={stats.dateRange 
-            ? `${formatDateShort(stats.dateRange.start)} - ${formatDateShort(stats.dateRange.end)}`
-            : "—"
-          }
-          icon="📅"
-          small
-        />
-        
-        {/* Avg Duration */}
-        <StatCard
-          label="Avg Duration"
-          value={avgDuration}
-          icon="⏱️"
-        />
-        
-        {/* Most Active Day */}
-        <StatCard
-          label="Most Active Day"
-          value={getMostCommon(stats.entriesByDayOfWeek) || "—"}
-          icon="📆"
-        />
-      </div>
-      
-      {/* Detailed Breakdowns */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Top Symptoms */}
-        {topSymptoms.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
-              <span>Top Symptoms</span>
-              <span className="text-xs">Count</span>
-            </h4>
-            <div className="space-y-1">
-              {topSymptoms.map(([symptom, count]) => (
-                <div key={symptom} className="flex justify-between text-sm">
-                  <span className="text-app-charcoal">{symptom}</span>
-                  <span className="text-app-teal font-medium">{count}</span>
+      {/* Collapsible Content */}
+      {!isCollapsed && (
+        <div className="mt-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Total Entries" value={stats.totalEntries} icon="📊" />
+            <StatCard
+              label="Date Range"
+              value={stats.dateRange 
+                ? `${formatDateShort(stats.dateRange.start)} - ${formatDateShort(stats.dateRange.end)}`
+                : "—"
+              }
+              icon="📅"
+              small
+            />
+            <StatCard label="Avg Duration" value={avgDuration} icon="⏱️" />
+            <StatCard label="Most Active Day" value={getMostCommon(stats.entriesByDayOfWeek) || "—"} icon="📆" />
+          </div>
+          
+          {/* Detailed Breakdowns */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Top Symptoms */}
+            {topSymptoms.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
+                  <span>Top Symptoms</span>
+                  <span className="text-xs">Count</span>
+                </h4>
+                <div className="space-y-1">
+                  {topSymptoms.map(([symptom, count]) => (
+                    <div key={symptom} className="flex justify-between text-sm">
+                      <span className="text-app-charcoal">{symptom}</span>
+                      <span className="text-app-teal font-medium">{count}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {/* Bristol Distribution */}
-        {Object.keys(stats.bristolTypeCounts).length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
-              <span>Bristol Types</span>
-              <span className="text-xs">Count</span>
-            </h4>
-            <div className="space-y-1">
-              {Object.entries(stats.bristolTypeCounts)
-                .sort((a, b) => Number(a[0]) - Number(b[0]))
-                .map(([type, count]) => (
-                  <div key={type} className="flex justify-between text-sm">
-                    <span className="text-app-charcoal">Type {type}</span>
-                    <span className="text-app-plumb font-medium">{count}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-        
-        {/* Cycle Phase Distribution */}
-        {Object.keys(stats.cyclePhaseDistribution).length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
-              <span>Cycle Phases</span>
-              <span className="text-xs">Count</span>
-            </h4>
-            <div className="space-y-1">
-              {Object.entries(stats.cyclePhaseDistribution).map(([phase, count]) => {
-                const phaseInfo = CYCLE_PHASES.find(p => p.value === phase);
-                return (
-                  <div key={phase} className="flex justify-between text-sm">
-                    <span className="text-app-charcoal">{phaseInfo?.label || phase}</span>
-                    <span className="text-app-red font-medium">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        
-        {/* Top Medicines */}
-        {topMedicines.length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
-              <span>Medicines Taken</span>
-              <span className="text-xs">Count</span>
-            </h4>
-            <div className="space-y-1">
-              {topMedicines.map(([medicine, count]) => (
-                <div key={medicine} className="flex justify-between text-sm">
-                  <span className="text-app-charcoal truncate mr-2">{medicine}</span>
-                  <span className="text-app-taupe font-medium">{count}</span>
+              </div>
+            )}
+            
+            {/* Bristol Distribution */}
+            {Object.keys(stats.bristolTypeCounts).length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
+                  <span>Bristol Types</span>
+                  <span className="text-xs">Count</span>
+                </h4>
+                <div className="space-y-1">
+                  {Object.entries(stats.bristolTypeCounts)
+                    .sort((a, b) => Number(a[0]) - Number(b[0]))
+                    .map(([type, count]) => (
+                      <div key={type} className="flex justify-between text-sm">
+                        <span className="text-app-charcoal">Type {type}</span>
+                        <span className="text-app-plumb font-medium">{count}</span>
+                      </div>
+                    ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+            
+            {/* Cycle Phase Distribution */}
+            {Object.keys(stats.cyclePhaseDistribution).length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
+                  <span>Cycle Phases</span>
+                  <span className="text-xs">Count</span>
+                </h4>
+                <div className="space-y-1">
+                  {Object.entries(stats.cyclePhaseDistribution).map(([phase, count]) => {
+                    const phaseInfo = CYCLE_PHASES.find(p => p.value === phase);
+                    return (
+                      <div key={phase} className="flex justify-between text-sm">
+                        <span className="text-app-charcoal">{phaseInfo?.label || phase}</span>
+                        <span className="text-app-red font-medium">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {/* Top Medicines */}
+            {topMedicines.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
+                  <span>Medicines Taken</span>
+                  <span className="text-xs">Count</span>
+                </h4>
+                <div className="space-y-1">
+                  {topMedicines.map(([medicine, count]) => (
+                    <div key={medicine} className="flex justify-between text-sm">
+                      <span className="text-app-charcoal truncate mr-2">{medicine}</span>
+                      <span className="text-app-taupe font-medium">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Time of Day */}
+            {Object.keys(stats.entriesByTimeOfDay).length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
+                  <span>Time of Day</span>
+                  <span className="text-xs">Count</span>
+                </h4>
+                <div className="space-y-1">
+                  {["Morning", "Afternoon", "Evening", "Night"].map(tod => {
+                    const count = stats.entriesByTimeOfDay[tod] || 0;
+                    if (count === 0) return null;
+                    return (
+                      <div key={tod} className="flex justify-between text-sm">
+                        <span className="text-app-charcoal">{tod}</span>
+                        <span className="text-app-gray font-medium">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-        
-        {/* Time of Day */}
-        {Object.keys(stats.entriesByTimeOfDay).length > 0 && (
-          <div>
-            <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
-              <span>Time of Day</span>
-              <span className="text-xs">Count</span>
-            </h4>
-            <div className="space-y-1">
-              {["Morning", "Afternoon", "Evening", "Night"].map(tod => {
-                const count = stats.entriesByTimeOfDay[tod] || 0;
-                if (count === 0) return null;
-                return (
-                  <div key={tod} className="flex justify-between text-sm">
-                    <span className="text-app-charcoal">{tod}</span>
-                    <span className="text-app-gray font-medium">{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

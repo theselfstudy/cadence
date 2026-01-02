@@ -91,7 +91,6 @@ export default function DashboardPage() {
             title="Weekly View"
             description="7-day trends & charts"
             color="teal"
-            comingSoon
           />
           <DashboardCard
             href="/dashboard/monthly"
