@@ -1438,6 +1438,7 @@ function SettingsPageContent() {
                     <div className="flex gap-2">
                       <input
                         type="text"
+                        id="customGeneralSymptoms"
                         value={newSymptom}
                         onChange={(e) => setNewSymptom(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleAddSymptom()}
@@ -1635,6 +1636,7 @@ function SettingsPageContent() {
                     <div className="flex gap-2">
                       <input
                         type="text"
+                        id="customPeriodSymptoms"
                         value={newPeriodSymptom}
                         onChange={(e) => setNewPeriodSymptom(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleAddPeriodSymptom()}

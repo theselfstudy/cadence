@@ -98,7 +98,7 @@ export default function DashboardPage() {
             title="Monthly View"
             description="Monthly patterns & insights"
             color="plumb"
-            comingSoon
+            // comingSoon
           />
           <DashboardCard
             href="/dashboard/history"
