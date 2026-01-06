@@ -13,26 +13,104 @@ interface MonthlyComparisonProps {
   comparison: MonthComparison;
   /** Whether there's data from the previous month */
   hasPreviousMonthData: boolean;
+  /** Current month label for display */
+  currentMonthLabel?: string;
+  /** Previous month label for display */
+  previousMonthLabel?: string;
+  /** Callback to navigate to different comparison months */
+  onMonthChange?: (direction: "prev" | "next" | "current") => void;
+  /** Whether we can navigate to previous months */
+  canGoPrev?: boolean;
+  /** Whether we can navigate to next months */
+  canGoNext?: boolean;
 }
 
 export function MonthlyComparison({
   comparison,
   hasPreviousMonthData,
+  currentMonthLabel = "This Month",
+  previousMonthLabel = "Last Month",
+  onMonthChange,
+  canGoPrev = true,
+  canGoNext = false,
 }: MonthlyComparisonProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // If no previous month data, show a different message
+  // If no previous month data, show message but keep navigation
   if (!hasPreviousMonthData) {
     return (
       <div className="bg-app-white rounded-xl border border-app-border overflow-hidden">
         <div className="px-4 py-3 bg-app-cream/50">
-          <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
-            <span>📈</span>
-            Month over Month
-          </h3>
-          <p className="text-xs text-app-gray mt-0.5">
-            No previous month data to compare
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
+                <span>📈</span>
+                Month over Month
+              </h3>
+              <p className="text-xs text-app-gray mt-0.5">
+                No data for {previousMonthLabel} to compare with {currentMonthLabel}
+              </p>
+            </div>
+            
+            {/* Month Navigation - always show so user can navigate to months with data */}
+            {onMonthChange && (
+              <div className="flex items-center gap-1 ml-2 border-l border-app-border pl-2">
+                {/* Previous (Earlier) Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMonthChange("prev");
+                  }}
+                  disabled={!canGoPrev}
+                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                    canGoPrev 
+                      ? "text-app-charcoal hover:bg-app-cream" 
+                      : "text-app-gray/30 cursor-not-allowed"
+                  }`}
+                  title="Compare earlier months"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* Current/Reset Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMonthChange("current");
+                  }}
+                  disabled={!canGoNext}
+                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    canGoNext
+                      ? "text-app-teal hover:bg-app-teal/10"
+                      : "text-app-gray/40 cursor-not-allowed"
+                  }`}
+                  title="Return to current month comparison"
+                >
+                  Current
+                </button>
+
+                {/* Next (Later) Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMonthChange("next");
+                  }}
+                  disabled={!canGoNext}
+                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                    canGoNext 
+                      ? "text-app-charcoal hover:bg-app-cream" 
+                      : "text-app-gray/30 cursor-not-allowed"
+                  }`}
+                  title="Compare later months"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -41,21 +119,86 @@ export function MonthlyComparison({
   return (
     <div className="bg-app-white rounded-xl border border-app-border overflow-hidden">
       {/* Header */}
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="w-full px-4 py-3 border-b border-app-border bg-app-cream/50 flex items-center justify-between"
-      >
-        <div className="text-left">
-          <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
-            <span>📈</span>
-            Month over Month
-          </h3>
-          <p className="text-xs text-app-gray mt-0.5">
-            Comparing this month to last month
-          </p>
+      <div className="px-4 py-3 border-b border-app-border bg-app-cream/50">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="flex-1 text-left flex items-center justify-between"
+          >
+            <div>
+              <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
+                <span>📈</span>
+                Month over Month
+              </h3>
+              <p className="text-xs text-app-gray mt-0.5">
+                Comparing {currentMonthLabel} to {previousMonthLabel} • 
+                Use the arrows to switch months
+              </p>
+            </div>
+            <span className="text-app-gray text-lg mr-2">{isCollapsed ? "+" : "−"}</span>
+          </button>
+          
+          {/* Month Navigation */}
+          {onMonthChange && (
+            <div className="flex items-center gap-1 ml-2 border-l border-app-border pl-2">
+              {/* Previous (Earlier) Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMonthChange("prev");
+                }}
+                disabled={!canGoPrev}
+                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                  canGoPrev 
+                    ? "text-app-charcoal hover:bg-app-cream" 
+                    : "text-app-gray/30 cursor-not-allowed"
+                }`}
+                title="Compare earlier months"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              {/* Current/Reset Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMonthChange("current");
+                }}
+                disabled={!canGoNext} // If can't go next, we're already at current
+                className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  canGoNext
+                    ? "text-app-teal hover:bg-app-teal/10"
+                    : "text-app-gray/40 cursor-not-allowed"
+                }`}
+                title="Return to current month comparison"
+              >
+                Current
+              </button>
+
+              {/* Next (Later) Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMonthChange("next");
+                }}
+                disabled={!canGoNext}
+                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                  canGoNext 
+                    ? "text-app-charcoal hover:bg-app-cream" 
+                    : "text-app-gray/30 cursor-not-allowed"
+                }`}
+                title="Compare later months"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
-        <span className="text-app-gray text-lg">{isCollapsed ? "+" : "−"}</span>
-      </button>
+      </div>
 
       {/* Content - 2x2 Grid */}
       {!isCollapsed && (
@@ -66,6 +209,8 @@ export function MonthlyComparison({
               icon="🏷️"
               title="Symptoms"
               accentColor="teal"
+              thisMonthLabel={currentMonthLabel}
+              lastMonthLabel={previousMonthLabel}
               thisMonth={
                 <div className="space-y-1">
                   <StatRow label="Unique" value={comparison.symptoms.thisMonth.uniqueCount} />
@@ -88,20 +233,7 @@ export function MonthlyComparison({
               }
               change={
                 <div className="space-y-1">
-                  {comparison.symptoms.newSymptoms.length > 0 && (
-                    <p className="text-xs">
-                      <span className="text-app-red">
-                        +{comparison.symptoms.newSymptoms.length} new
-                      </span>
-                    </p>
-                  )}
-                  {comparison.symptoms.resolvedSymptoms.length > 0 && (
-                    <p className="text-xs">
-                      <span className="text-app-teal">
-                        {comparison.symptoms.resolvedSymptoms.length} resolved
-                      </span>
-                    </p>
-                  )}
+                  {/* Show intensity change if present */}
                   {comparison.symptoms.intensityChange !== null && comparison.symptoms.intensityChange !== 0 && (
                     <p className="text-xs">
                       <span className={comparison.symptoms.intensityChange < 0 ? "text-app-teal" : "text-app-red"}>
@@ -110,6 +242,26 @@ export function MonthlyComparison({
                       </span>
                     </p>
                   )}
+                  {/* Show new/resolved count if no intensity change but symptoms changed */}
+                  {(comparison.symptoms.intensityChange === null || comparison.symptoms.intensityChange === 0) &&
+                    (comparison.symptoms.newSymptoms.length > 0 || comparison.symptoms.resolvedSymptoms.length > 0) && (
+                      <p className="text-xs">
+                        {comparison.symptoms.newSymptoms.length > 0 && (
+                          <span className="text-app-red">
+                            +{comparison.symptoms.newSymptoms.length} new
+                          </span>
+                        )}
+                        {comparison.symptoms.newSymptoms.length > 0 && comparison.symptoms.resolvedSymptoms.length > 0 && (
+                          <span className="text-app-gray">, </span>
+                        )}
+                        {comparison.symptoms.resolvedSymptoms.length > 0 && (
+                          <span className="text-app-teal">
+                            {comparison.symptoms.resolvedSymptoms.length} resolved
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  {/* Show "no significant changes" only when nothing changed */}
                   {comparison.symptoms.newSymptoms.length === 0 &&
                     comparison.symptoms.resolvedSymptoms.length === 0 &&
                     (comparison.symptoms.intensityChange === null || comparison.symptoms.intensityChange === 0) && (
@@ -129,7 +281,7 @@ export function MonthlyComparison({
                       <div className="grid grid-cols-2 gap-2">
                         {/* This Month */}
                         <div>
-                          <p className="text-xs text-app-teal font-medium mb-1">This Month</p>
+                          <p className="text-xs text-app-teal font-medium mb-1">{currentMonthLabel}</p>
                           {comparison.symptoms.thisMonth.topByIntensity.length > 0 ? (
                             <div className="bg-app-cream rounded-md overflow-hidden">
                               <table className="w-full text-xs">
@@ -160,7 +312,7 @@ export function MonthlyComparison({
 
                         {/* Last Month */}
                         <div>
-                          <p className="text-xs text-app-gray font-medium mb-1">Last Month</p>
+                          <p className="text-xs text-app-gray font-medium mb-1">{previousMonthLabel}</p>
                           {comparison.symptoms.lastMonth.topByIntensity.length > 0 ? (
                             <div className="bg-app-cream rounded-md overflow-hidden">
                               <table className="w-full text-xs">
@@ -196,7 +348,7 @@ export function MonthlyComparison({
                       <div className="pt-2 border-t border-app-border space-y-2">
                         {comparison.symptoms.newSymptoms.length > 0 && (
                           <div>
-                            <p className="text-xs text-app-gray mb-1">New this month</p>
+                            <p className="text-xs text-app-gray mb-1">New {currentMonthLabel}</p>
                             <div className="flex flex-wrap gap-1">
                               {comparison.symptoms.newSymptoms.slice(0, 5).map((s) => (
                                 <span
@@ -220,7 +372,7 @@ export function MonthlyComparison({
                         )}
                         {comparison.symptoms.resolvedSymptoms.length > 0 && (
                           <div>
-                            <p className="text-xs text-app-gray mb-1">Resolved</p>
+                            <p className="text-xs text-app-gray mb-1">Resolved from {previousMonthLabel}</p>
                             <div className="flex flex-wrap gap-1">
                               {comparison.symptoms.resolvedSymptoms.slice(0, 5).map((s) => (
                                 <span
@@ -254,6 +406,8 @@ export function MonthlyComparison({
               icon="🧻"
               title="Bowel"
               accentColor="plumb"
+              thisMonthLabel={currentMonthLabel}
+              lastMonthLabel={previousMonthLabel}
               thisMonth={
                 <div className="space-y-1">
                   <StatRow label="Total BMs" value={comparison.bowel.thisMonth.totalBMs} />
@@ -282,32 +436,67 @@ export function MonthlyComparison({
               }
               change={
                 <div className="space-y-1">
-                  {comparison.bowel.typeShift && (
+                  {/* Always show type comparison when both months have data */}
+                  {(comparison.bowel.lastMonth.mostCommonType !== null || comparison.bowel.thisMonth.mostCommonType !== null) && (
                     <p className="text-xs">
-                      <span className="text-app-plumb">
-                        Type {comparison.bowel.typeShift.from ?? "—"} → {comparison.bowel.typeShift.to ?? "—"}
+                      <span className="text-app-gray">Type: </span>
+                      <span className="text-app-plumb font-medium">
+                        {comparison.bowel.lastMonth.mostCommonType ?? "—"}
                       </span>
+                      <span className="text-app-gray"> → </span>
+                      <span className="text-app-gray font-medium">
+                        {comparison.bowel.thisMonth.mostCommonType ?? "—"}
+                      </span>
+                      {comparison.bowel.typeShift && (
+                        <span className={`ml-1 ${
+                          // Closer to 3.5 is better
+                          Math.abs((comparison.bowel.thisMonth.mostCommonType ?? 0) - 3.5) < 
+                          Math.abs((comparison.bowel.lastMonth.mostCommonType ?? 0) - 3.5)
+                            ? "text-app-teal"
+                            : "text-app-gray"
+                        }`}>
+                          {Math.abs((comparison.bowel.thisMonth.mostCommonType ?? 0) - 3.5) < 
+                           Math.abs((comparison.bowel.lastMonth.mostCommonType ?? 0) - 3.5)}
+                        </span>
+                      )}
                     </p>
                   )}
-                  {comparison.bowel.trendTowardNormal !== null && (
+                  {/* Feeling comparison */}
+                  {(comparison.bowel.lastMonth.mostCommonFeeling || comparison.bowel.thisMonth.mostCommonFeeling) ? (
                     <p className="text-xs">
-                      <span className={comparison.bowel.trendTowardNormal ? "text-app-teal" : "text-app-gray"}>
-                        {comparison.bowel.trendTowardNormal ? "↗ Trending toward normal" : "↘ Away from normal"}
+                      <span className="text-app-gray">Feeling: </span>
+                      <span className="text-app-teal font-medium">
+                        {formatFeeling(comparison.bowel.thisMonth.mostCommonFeeling)}
                       </span>
+                      <span className="text-app-gray"> → </span>
+                      <span className="text-app-gray font-medium">
+                        {formatFeeling(comparison.bowel.lastMonth.mostCommonFeeling)}
+                      </span>
+                      {(() => {
+                        const currScore = getFeelingScore(comparison.bowel.thisMonth.mostCommonFeeling);
+                        const prevScore = getFeelingScore(comparison.bowel.lastMonth.mostCommonFeeling);
+                        const diff = currScore - prevScore;
+                        if (diff === 0) {
+                          return null;
+                        }
+                      })()}
                     </p>
-                  )}
-                  {!comparison.bowel.typeShift && comparison.bowel.trendTowardNormal === null && (
-                    <p className="text-xs text-app-gray">No significant changes</p>
+                  ) : (
+                    comparison.bowel.lastMonth.mostCommonType === null && 
+                    comparison.bowel.thisMonth.mostCommonType === null && (
+                      <p className="text-xs text-app-gray">No data to compare</p>
+                    )
                   )}
                 </div>
               }
+
               expandedContent={
                 (comparison.bowel.thisMonth.totalBMs > 0 || comparison.bowel.lastMonth.totalBMs > 0) ? (
                   <div className="space-y-3">
                     {/* Normal Range % - Side by Side */}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="p-2 bg-app-plumb/10 rounded-lg">
-                        <p className="text-xs text-app-teal font-medium">This Month</p>
+                        <p className="text-xs text-app-teal font-medium">{currentMonthLabel}</p>
                         <p className="text-sm font-medium text-app-plumb">
                           {comparison.bowel.thisMonth.normalRangePercent !== null
                             ? `${comparison.bowel.thisMonth.normalRangePercent}%`
@@ -316,7 +505,7 @@ export function MonthlyComparison({
                         </p>
                       </div>
                       <div className="p-2 bg-app-gray/10 rounded-lg">
-                        <p className="text-xs text-app-gray font-medium">Last Month</p>
+                        <p className="text-xs text-app-gray font-medium">{previousMonthLabel}</p>
                         <p className="text-sm font-medium text-app-gray">
                           {comparison.bowel.lastMonth.normalRangePercent !== null
                             ? `${comparison.bowel.lastMonth.normalRangePercent}%`
@@ -334,7 +523,7 @@ export function MonthlyComparison({
                         <div className="grid grid-cols-2 gap-2">
                           {/* This Month Time */}
                           <div>
-                            <p className="text-xs text-app-teal font-medium mb-1">This Month</p>
+                            <p className="text-xs text-app-teal font-medium mb-1">{currentMonthLabel}</p>
                             <div className="flex gap-1">
                               {[
                                 { label: "Morning", keys: ["Morning", "Afternoon"] },
@@ -372,7 +561,7 @@ export function MonthlyComparison({
 
                           {/* Last Month Time */}
                           <div>
-                            <p className="text-xs text-app-gray font-medium mb-1">Last Month</p>
+                            <p className="text-xs text-app-gray font-medium mb-1">{previousMonthLabel}</p>
                             <div className="flex gap-1">
                               {[
                                 { label: "Morning", keys: ["Morning", "Afternoon"] },
@@ -415,8 +604,8 @@ export function MonthlyComparison({
                     {comparison.bowel.trendTowardNormal !== null && (
                       <p className="text-xs text-app-gray italic pt-2 border-t border-app-border">
                         {comparison.bowel.trendTowardNormal
-                          ? "Your average Bristol type is trending closer to Type 3-4 (normal) as compared to last month."
-                          : "Your average Bristol type is trending away from Type 3-4 (normal) as compared to last month."}
+                          ? `Your average Bristol type is trending closer to Type 3-4 (normal) as compared to ${previousMonthLabel}.`
+                          : `Your average Bristol type is trending away from Type 3-4 (normal) as compared to ${previousMonthLabel}.`}
                       </p>
                     )}
                   </div>
@@ -429,31 +618,52 @@ export function MonthlyComparison({
               icon="🌸"
               title="Cycle"
               accentColor="red"
+              thisMonthLabel={currentMonthLabel}
+              lastMonthLabel={previousMonthLabel}
               thisMonth={
                 <div className="space-y-1">
-                  <StatRow label="Phase" value={formatPhase(comparison.cycle.thisMonth.dominantPhase)} />
+                  {/* <StatRow label="Phase" value={formatPhase(comparison.cycle.thisMonth.dominantPhase)} /> */}
+                  <StatRow label="Period days" value={comparison.cycle.thisMonth.daysLogged} />
                   <StatRow label="Flow days" value={comparison.cycle.thisMonth.flowDays} />
-                  <StatRow label="Days logged" value={comparison.cycle.thisMonth.daysLogged} />
                 </div>
               }
               lastMonth={
                 <div className="space-y-1">
-                  <StatRow label="Phase" value={formatPhase(comparison.cycle.lastMonth.dominantPhase)} />
+                  {/* <StatRow label="Phase" value={formatPhase(comparison.cycle.lastMonth.dominantPhase)} /> */}
+                  <StatRow label="Period days" value={comparison.cycle.lastMonth.daysLogged} />
                   <StatRow label="Flow days" value={comparison.cycle.lastMonth.flowDays} />
-                  <StatRow label="Days logged" value={comparison.cycle.lastMonth.daysLogged} />
                 </div>
               }
-              change={
+                            change={
                 <div className="space-y-1">
-                  {comparison.cycle.phaseChanged && (
-                    <p className="text-xs text-app-red">
-                      Phase: {formatPhase(comparison.cycle.lastMonth.dominantPhase)} → {formatPhase(comparison.cycle.thisMonth.dominantPhase)}
+                  {(comparison.cycle.lastMonth.daysLogged > 0 || comparison.cycle.thisMonth.daysLogged > 0) ? (
+                    <p className="text-xs">
+                      <span className="text-app-gray">Period: </span>
+                      <span className="text-app-red font-medium">
+                        {comparison.cycle.thisMonth.daysLogged}d
+                      </span>
+                      <span className="text-app-gray"> → </span>
+                      <span className="text-app-gray font-medium">
+                        {comparison.cycle.lastMonth.daysLogged}d
+                      </span>
+                      {(() => {
+                        const diff = comparison.cycle.thisMonth.daysLogged - comparison.cycle.lastMonth.daysLogged;
+                        if (diff === 0) {
+                          return <span className="text-app-gray ml-1">(no change)</span>;
+                        }
+                        const arrow = diff > 0 ? "↑" : "↓";
+                        const descriptor = diff > 0 ? "longer" : "shorter";
+                        return (
+                          <span className={`ml-1 ${diff < 0 ? "text-app-teal" : "text-app-gray"}`}>
+                            ({arrow}{Math.abs(diff)}d {descriptor})
+                          </span>
+                        );
+                      })()}
                     </p>
-                  )}
-                  {!comparison.cycle.phaseChanged && (
+                  ) : (
                     <p className="text-xs text-app-gray">
                       {comparison.cycle.thisMonth.hasData || comparison.cycle.lastMonth.hasData
-                        ? "No change"
+                        ? "No period data"
                         : "No data"}
                     </p>
                   )}
@@ -467,34 +677,48 @@ export function MonthlyComparison({
                       Object.keys(comparison.cycle.lastMonth.phaseDistribution).length > 0) && (
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <p className="text-xs text-app-teal font-medium mb-1">This Month</p>
+                          <p className="text-xs text-app-teal font-medium mb-1">{currentMonthLabel}</p>
                           {Object.keys(comparison.cycle.thisMonth.phaseDistribution).length > 0 ? (
                             <div className="space-y-1">
-                              {Object.entries(comparison.cycle.thisMonth.phaseDistribution)
-                                .sort((a, b) => b[1] - a[1])
-                                .map(([phase, count]) => (
-                                  <div key={phase} className="flex justify-between text-xs">
-                                    <span className="text-app-charcoal capitalize">{formatPhase(phase)}</span>
-                                    <span className="text-app-red font-medium">{count}d</span>
-                                  </div>
-                                ))}
+                              {(() => {
+                                const phaseOrder = ["menstrual", "follicular", "ovulation", "luteal", "not_sure"];
+                                return phaseOrder
+                                  .filter(phase => comparison.cycle.thisMonth.phaseDistribution[phase] !== undefined)
+                                  .map(phase => {
+                                    const count = comparison.cycle.thisMonth.phaseDistribution[phase];
+                                    const isMenstrual = phase === "menstrual";
+                                    return (
+                                      <div key={phase} className="flex justify-between text-xs">
+                                        <span className="text-app-charcoal">{formatPhase(phase)}</span>
+                                        <span className={`font-medium ${isMenstrual ? "text-app-red" : "text-app-teal"}`}>{count}d</span>
+                                      </div>
+                                    );
+                                  });
+                              })()}
                             </div>
                           ) : (
                             <p className="text-xs text-app-gray italic">No data</p>
                           )}
                         </div>
                         <div>
-                          <p className="text-xs text-app-gray font-medium mb-1">Last Month</p>
+                          <p className="text-xs text-app-gray font-medium mb-1">{previousMonthLabel}</p>
                           {Object.keys(comparison.cycle.lastMonth.phaseDistribution).length > 0 ? (
                             <div className="space-y-1">
-                              {Object.entries(comparison.cycle.lastMonth.phaseDistribution)
-                                .sort((a, b) => b[1] - a[1])
-                                .map(([phase, count]) => (
-                                  <div key={phase} className="flex justify-between text-xs">
-                                    <span className="text-app-charcoal capitalize">{formatPhase(phase)}</span>
-                                    <span className="text-app-gray font-medium">{count}d</span>
-                                  </div>
-                                ))}
+                              {(() => {
+                                const phaseOrder = ["menstrual", "follicular", "ovulation", "luteal", "not_sure"];
+                                return phaseOrder
+                                  .filter(phase => comparison.cycle.lastMonth.phaseDistribution[phase] !== undefined)
+                                  .map(phase => {
+                                    const count = comparison.cycle.lastMonth.phaseDistribution[phase];
+                                    const isMenstrual = phase === "menstrual";
+                                    return (
+                                      <div key={phase} className="flex justify-between text-xs">
+                                        <span className="text-app-charcoal">{formatPhase(phase)}</span>
+                                        <span className={`font-medium ${isMenstrual ? "text-app-red" : "text-app-gray"}`}>{count}d</span>
+                                      </div>
+                                    );
+                                  });
+                              })()}
                             </div>
                           ) : (
                             <p className="text-xs text-app-gray italic">No data</p>
@@ -510,7 +734,7 @@ export function MonthlyComparison({
                         <p className="text-xs text-app-gray mb-2">Flow Levels</p>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <p className="text-xs text-app-teal font-medium mb-1">This Month</p>
+                            <p className="text-xs text-app-teal font-medium mb-1">{currentMonthLabel}</p>
                             {Object.keys(comparison.cycle.thisMonth.flowDistribution).length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {Object.entries(comparison.cycle.thisMonth.flowDistribution).map(([flow, count]) => (
@@ -524,7 +748,7 @@ export function MonthlyComparison({
                             )}
                           </div>
                           <div>
-                            <p className="text-xs text-app-gray font-medium mb-1">Last Month</p>
+                            <p className="text-xs text-app-gray font-medium mb-1">{previousMonthLabel}</p>
                             {Object.keys(comparison.cycle.lastMonth.flowDistribution).length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {Object.entries(comparison.cycle.lastMonth.flowDistribution).map(([flow, count]) => (
@@ -550,9 +774,11 @@ export function MonthlyComparison({
               icon="💊"
               title="Medicine"
               accentColor="taupe"
+              thisMonthLabel={currentMonthLabel}
+              lastMonthLabel={previousMonthLabel}
               thisMonth={
                 <div className="space-y-1">
-                  <StatRow label="Total doses" value={comparison.medicine.thisMonth.totalDoses} />
+                  {/* <StatRow label="Total doses" value={comparison.medicine.thisMonth.totalDoses} /> */}
                   <StatRow
                     label="Top medicine"
                     value={comparison.medicine.thisMonth.topMedicine ?? "—"}
@@ -566,7 +792,7 @@ export function MonthlyComparison({
               }
               lastMonth={
                 <div className="space-y-1">
-                  <StatRow label="Total doses" value={comparison.medicine.lastMonth.totalDoses} />
+                  {/* <StatRow label="Total doses" value={comparison.medicine.lastMonth.totalDoses} /> */}
                   <StatRow
                     label="Top medicine"
                     value={comparison.medicine.lastMonth.topMedicine ?? "—"}
@@ -582,7 +808,7 @@ export function MonthlyComparison({
                 <div className="space-y-1">
                   {comparison.medicine.newMedicines.length > 0 && (
                     <p className="text-xs">
-                      <span className="text-app-taupe">
+                      <span className="text-app-green/70">
                         New: {comparison.medicine.newMedicines.slice(0, 2).join(", ")}
                         {comparison.medicine.newMedicines.length > 2 && "..."}
                       </span>
@@ -596,17 +822,13 @@ export function MonthlyComparison({
                       </span>
                     </p>
                   )}
-                  {comparison.medicine.doseChange !== 0 && (
-                    <p className="text-xs">
-                      <span className="text-app-teal">
-                        {comparison.medicine.doseChange > 0 ? "↑" : "↓"} {Math.abs(comparison.medicine.doseChange)} doses
-                      </span>
-                    </p>
-                  )}
                   {comparison.medicine.newMedicines.length === 0 &&
-                    comparison.medicine.stoppedMedicines.length === 0 &&
-                    comparison.medicine.doseChange === 0 && (
-                      <p className="text-xs text-app-gray">No significant changes</p>
+                    comparison.medicine.stoppedMedicines.length === 0 && (
+                      <p className="text-xs text-app-gray">
+                        {comparison.medicine.thisMonth.totalDoses > 0 || comparison.medicine.lastMonth.totalDoses > 0
+                          ? `No new/stopped medicine from ${previousMonthLabel}`
+                          : `No data available for ${currentMonthLabel} or ${[previousMonthLabel]}`}
+                      </p>
                     )}
                 </div>
               }
@@ -624,7 +846,7 @@ export function MonthlyComparison({
                         <div className="grid grid-cols-2 gap-2">
                           {/* This Month Time */}
                           <div>
-                            <p className="text-xs text-app-teal font-medium mb-1">This Month</p>
+                            <p className="text-xs text-app-teal font-medium mb-1">{currentMonthLabel}</p>
                             <div className="flex gap-1">
                               {[
                                 { label: "Morning", keys: ["Morning", "Afternoon"] },
@@ -662,7 +884,7 @@ export function MonthlyComparison({
 
                           {/* Last Month Time */}
                           <div>
-                            <p className="text-xs text-app-gray font-medium mb-1">Last Month</p>
+                            <p className="text-xs text-app-gray font-medium mb-1">{previousMonthLabel}</p>
                             <div className="flex gap-1">
                               {[
                                 { label: "Morning", keys: ["Morning", "Afternoon"] },
@@ -706,10 +928,10 @@ export function MonthlyComparison({
                       <div className="pt-2 border-t border-app-border space-y-2">
                         {comparison.medicine.newMedicines.length > 0 && (
                           <div>
-                            <p className="text-xs text-app-gray mb-1">New this month</p>
+                            <p className="text-xs text-app-gray mb-1">New {currentMonthLabel}</p>
                             <div className="flex flex-wrap gap-1">
                               {comparison.medicine.newMedicines.map((m) => (
-                                <span key={m} className="px-2 py-0.5 text-xs bg-app-taupe/20 text-app-charcoal rounded-full">
+                                <span key={m} className="px-2 py-0.5 text-xs bg-app-green/20 text-app-charcoal rounded-full">
                                   {m}
                                 </span>
                               ))}
@@ -718,7 +940,7 @@ export function MonthlyComparison({
                         )}
                         {comparison.medicine.stoppedMedicines.length > 0 && (
                           <div>
-                            <p className="text-xs text-app-gray mb-1">Stopped this month</p>
+                            <p className="text-xs text-app-gray mb-1">Stopped {currentMonthLabel}</p>
                             <div className="flex flex-wrap gap-1">
                               {comparison.medicine.stoppedMedicines.map((m) => (
                                 <span key={m} className="px-2 py-0.5 text-xs bg-app-gray/10 text-app-gray rounded-full">
@@ -753,6 +975,8 @@ interface ComparisonCardProps {
   lastMonth: React.ReactNode;
   change: React.ReactNode;
   expandedContent?: React.ReactNode;
+  thisMonthLabel?: string;
+  lastMonthLabel?: string;
 }
 
 function ComparisonCard({
@@ -763,6 +987,8 @@ function ComparisonCard({
   lastMonth,
   change,
   expandedContent,
+  thisMonthLabel = "This Month",
+  lastMonthLabel = "Last Month",
 }: ComparisonCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -817,15 +1043,15 @@ function ComparisonCard({
             </svg>
           )}
         </div>
-
+        
         {/* Two columns: This Month | Last Month */}
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <p className="text-xs font-medium text-app-teal mb-1">This Month</p>
+            <p className="text-xs font-medium text-app-teal mb-1">{thisMonthLabel}</p>
             {thisMonth}
           </div>
           <div>
-            <p className="text-xs font-medium text-app-gray mb-1">Last Month</p>
+            <p className="text-xs font-medium text-app-gray mb-1">{lastMonthLabel}</p>
             {lastMonth}
           </div>
         </div>
@@ -875,6 +1101,33 @@ function StatRow({ label, value, small = false, capitalize = false }: StatRowPro
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+function formatFeeling(feeling: string | null): string {
+  if (!feeling) return "—";
+  const feelingMap: Record<string, string> = {
+    complete_relief: "Complete Relief",
+    partial_relief: "Partial Relief",
+    incomplete: "Incomplete",
+    discomfort: "Discomfort",
+    pain: "Pain",
+    urgency_remains: "Urgency Remains",
+  };
+  return feelingMap[feeling] || feeling.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+// Feeling quality score (higher = better)
+function getFeelingScore(feeling: string | null): number {
+  if (!feeling) return 0;
+  const scores: Record<string, number> = {
+    complete_relief: 6,
+    partial_relief: 5,
+    incomplete: 4,
+    discomfort: 3,
+    urgency_remains: 2,
+    pain: 1,
+  };
+  return scores[feeling] || 0;
+}
 
 function formatPhase(phase: string | null): string {
   if (!phase) return "—";

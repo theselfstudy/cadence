@@ -389,6 +389,8 @@ export interface BowelMonthData {
   normalRangeCount: number | null;
   normalRangePercent: number | null;
   timeDistribution: Record<string, number>;
+  mostCommonFeeling: string | null;
+  feelingDistribution: Record<string, number>;
 }
 
 export interface CycleMonthData {
@@ -421,6 +423,8 @@ export interface MonthComparison {
     lastMonth: BowelMonthData;
     typeShift: { from: number | null; to: number | null } | null;
     trendTowardNormal: boolean | null;
+    trendIsSignificant: boolean;
+
   };
   cycle: {
     thisMonth: CycleMonthData;
@@ -551,6 +555,7 @@ export function compareMonths(
     const types: number[] = [];
     const typeCounts: Record<number, number> = {};
     const timeDistribution: Record<string, number> = {};
+    const feelingCounts: Record<string, number> = {};
     let normalRangeCount = 0;
 
     for (const entry of entries) {
@@ -572,15 +577,29 @@ export function compareMonths(
           else period = "Night";
           timeDistribution[period] = (timeDistribution[period] || 0) + 1;
         }
+        
+        // Track feelings
+        if (entry.stoolFeeling) {
+          feelingCounts[entry.stoolFeeling] = (feelingCounts[entry.stoolFeeling] || 0) + 1;
+        }
       }
     }
 
     let mostCommonType: number | null = null;
-    let maxCount = 0;
+    let maxTypeCount = 0;
     for (const [type, count] of Object.entries(typeCounts)) {
-      if (count > maxCount) {
-        maxCount = count;
+      if (count > maxTypeCount) {
+        maxTypeCount = count;
         mostCommonType = Number(type);
+      }
+    }
+
+    let mostCommonFeeling: string | null = null;
+    let maxFeelingCount = 0;
+    for (const [feeling, count] of Object.entries(feelingCounts)) {
+      if (count > maxFeelingCount) {
+        maxFeelingCount = count;
+        mostCommonFeeling = feeling;
       }
     }
 
@@ -595,20 +614,38 @@ export function compareMonths(
       normalRangeCount: types.length > 0 ? normalRangeCount : null,
       normalRangePercent: types.length > 0 ? Math.round((normalRangeCount / types.length) * 100) : null,
       timeDistribution,
+      mostCommonFeeling,
+      feelingDistribution: feelingCounts,
     };
   };
 
   const thisMonthBowel = buildBowelData(currentEntries);
   const lastMonthBowel = buildBowelData(previousEntries);
 
+  // Calculate trend based on normal range percentage with significance threshold
   let trendTowardNormal: boolean | null = null;
-  if (thisMonthBowel.avgType !== null && lastMonthBowel.avgType !== null) {
+  let bowelTrendIsSignificant: boolean = false;
+  
+  if (thisMonthBowel.normalRangePercent !== null && lastMonthBowel.normalRangePercent !== null) {
+    const percentChange = thisMonthBowel.normalRangePercent - lastMonthBowel.normalRangePercent;
+    // Only consider it significant if there's at least a 10% change in normal range percentage
+    if (Math.abs(percentChange) >= 10) {
+      trendTowardNormal = percentChange > 0; // Higher % normal = trending toward normal
+      bowelTrendIsSignificant = true;
+    }
+  } else if (thisMonthBowel.avgType !== null && lastMonthBowel.avgType !== null) {
+    // Fallback to avgType if normalRangePercent not available
     const thisDistance = Math.abs(thisMonthBowel.avgType - 3.5);
     const lastDistance = Math.abs(lastMonthBowel.avgType - 3.5);
-    trendTowardNormal = thisDistance < lastDistance;
+    const distanceChange = lastDistance - thisDistance;
+    // Only significant if distance changed by at least 0.5
+    if (Math.abs(distanceChange) >= 0.5) {
+      trendTowardNormal = distanceChange > 0;
+      bowelTrendIsSignificant = true;
+    }
   }
 
-  const typeShift = 
+  const typeShift =
     thisMonthBowel.mostCommonType !== lastMonthBowel.mostCommonType &&
     (thisMonthBowel.mostCommonType !== null || lastMonthBowel.mostCommonType !== null)
       ? { from: lastMonthBowel.mostCommonType, to: thisMonthBowel.mostCommonType }
@@ -616,22 +653,56 @@ export function compareMonths(
 
   // ===== CYCLE =====
   const buildCycleData = (entries: StoredEntry[]): CycleMonthData => {
-    const phaseDistribution: Record<string, number> = {};
-    const flowDistribution: Record<string, number> = {};
     const daysWithData = new Set<string>();
-    let flowDays = 0;
+    
+    // Track unique dates per phase (for accurate day counting)
+    const dateToPhase: Record<string, string> = {};
+    const dateToFlow: Record<string, string> = {};
+    
+    // Priority order for phases when multiple logged on same day
+    // Menstrual > Ovulation > Follicular > Luteal > Not Sure
+    const phasePriority: Record<string, number> = {
+      menstrual: 5,
+      ovulation: 4,
+      follicular: 3,
+      luteal: 2,
+      not_sure: 1,
+    };
 
     for (const entry of entries) {
       if (entry.cyclePhase) {
-        phaseDistribution[entry.cyclePhase] = (phaseDistribution[entry.cyclePhase] || 0) + 1;
         daysWithData.add(entry.date);
+        // Use priority-based selection if multiple phases on same day
+        const existingPhase = dateToPhase[entry.date];
+        const existingPriority = existingPhase ? (phasePriority[existingPhase] || 0) : 0;
+        const newPriority = phasePriority[entry.cyclePhase] || 0;
+        if (newPriority > existingPriority) {
+          dateToPhase[entry.date] = entry.cyclePhase;
+        }
       }
       if (entry.periodFlow) {
-        flowDistribution[entry.periodFlow] = (flowDistribution[entry.periodFlow] || 0) + 1;
         daysWithData.add(entry.date);
-        flowDays++;
+        // Keep the first flow logged for the day (or could use heaviest)
+        if (!dateToFlow[entry.date]) {
+          dateToFlow[entry.date] = entry.periodFlow;
+        }
       }
     }
+    
+    // Count phases by unique dates
+    const phaseDistribution: Record<string, number> = {};
+    for (const phase of Object.values(dateToPhase)) {
+      phaseDistribution[phase] = (phaseDistribution[phase] || 0) + 1;
+    }
+    
+    // Count flows by unique dates
+    const flowDistribution: Record<string, number> = {};
+    for (const flow of Object.values(dateToFlow)) {
+      flowDistribution[flow] = (flowDistribution[flow] || 0) + 1;
+    }
+    
+    // Count period days as unique dates with menstrual phase
+    const periodDays = Object.values(dateToPhase).filter(phase => phase === "menstrual").length;
 
     let dominantPhase: string | null = null;
     let maxPhaseCount = 0;
@@ -645,8 +716,8 @@ export function compareMonths(
     return {
       hasData: daysWithData.size > 0,
       dominantPhase,
-      daysLogged: daysWithData.size,
-      flowDays,
+      daysLogged: periodDays, // Changed: now represents period days, not total days with any cycle data
+      flowDays: Object.keys(dateToFlow).length, // Unique days with flow logged
       phaseDistribution,
       flowDistribution,
     };
@@ -752,6 +823,7 @@ export function compareMonths(
       lastMonth: lastMonthBowel,
       typeShift,
       trendTowardNormal,
+      trendIsSignificant: bowelTrendIsSignificant,
     },
     cycle: {
       thisMonth: thisMonthCycle,
@@ -1016,12 +1088,51 @@ export function buildCyclePhaseSymptomHeatMap(
  * A new cycle starts when periodFlow is logged after 5+ days without flow
  */
 export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
-  // Get all entries with period flow, sorted by date
-  const flowEntries = entries
-    .filter(e => e.periodFlow)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // Phase priority for when multiple phases logged on same day
+  // Menstrual > Ovulation > Follicular > Luteal > Not Sure
+  const phasePriority: Record<string, number> = {
+    menstrual: 5,
+    ovulation: 4,
+    follicular: 3,
+    luteal: 2,
+    not_sure: 1,
+  };
+
+  // Flow priority (use heaviest flow if multiple on same day)
+  const flowPriority: Record<string, number> = {
+    heavy: 4,
+    medium: 3,
+    light: 2,
+    spotting: 1,
+  };
+
+  // First, deduplicate entries by date - one flow and one phase per day
+  const dateToFlow: Record<string, string> = {};
+  const dateToPhase: Record<string, string> = {};
   
-  if (flowEntries.length === 0) return [];
+  for (const entry of entries) {
+    if (entry.periodFlow) {
+      const existingFlow = dateToFlow[entry.date];
+      const existingPriority = existingFlow ? (flowPriority[existingFlow] || 0) : 0;
+      const newPriority = flowPriority[entry.periodFlow] || 0;
+      if (newPriority > existingPriority) {
+        dateToFlow[entry.date] = entry.periodFlow;
+      }
+    }
+    if (entry.cyclePhase) {
+      const existingPhase = dateToPhase[entry.date];
+      const existingPriority = existingPhase ? (phasePriority[existingPhase] || 0) : 0;
+      const newPriority = phasePriority[entry.cyclePhase] || 0;
+      if (newPriority > existingPriority) {
+        dateToPhase[entry.date] = entry.cyclePhase;
+      }
+    }
+  }
+
+  // Get unique flow dates sorted
+  const flowDates = Object.keys(dateToFlow).sort();
+  
+  if (flowDates.length === 0) return [];
   
   const cycles: DetectedCycle[] = [];
   let currentCycleStart: string | null = null;
@@ -1029,8 +1140,7 @@ export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
   let currentFlowDays: { date: string; flow: string }[] = [];
   let currentPhasesLogged: Record<string, number> = {};
   
-  for (const entry of flowEntries) {
-    const entryDate = entry.date;
+  for (const entryDate of flowDates) {
     
     // Check if this is a new cycle (5+ day gap from last flow)
     if (lastFlowDate) {
@@ -1067,10 +1177,11 @@ export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
       currentCycleStart = entryDate;
     }
     
-    // Track flow and phase data
-    currentFlowDays.push({ date: entryDate, flow: entry.periodFlow! });
-    if (entry.cyclePhase) {
-      currentPhasesLogged[entry.cyclePhase] = (currentPhasesLogged[entry.cyclePhase] || 0) + 1;
+    // Track flow and phase data (already deduplicated)
+    currentFlowDays.push({ date: entryDate, flow: dateToFlow[entryDate] });
+    const phase = dateToPhase[entryDate];
+    if (phase) {
+      currentPhasesLogged[phase] = (currentPhasesLogged[phase] || 0) + 1;
     }
     
     lastFlowDate = entryDate;
@@ -1117,25 +1228,39 @@ export function compareCycles(
   const currentEntries = getEntriesForCycle(currentCycle);
   const previousEntries = previousCycle ? getEntriesForCycle(previousCycle) : [];
   
-  // Build symptom data for each cycle
+    // Build symptom data for each cycle - deduplicate by date
+  // Count unique days a symptom was logged, use highest intensity per day
   const buildCycleSymptomData = (cycleEntries: StoredEntry[]) => {
-    const symptomStats: Record<string, { count: number; totalIntensity: number; intensityCount: number }> = {};
+    // First pass: collect max intensity per symptom per date
+    const symptomDateIntensity: Record<string, Record<string, number | null>> = {};
     
     for (const entry of cycleEntries) {
       for (const [symptom, intensity] of Object.entries(entry.symptomIntensities)) {
-        if (!symptomStats[symptom]) {
-          symptomStats[symptom] = { count: 0, totalIntensity: 0, intensityCount: 0 };
+        if (!symptomDateIntensity[symptom]) {
+          symptomDateIntensity[symptom] = {};
         }
-        symptomStats[symptom].count++;
-        if (intensity !== null) {
-          symptomStats[symptom].totalIntensity += intensity;
-          symptomStats[symptom].intensityCount++;
+        const existing = symptomDateIntensity[symptom][entry.date];
+        if (existing === undefined || (intensity !== null && (existing === null || intensity > existing))) {
+          symptomDateIntensity[symptom][entry.date] = intensity;
         }
       }
       for (const [symptom, intensity] of Object.entries(entry.periodSymptomIntensities)) {
-        if (!symptomStats[symptom]) {
-          symptomStats[symptom] = { count: 0, totalIntensity: 0, intensityCount: 0 };
+        if (!symptomDateIntensity[symptom]) {
+          symptomDateIntensity[symptom] = {};
         }
+        const existing = symptomDateIntensity[symptom][entry.date];
+        if (existing === undefined || (intensity !== null && (existing === null || intensity > existing))) {
+          symptomDateIntensity[symptom][entry.date] = intensity;
+        }
+      }
+    }
+    
+    // Second pass: build stats from deduplicated data
+    const symptomStats: Record<string, { count: number; totalIntensity: number; intensityCount: number }> = {};
+    
+    for (const [symptom, dateMap] of Object.entries(symptomDateIntensity)) {
+      symptomStats[symptom] = { count: 0, totalIntensity: 0, intensityCount: 0 };
+      for (const intensity of Object.values(dateMap)) {
         symptomStats[symptom].count++;
         if (intensity !== null) {
           symptomStats[symptom].totalIntensity += intensity;
@@ -1164,11 +1289,15 @@ export function compareCycles(
   const newInCurrent = Array.from(currentSymptomNames).filter(s => !previousSymptomNames.has(s));
   const resolvedFromPrevious = Array.from(previousSymptomNames).filter(s => !currentSymptomNames.has(s));
   
-  // Flow pattern comparison
+  // Flow pattern comparison - deduplicate by date
   const buildFlowPattern = (flowDays: { date: string; flow: string }[]): Record<string, number> => {
     const pattern: Record<string, number> = {};
+    const seenDates = new Set<string>();
     for (const day of flowDays) {
-      pattern[day.flow] = (pattern[day.flow] || 0) + 1;
+      if (!seenDates.has(day.date)) {
+        seenDates.add(day.date);
+        pattern[day.flow] = (pattern[day.flow] || 0) + 1;
+      }
     }
     return pattern;
   };

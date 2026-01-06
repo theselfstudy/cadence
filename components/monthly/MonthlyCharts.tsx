@@ -43,11 +43,13 @@ interface MonthlyChartsProps {
   customProducts?: Record<string, { id: string; name: string }[]>;
   /** Medicines from settings to check period category */
   medicines?: { id: string; name: string; categories: string[] }[];
+  /** Current month range for date context */
+  monthRange?: { year: number; month: number; label: string };
 }
 
 export function MonthlyCharts({
   entries,
-  // filteredEntries,
+  filteredEntries,
   weeksInMonth,
   bristolTrendData,
   symptomHeatMapData,
@@ -57,13 +59,17 @@ export function MonthlyCharts({
   onDayClick,
   customProducts = {},
   medicines = [],
+  monthRange,
 }: MonthlyChartsProps) {
   const [activeChart, setActiveChart] = useState<"symptoms" | "bristol" | "cycle" | "medicine">("symptoms");
 
-  // Build chart data
+  // Determine which entries to use for charts - filtered if days selected, otherwise full month
+  const chartEntries = selectedDays.length > 0 ? filteredEntries : entries;
+
+  // Build chart data from appropriate entries
   const { symptomFrequencyData, cycleData, medicineData } = useMemo(() => {
-    return buildChartData(entries, medicines);
-  }, [entries, medicines]);
+    return buildChartData(chartEntries, medicines);
+  }, [chartEntries, medicines]);
 
   // Determine which charts are available based on data and settings
   const hasBristolData = bristolTrendData.some(w => w.totalBMs > 0);
@@ -104,9 +110,16 @@ export function MonthlyCharts({
         <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
           <span>📅</span>
           Monthly Charts
+          {selectedDays.length > 0 && (
+            <span className="text-xs font-normal text-app-teal">
+              ({selectedDays.length} day{selectedDays.length !== 1 ? "s" : ""} selected)
+            </span>
+          )}
         </h3>
         <p className="text-xs text-app-gray mt-0.5">
-          Click on the tabs to view each section&apos;s data
+          {selectedDays.length > 0 
+            ? "Showing data for selected days only"
+            : "Click on the tabs to view each section's data"}
         </p>
       </div>
 
@@ -339,7 +352,12 @@ interface SymptomFrequencyData {
   totalCount: number;
   avgIntensity: number | null;
   isPeriodRelated: boolean;
+  highestIntensity: number | null;
+  highestIntensityDate: string | null;
+  lowestIntensity: number | null;
+  lowestIntensityDate: string | null;
 }
+
 
 interface SymptomFrequencyChartProps {
   data: SymptomFrequencyData[];
@@ -407,24 +425,58 @@ function SymptomFrequencyChart({
             <thead className="bg-app-cream sticky top-0">
               <tr>
                 <th className="text-left py-2 px-3 font-medium text-app-charcoal">Symptom</th>
-                <th className="text-right py-2 px-3 font-medium text-app-charcoal w-20">Count</th>
-                <th className="text-right py-2 px-3 font-medium text-app-charcoal w-20">Avg Int.</th>
+                <th className="text-center py-2 px-3 font-medium text-app-charcoal">
+                  <span className="block text-xs">Highest</span>
+                  <span className="text-app-gray font-normal text-xs">Int / Date</span>
+                </th>
+                <th className="text-center py-2 px-3 font-medium text-app-charcoal">
+                  <span className="block text-xs">Lowest</span>
+                  <span className="text-app-gray font-normal text-xs">Int / Date</span>
+                </th>
+                <th className="text-right py-2 px-3 font-medium text-app-charcoal w-16">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-app-border">
-              {data.map((item) => (
-                <tr key={item.name} className="hover:bg-app-cream/30">
-                  <td className="py-2 px-3">
-                    <span className={item.isPeriodRelated ? "text-app-red" : "text-app-charcoal"}>
-                      {item.name}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-app-teal font-medium text-right">{item.totalCount}</td>
-                  <td className="py-2 px-3 text-app-gray text-right">
-                    {item.avgIntensity !== null ? item.avgIntensity.toFixed(1) : "—"}
-                  </td>
-                </tr>
-              ))}
+              {data.map((item) => {
+                // Format date as "Jan 5"
+                const formatDateShort = (dateStr: string | null): string => {
+                  if (!dateStr) return "—";
+                  const [, month, day] = dateStr.split("-").map(Number);
+                  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                  return `${monthNames[month - 1]} ${day}`;
+                };
+
+                return (
+                  <tr key={item.name} className="hover:bg-app-cream/30">
+                    <td className="py-2 px-3">
+                      <span className={item.isPeriodRelated ? "text-app-red" : "text-app-charcoal"}>
+                        {item.name}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      {item.highestIntensity !== null ? (
+                        <>
+                          <span className="text-app-red font-medium">{item.highestIntensity}</span>
+                          <span className="text-app-gray text-xs ml-1">/ {formatDateShort(item.highestIntensityDate)}</span>
+                        </>
+                      ) : (
+                        <span className="text-app-gray">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      {item.lowestIntensity !== null ? (
+                        <>
+                          <span className="text-app-teal font-medium">{item.lowestIntensity}</span>
+                          <span className="text-app-gray text-xs ml-1">/ {formatDateShort(item.lowestIntensityDate)}</span>
+                        </>
+                      ) : (
+                        <span className="text-app-gray">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-app-teal font-medium text-right">{item.totalCount}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -564,7 +616,7 @@ function MonthlySymptomHeatMap({ data, selectedDays = [], onDayClick }: MonthlyS
 
 interface CycleData {
   phases: { phase: string; label: string; count: number }[];
-  flows: { flow: string; count: number }[];
+  flows: { flow: string; count: number; dates?: string[] }[];
   dayBreakdown: {
     day: number;
     dateStr: string;
@@ -654,7 +706,7 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
       <div className="mb-4">
         <h4 className="text-sm font-medium text-app-charcoal">Cycle Logs</h4>
         <p className="text-xs text-app-gray mt-0.5">
-          Cycle phases and flow levels this month
+          Cycle phases and flow levels
         </p>
       </div>
 
@@ -664,15 +716,22 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
           <div>
             <p className="text-xs font-medium text-app-gray mb-2">Phases Logged</p>
             <div className="space-y-2">
-              {data.phases.map((item) => (
-                <div
-                  key={item.phase}
-                  className="flex items-center justify-between p-2 bg-app-red/5 rounded-lg"
-                >
-                  <span className="text-sm text-app-charcoal">{item.label}</span>
-                  <span className="text-sm text-app-red font-medium">{item.count} days</span>
-                </div>
-              ))}
+              {data.phases.map((item) => {
+                const isMenstrual = item.phase === "menstrual";
+                return (
+                  <div
+                    key={item.phase}
+                    className={`flex items-center justify-between p-2 rounded-lg ${
+                      isMenstrual ? "bg-app-red/10" : "bg-app-teal/10"
+                    }`}
+                  >
+                    <span className="text-sm text-app-charcoal">{item.label}</span>
+                    <span className={`text-sm font-medium ${isMenstrual ? "text-app-red" : "text-app-teal"}`}>
+                      {item.count} days
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -682,15 +741,40 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
           <div>
             <p className="text-xs font-medium text-app-gray mb-2">Flow Levels</p>
             <div className="space-y-2">
-              {data.flows.map((item) => (
-                <div
-                  key={item.flow}
-                  className="flex items-center justify-between p-2 bg-app-red/5 rounded-lg"
-                >
-                  <span className="text-sm text-app-charcoal capitalize">{item.flow}</span>
-                  <span className="text-sm text-app-red font-medium">{item.count} days</span>
-                </div>
-              ))}
+              {data.flows.map((item) => {
+                // Format dates for display
+                const formatFlowDates = (dates?: string[]): string => {
+                  if (!dates || dates.length === 0) return "";
+                  const sortedDates = [...dates].sort();
+                  const formatted = sortedDates.map(d => {
+                    const [, month, day] = d.split("-").map(Number);
+                    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    return `${monthNames[month - 1]} ${day}`;
+                  });
+                  
+                  if (formatted.length <= 3) {
+                    return formatted.join(", ");
+                  }
+                  return `${formatted[0]}, ${formatted[1]}, +${formatted.length - 2} more`;
+                };
+                
+                return (
+                  <div
+                    key={item.flow}
+                    className="p-2 bg-app-red/5 rounded-lg"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-app-charcoal capitalize">{item.flow}</span>
+                      <span className="text-sm text-app-red font-medium">{item.count} day{item.count !== 1 ? "s" : ""}</span>
+                    </div>
+                    {item.dates && item.dates.length > 0 && (
+                      <p className="text-xs text-app-gray mt-1">
+                        {formatFlowDates(item.dates)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -715,17 +799,22 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
                     key={day.day}
                     type="button"
                     onClick={() => setSelectedDay(isSelected ? null : day.day)}
-                    className={`w-8 h-10 rounded-md text-xs transition-all flex flex-col items-center justify-center shrink-0 ${
+                    className={`w-8 h-10 rounded-md text-xs transition-all flex flex-col items-center justify-center shrink-0 border ${
                       hasData 
                         ? isMenstrual 
-                          ? "bg-app-red/20 text-app-red" 
-                          : "bg-app-teal/10 text-app-teal"
-                        : "bg-app-cream/50 text-app-gray"
-                    } ${isSelected ? "ring-2 ring-app-red shadow-md scale-105" : "hover:scale-105"}`}
+                          ? "bg-app-red/20 text-app-red border-app-red" 
+                          : "bg-app-teal/10 text-app-teal border-app-teal"
+                        : "bg-app-cream/50 text-app-gray border-transparent"
+                    } ${isSelected 
+                        ? isMenstrual 
+                          ? "ring-2 ring-app-red shadow-md scale-105" 
+                          : "ring-2 ring-app-teal shadow-md scale-105"
+                        : "hover:scale-105"
+                    }`}
                   >
                     <span className="font-medium">{day.day}</span>
                     {hasDetails && (
-                      <span className={`w-1 h-1 rounded-full mt-0.5 ${isMenstrual ? "bg-app-red" : "bg-app-teal"}`} />
+                      <span className="w-1 h-1 rounded-full mt-0.5 bg-app-green" />
                     )}
                   </button>
                 );
@@ -736,22 +825,26 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
           {/* Legend for day strip */}
           <div className="flex items-center justify-center gap-4 mt-2 text-xs text-app-gray">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-app-red/20" />
+              <div className="w-3 h-3 rounded bg-app-red/20 border border-app-red" />
               <span>Period</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-app-teal/10" />
+              <div className="w-3 h-3 rounded bg-app-teal/10 border border-app-teal" />
               <span>Other phases</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-app-red" />
+              <span className="w-1.5 h-1.5 rounded-full bg-app-green" />
               <span>Has details</span>
             </div>
           </div>
 
           {/* Selected day details */}
           {selectedDayData && (
-            <div className="mt-3 p-3 bg-app-red/5 rounded-lg border border-app-red/20">
+            <div className={`mt-3 p-3 rounded-lg border ${
+              selectedDayData.phase === "menstrual"
+                ? "bg-app-red/5 border-app-red/20"
+                : "bg-app-teal/5 border-app-teal/20"
+              }`}>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-app-charcoal">Day {selectedDayData.day}</p>
                 <button
@@ -782,7 +875,9 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
 
               {/* Products used - deduplicated with custom names */}
               {selectedDayData.products.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-app-red/20">
+                <div className={`mt-2 pt-2 border-t ${
+                  selectedDayData.phase === "menstrual" ? "border-app-red/20" : "border-app-teal/20"
+                }`}>
                   <p className="text-xs text-app-gray mb-1">Products Used</p>
                   <div className="flex flex-wrap gap-1">
                     {getDeduplicatedProducts(selectedDayData.products).map((p, i) => (
@@ -799,7 +894,9 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
 
               {/* Period symptoms - deduplicated */}
               {selectedDayData.periodSymptoms.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-app-red/20">
+                <div className={`mt-2 pt-2 border-t ${
+                  selectedDayData.phase === "menstrual" ? "border-app-red/20" : "border-app-teal/20"
+                }`}>
                   <p className="text-xs text-app-gray mb-1">Period Symptoms</p>
                   <div className="flex flex-wrap gap-1">
                     {getDeduplicatedSymptoms(selectedDayData.periodSymptoms).map((s, i) => (
@@ -816,7 +913,9 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
 
               {/* Period medicines - deduplicated */}
               {selectedDayData.periodMedicines.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-app-red/20">
+                <div className={`mt-2 pt-2 border-t ${
+                  selectedDayData.phase === "menstrual" ? "border-app-red/20" : "border-app-teal/20"
+                }`}>
                   <p className="text-xs text-app-gray mb-1">Period Medicines</p>
                   <div className="flex flex-wrap gap-1">
                     {[...new Map(selectedDayData.periodMedicines.map(m => [m.name, m])).values()].map((m, i) => (
@@ -1070,28 +1169,77 @@ function buildChartData(
   medicineData: MedicineChartData;
 } {
   // ===== SYMPTOM FREQUENCY =====
-  const symptomStats: Record<string, { count: number; totalIntensity: number; intensityCount: number; isPeriodRelated: boolean }> = {};
+  const symptomStats: Record<string, { 
+    count: number; 
+    totalIntensity: number; 
+    intensityCount: number; 
+    isPeriodRelated: boolean;
+    highestIntensity: number | null;
+    highestIntensityDate: string | null;
+    lowestIntensity: number | null;
+    lowestIntensityDate: string | null;
+  }> = {};
 
   for (const entry of entries) {
     for (const [symptom, intensity] of Object.entries(entry.symptomIntensities)) {
       if (!symptomStats[symptom]) {
-        symptomStats[symptom] = { count: 0, totalIntensity: 0, intensityCount: 0, isPeriodRelated: false };
+        symptomStats[symptom] = { 
+          count: 0, 
+          totalIntensity: 0, 
+          intensityCount: 0, 
+          isPeriodRelated: false,
+          highestIntensity: null,
+          highestIntensityDate: null,
+          lowestIntensity: null,
+          lowestIntensityDate: null,
+        };
       }
       symptomStats[symptom].count++;
       if (intensity !== null) {
         symptomStats[symptom].totalIntensity += intensity;
         symptomStats[symptom].intensityCount++;
+        
+        // Track highest intensity
+        if (symptomStats[symptom].highestIntensity === null || intensity > symptomStats[symptom].highestIntensity) {
+          symptomStats[symptom].highestIntensity = intensity;
+          symptomStats[symptom].highestIntensityDate = entry.date;
+        }
+        // Track lowest intensity
+        if (symptomStats[symptom].lowestIntensity === null || intensity < symptomStats[symptom].lowestIntensity) {
+          symptomStats[symptom].lowestIntensity = intensity;
+          symptomStats[symptom].lowestIntensityDate = entry.date;
+        }
       }
     }
     for (const [symptom, intensity] of Object.entries(entry.periodSymptomIntensities)) {
       if (!symptomStats[symptom]) {
-        symptomStats[symptom] = { count: 0, totalIntensity: 0, intensityCount: 0, isPeriodRelated: true };
+        symptomStats[symptom] = { 
+          count: 0, 
+          totalIntensity: 0, 
+          intensityCount: 0, 
+          isPeriodRelated: true,
+          highestIntensity: null,
+          highestIntensityDate: null,
+          lowestIntensity: null,
+          lowestIntensityDate: null,
+        };
       }
       symptomStats[symptom].count++;
       symptomStats[symptom].isPeriodRelated = true;
       if (intensity !== null) {
         symptomStats[symptom].totalIntensity += intensity;
         symptomStats[symptom].intensityCount++;
+        
+        // Track highest intensity
+        if (symptomStats[symptom].highestIntensity === null || intensity > symptomStats[symptom].highestIntensity) {
+          symptomStats[symptom].highestIntensity = intensity;
+          symptomStats[symptom].highestIntensityDate = entry.date;
+        }
+        // Track lowest intensity
+        if (symptomStats[symptom].lowestIntensity === null || intensity < symptomStats[symptom].lowestIntensity) {
+          symptomStats[symptom].lowestIntensity = intensity;
+          symptomStats[symptom].lowestIntensityDate = entry.date;
+        }
       }
     }
   }
@@ -1104,12 +1252,14 @@ function buildChartData(
         ? Math.round((data.totalIntensity / data.intensityCount) * 10) / 10
         : null,
       isPeriodRelated: data.isPeriodRelated,
+      highestIntensity: data.highestIntensity,
+      highestIntensityDate: data.highestIntensityDate,
+      lowestIntensity: data.lowestIntensity,
+      lowestIntensityDate: data.lowestIntensityDate,
     }))
     .sort((a, b) => b.totalCount - a.totalCount);
 
-  // ===== CYCLE DATA =====
-  const phaseCounts: Record<string, number> = {};
-  const flowCounts: Record<string, number> = {};
+  // ===== CYCLE DATA ===== Use maps to deduplicate by date (day of month)
   const dayBreakdownMap: Record<number, {
     day: number;
     dateStr: string;
@@ -1119,6 +1269,10 @@ function buildChartData(
     periodMedicines: { name: string; dosage?: string }[];
     periodSymptoms: { name: string; intensity: number | null }[];
   }> = {};
+
+  // Track unique date -> phase/flow for accurate counting
+  const dateToPhase: Record<string, string> = {};
+  const dateToFlow: Record<string, string> = {};
 
   for (const entry of entries) {
     const entryDate = new Date(entry.date + "T12:00:00");
@@ -1137,11 +1291,11 @@ function buildChartData(
     }
 
     if (entry.cyclePhase) {
-      phaseCounts[entry.cyclePhase] = (phaseCounts[entry.cyclePhase] || 0) + 1;
+      dateToPhase[entry.date] = entry.cyclePhase;
       dayBreakdownMap[day].phase = entry.cyclePhase;
     }
     if (entry.periodFlow) {
-      flowCounts[entry.periodFlow] = (flowCounts[entry.periodFlow] || 0) + 1;
+      dateToFlow[entry.date] = entry.periodFlow;
       dayBreakdownMap[day].flow = entry.periodFlow;
     }
 
@@ -1173,14 +1327,39 @@ function buildChartData(
     }
   }
 
+  // Count phases by unique dates (not entries)
+  const phaseCounts: Record<string, number> = {};
+  for (const phase of Object.values(dateToPhase)) {
+    phaseCounts[phase] = (phaseCounts[phase] || 0) + 1;
+  }
+
+  // Count flows by unique dates and track which dates
+  const flowCounts: Record<string, { count: number; dates: string[] }> = {};
+  for (const [date, flow] of Object.entries(dateToFlow)) {
+    if (!flowCounts[flow]) {
+      flowCounts[flow] = { count: 0, dates: [] };
+    }
+    flowCounts[flow].count++;
+    flowCounts[flow].dates.push(date);
+  }
+
+  // Define phase order: Menstrual, Follicular, Ovulation, Luteal, Not Sure
+  const phaseOrder = ["menstrual", "follicular", "ovulation", "luteal", "not_sure"];
+  
   const cycleData: CycleData = {
-    phases: Object.entries(phaseCounts).map(([phase, count]) => ({
-      phase,
-      label: CYCLE_PHASES.find(p => p.value === phase)?.label || phase,
-      count,
-    })),
+    phases: phaseOrder
+      .filter(phase => phaseCounts[phase] !== undefined)
+      .map(phase => ({
+        phase,
+        label: CYCLE_PHASES.find(p => p.value === phase)?.label || phase,
+        count: phaseCounts[phase],
+      })),
     flows: Object.entries(flowCounts)
-      .map(([flow, count]) => ({ flow, count }))
+      .map(([flow, data]) => ({ 
+        flow, 
+        count: data.count,
+        dates: data.dates.sort(),
+      }))
       .sort((a, b) => b.count - a.count),
     dayBreakdown: Object.values(dayBreakdownMap).sort((a, b) => a.day - b.day),
   };

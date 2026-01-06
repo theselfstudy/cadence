@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from "react";
 import type { StoredEntry } from "@/types";
+import { useSettings } from "@/stores/useSettings";
+
 import type { 
   DetectedCycle, 
   CycleComparison, 
@@ -31,7 +33,42 @@ export function CycleInsights({
   cyclePhaseHeatMapData,
   entries,
 }: CycleInsightsProps) {
-  const [activeTab, setActiveTab] = useState<"comparison" | "patterns" | "medicines">("comparison");
+  const [activeTab, setActiveTab] = useState<"comparison" | "patterns" | "medicines" | "stool">("comparison");
+  // Independent cycle navigation - 0 = most recent cycle pair, -1 = one pair back, etc.
+  const [cycleOffset, setCycleOffset] = useState(0);
+  
+  // Get custom products from settings for product name display
+  const periodTracking = useSettings((state) => state.periodTracking);
+  const customProducts = periodTracking.productTracking?.customProducts || {};
+  // Navigation helpers for cycle-to-cycle comparison
+  const maxOffset = Math.max(0, detectedCycles.length - 2); // Need at least 2 cycles for comparison
+  const canGoNext = cycleOffset < 0;
+  const canGoPrev = detectedCycles.length > 1 && Math.abs(cycleOffset) < maxOffset;
+  
+  const goToNextCycle = () => {
+    if (canGoNext) setCycleOffset(prev => prev + 1);
+  };
+  const goToPrevCycle = () => {
+    if (canGoPrev) setCycleOffset(prev => prev - 1);
+  };
+  const goToCurrentCycle = () => setCycleOffset(0);
+
+  // Get the cycles for the current offset
+  const currentCycleIndex = detectedCycles.length - 1 + cycleOffset;
+  const selectedCurrentCycle = detectedCycles[currentCycleIndex] || null;
+  const selectedPreviousCycle = currentCycleIndex > 0 ? detectedCycles[currentCycleIndex - 1] : null;
+
+  // Format month labels for navigation
+  const getMonthLabel = (dateStr: string | null): string => {
+    if (!dateStr) return "—";
+    const [year, month] = dateStr.split("-").map(Number);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${monthNames[month - 1]} ${year}`;
+  };
+
+  const currentCycleLabel = selectedCurrentCycle ? getMonthLabel(selectedCurrentCycle.startDate) : "—";
+  const previousCycleLabel = selectedPreviousCycle ? getMonthLabel(selectedPreviousCycle.startDate) : "—";
+
   // Check if we have enough data
   const hasAnyCycleData = detectedCycles.length > 0;
   const hasComparisonData = cycleComparison !== null && cycleComparison.previousCycle !== null;
@@ -61,7 +98,7 @@ export function CycleInsights({
               : "bg-white text-app-charcoal hover:bg-app-cream"
           }`}
         >
-          <span className="hidden sm:inline">Cycle to Cycle </span>Comparison
+          <span className="hidden sm:inline">Cycle × Cycle </span>Comparison
         </button>
         <button
           onClick={() => setActiveTab("patterns")}
@@ -73,8 +110,8 @@ export function CycleInsights({
         >
           <span className="hidden sm:inline">Phase ×</span> Symptoms
         </button>
-        <button
-          onClick={() => setActiveTab("medicines")}
+                <button
+        onClick={() => setActiveTab("medicines")}
           className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === "medicines"
               ? "bg-app-red text-white"
@@ -83,6 +120,16 @@ export function CycleInsights({
         >
           <span className="hidden sm:inline">Phase × </span>Medicines
         </button>
+        <button
+          onClick={() => setActiveTab("stool")}
+          className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === "stool"
+              ? "bg-app-red text-white"
+              : "bg-white text-app-charcoal hover:bg-app-cream"
+          }`}
+        >
+          <span className="hidden sm:inline">Phase × </span>Stool
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -90,16 +137,32 @@ export function CycleInsights({
         <CycleComparisonView
           detectedCycles={detectedCycles}
           cycleComparison={cycleComparison}
+          selectedCurrentCycle={selectedCurrentCycle}
+          selectedPreviousCycle={selectedPreviousCycle}
+          currentCycleLabel={currentCycleLabel}
+          previousCycleLabel={previousCycleLabel}
+          cycleOffset={cycleOffset}
+          canGoNext={canGoNext}
+          canGoPrev={canGoPrev}
+          goToNextCycle={goToNextCycle}
+          goToPrevCycle={goToPrevCycle}
+          goToCurrentCycle={goToCurrentCycle}
+          entries={entries}
+          customProducts={customProducts}
         />
       )}
       {activeTab === "patterns" && (
         <PhasePatternView
           cyclePhaseHeatMapData={cyclePhaseHeatMapData}
           entries={entries}
+          cycleCount={detectedCycles.length}
         />
       )}
       {activeTab === "medicines" && (
-        <PhaseMedicineView entries={entries} />
+        <PhaseMedicineView entries={entries} cycleCount={detectedCycles.length} />
+      )}
+      {activeTab === "stool" && (
+        <PhaseStoolView entries={entries} cycleCount={detectedCycles.length} />
       )}
     </div>
   );
@@ -112,9 +175,36 @@ export function CycleInsights({
 interface CycleComparisonViewProps {
   detectedCycles: DetectedCycle[];
   cycleComparison: CycleComparison | null;
+  selectedCurrentCycle: DetectedCycle | null;
+  selectedPreviousCycle: DetectedCycle | null;
+  currentCycleLabel: string;
+  previousCycleLabel: string;
+  cycleOffset: number;
+  canGoNext: boolean;
+  canGoPrev: boolean;
+  goToNextCycle: () => void;
+  goToPrevCycle: () => void;
+  goToCurrentCycle: () => void;
+  entries: StoredEntry[];
+  customProducts: Record<string, { id: string; name: string }[]>;
 }
 
-function CycleComparisonView({ detectedCycles, cycleComparison }: CycleComparisonViewProps) {
+function CycleComparisonView({ 
+  detectedCycles, 
+  cycleComparison,
+  selectedCurrentCycle,
+  selectedPreviousCycle,
+  currentCycleLabel,
+  previousCycleLabel,
+  cycleOffset,
+  canGoNext,
+  canGoPrev,
+  goToNextCycle,
+  goToPrevCycle,
+  goToCurrentCycle,
+  entries,
+  customProducts,
+}: CycleComparisonViewProps) {
   if (detectedCycles.length === 0) {
     return (
       <div className="text-center py-8 bg-app-cream/30 rounded-lg">
@@ -127,225 +217,138 @@ function CycleComparisonView({ detectedCycles, cycleComparison }: CycleCompariso
     );
   }
 
-  const currentCycle = cycleComparison?.currentCycle || detectedCycles[detectedCycles.length - 1];
-  const previousCycle = cycleComparison?.previousCycle;
+  const currentCycle = selectedCurrentCycle;
+  const previousCycle = selectedPreviousCycle;
   const hasComparison = previousCycle !== null;
+  
+  // Check if we're viewing historical data with no previous cycle to compare
+  const isHistoricalWithNoComparison = cycleOffset < 0 && !hasComparison;
 
-  return (
+    return (
     <div className="space-y-4">
+      {/* Cycle Navigation */}
+            {/* Cycle Navigation Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <p className="text-sm text-app-charcoal">
+            Comparing <span className="font-medium">{currentCycleLabel}</span>
+            {hasComparison && (
+              <> to <span className="font-medium">{previousCycleLabel}</span></>
+            )}
+          </p>
+          <p className="text-xs text-app-gray">Use the arrows to switch months</p>
+        </div>
+        
+        <div className="flex items-center gap-1 ml-2 border-l border-app-border pl-2">
+          {/* Previous (Earlier) Button */}
+          <button
+            onClick={goToPrevCycle}
+            disabled={!canGoPrev}
+            className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+              canGoPrev 
+                ? "text-app-charcoal hover:bg-app-cream" 
+                : "text-app-gray/30 cursor-not-allowed"
+            }`}
+            title="Compare earlier cycles"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          {/* Current/Reset Button */}
+          <button
+            onClick={goToCurrentCycle}
+            disabled={cycleOffset === 0}
+            className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+              cycleOffset !== 0
+                ? "text-app-teal hover:bg-app-teal/10"
+                : "text-app-gray/40 cursor-not-allowed"
+            }`}
+            title="Return to current cycle comparison"
+          >
+            Current
+          </button>
+
+          {/* Next (Later) Button */}
+          <button
+            onClick={goToNextCycle}
+            disabled={!canGoNext}
+            className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+              canGoNext 
+                ? "text-app-charcoal hover:bg-app-cream" 
+                : "text-app-gray/30 cursor-not-allowed"
+            }`}
+            title="Compare later cycles"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* No comparison data message for historical view */}
+      {isHistoricalWithNoComparison && (
+        <div className="p-4 bg-app-cream/50 rounded-lg border border-app-border text-center">
+          <p className="text-sm text-app-charcoal">
+            No data for {previousCycleLabel} to compare with {currentCycleLabel}
+          </p>
+        </div>
+      )}
+
       {/* Cycle Overview Cards */}
       <div className={`grid gap-4 ${hasComparison ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
         {/* Current Cycle Card */}
-        <CycleCard
-          title="Current Cycle"
-          cycle={currentCycle}
-          accentColor="red"
-          isOngoing={currentCycle.isOngoing}
-        />
+                {/* Current Cycle Card */}
+        {currentCycle && (
+          <CycleCard
+            title={`${currentCycleLabel} Cycle`}
+            cycle={currentCycle}
+            accentColor="red"
+            isOngoing={currentCycle.isOngoing}
+            entries={entries}
+            symptomData={cycleComparison ? cycleComparison.symptoms.current : []}
+            flowPattern={cycleComparison ? cycleComparison.flowPattern.current : {}}
+            newSymptoms={cycleComparison ? cycleComparison.symptoms.newInCurrent : []}
+            customProducts={customProducts}
+          />
+        )}
 
         {/* Previous Cycle Card */}
-        {hasComparison && previousCycle && (
+        {hasComparison && previousCycle && cycleComparison && (
           <CycleCard
-            title="Previous Cycle"
+            title={`${previousCycleLabel} Cycle`}
             cycle={previousCycle}
             accentColor="gray"
             isOngoing={false}
+            entries={entries}
+            symptomData={cycleComparison.symptoms.previous}
+            flowPattern={cycleComparison.flowPattern.previous}
+            resolvedSymptoms={cycleComparison.symptoms.resolvedFromPrevious}
+            customProducts={customProducts}
           />
         )}
       </div>
 
-      {/* Comparison Summary */}
-      {hasComparison && cycleComparison && (
-        <div className="bg-app-white rounded-xl border border-app-border overflow-hidden">
-          <div className="px-4 py-3 bg-app-cream/50 border-b border-app-border">
-            <h4 className="text-sm font-semibold text-app-charcoal">Cycle Changes</h4>
-          </div>
-          <div className="p-4 space-y-4">
-            {/* Length Change */}
-            {cycleComparison.lengthChange !== null && (
-              <div className="flex items-center justify-between p-3 bg-app-red/5 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-app-charcoal">Cycle Length</p>
-                  <p className="text-xs text-app-gray">Compared to previous cycle</p>
-                </div>
-                <div className="text-right">
-                  <p className={`text-lg font-bold ${
-                    cycleComparison.lengthChange === 0 
-                      ? "text-app-gray" 
-                      : cycleComparison.lengthChange > 0 
-                        ? "text-app-red" 
-                        : "text-app-teal"
-                  }`}>
-                    {cycleComparison.lengthChange === 0 
-                      ? "Same" 
-                      : `${cycleComparison.lengthChange > 0 ? "+" : ""}${cycleComparison.lengthChange} days`
-                    }
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Symptom Changes */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* New Symptoms */}
-              <div className="p-3 bg-app-cream/50 rounded-lg">
-                <p className="text-xs font-medium text-app-gray mb-2">New This Cycle</p>
-                {cycleComparison.symptoms.newInCurrent.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {cycleComparison.symptoms.newInCurrent.slice(0, 4).map((symptom) => (
-                      <span
-                        key={symptom}
-                        className="px-2 py-0.5 text-xs bg-app-red/10 text-app-red rounded-full"
-                      >
-                        {symptom}
-                      </span>
-                    ))}
-                    {cycleComparison.symptoms.newInCurrent.length > 4 && (
-                      <span className="text-xs text-app-gray">
-                        +{cycleComparison.symptoms.newInCurrent.length - 4}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-app-gray italic">No new symptoms</p>
-                )}
-              </div>
-
-              {/* Resolved Symptoms */}
-              <div className="p-3 bg-app-cream/50 rounded-lg">
-                <p className="text-xs font-medium text-app-gray mb-2">Resolved</p>
-                {cycleComparison.symptoms.resolvedFromPrevious.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {cycleComparison.symptoms.resolvedFromPrevious.slice(0, 4).map((symptom) => (
-                      <span
-                        key={symptom}
-                        className="px-2 py-0.5 text-xs bg-app-teal/10 text-app-teal rounded-full"
-                      >
-                        {symptom}
-                      </span>
-                    ))}
-                    {cycleComparison.symptoms.resolvedFromPrevious.length > 4 && (
-                      <span className="text-xs text-app-gray">
-                        +{cycleComparison.symptoms.resolvedFromPrevious.length - 4}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-app-gray italic">None resolved</p>
-                )}
-              </div>
-            </div>
-
-            {/* Flow Pattern Comparison */}
-            {(Object.keys(cycleComparison.flowPattern.current).length > 0 ||
-              Object.keys(cycleComparison.flowPattern.previous).length > 0) && (
-              <div>
-                <p className="text-xs font-medium text-app-gray mb-2">Flow Pattern</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Current Flow */}
-                  <div>
-                    <p className="text-xs text-app-red font-medium mb-1">This Cycle</p>
-                    {Object.keys(cycleComparison.flowPattern.current).length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(cycleComparison.flowPattern.current)
-                          .sort((a, b) => b[1] - a[1])
-                          .map(([flow, count]) => (
-                            <span
-                              key={flow}
-                              className="px-2 py-0.5 text-xs bg-app-red/10 text-app-red rounded capitalize"
-                            >
-                              {flow}: {count}d
-                            </span>
-                          ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-app-gray italic">No flow data</p>
-                    )}
-                  </div>
-
-                  {/* Previous Flow */}
-                  <div>
-                    <p className="text-xs text-app-gray font-medium mb-1">Last Cycle</p>
-                    {Object.keys(cycleComparison.flowPattern.previous).length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(cycleComparison.flowPattern.previous)
-                          .sort((a, b) => b[1] - a[1])
-                          .map(([flow, count]) => (
-                            <span
-                              key={flow}
-                              className="px-2 py-0.5 text-xs bg-app-gray/10 text-app-gray rounded capitalize"
-                            >
-                              {flow}: {count}d
-                            </span>
-                          ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-app-gray italic">No flow data</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Top Symptoms Comparison */}
-            {(cycleComparison.symptoms.current.length > 0 ||
-              cycleComparison.symptoms.previous.length > 0) && (
-              <div>
-                <p className="text-xs font-medium text-app-gray mb-2">Top Symptoms by Cycle</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Current Cycle Symptoms */}
-                  <div>
-                    <p className="text-xs text-app-red font-medium mb-1">This Cycle</p>
-                    {cycleComparison.symptoms.current.length > 0 ? (
-                      <div className="bg-app-cream rounded-md overflow-hidden">
-                        <table className="w-full text-xs">
-                          <tbody>
-                            {cycleComparison.symptoms.current.slice(0, 3).map((s) => (
-                              <tr key={s.name} className="border-b border-app-border/50 last:border-0">
-                                <td className="py-1 px-2 text-app-charcoal truncate max-w-[80px]" title={s.name}>
-                                  {s.name}
-                                </td>
-                                <td className="py-1 px-2 text-app-red text-right font-medium">
-                                  {s.count}×
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-app-gray italic">No symptoms</p>
-                    )}
-                  </div>
-
-                  {/* Previous Cycle Symptoms */}
-                  <div>
-                    <p className="text-xs text-app-gray font-medium mb-1">Last Cycle</p>
-                    {cycleComparison.symptoms.previous.length > 0 ? (
-                      <div className="bg-app-cream rounded-md overflow-hidden">
-                        <table className="w-full text-xs">
-                          <tbody>
-                            {cycleComparison.symptoms.previous.slice(0, 3).map((s) => (
-                              <tr key={s.name} className="border-b border-app-border/50 last:border-0">
-                                <td className="py-1 px-2 text-app-charcoal truncate max-w-[80px]" title={s.name}>
-                                  {s.name}
-                                </td>
-                                <td className="py-1 px-2 text-app-gray text-right font-medium">
-                                  {s.count}×
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-app-gray italic">No symptoms</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+      {/* Length Change Summary - compact version */}
+      {hasComparison && cycleComparison && cycleComparison.lengthChange !== null && (
+        <div className="flex items-center justify-center p-3 bg-app-red/5 rounded-lg">
+          <p className="text-sm text-app-charcoal">
+            Cycle length: {" "}
+            <span className={`font-bold ${
+              cycleComparison.lengthChange === 0 
+                ? "text-app-gray" 
+                : cycleComparison.lengthChange > 0 
+                  ? "text-app-red" 
+                  : "text-app-teal"
+            }`}>
+              {cycleComparison.lengthChange === 0 
+                ? "Same as previous" 
+                : `${cycleComparison.lengthChange > 0 ? "+" : ""}${cycleComparison.lengthChange} days vs previous`
+              }
+            </span>
+          </p>
         </div>
       )}
 
@@ -379,121 +382,339 @@ interface CycleCardProps {
   cycle: DetectedCycle;
   accentColor: "red" | "gray";
   isOngoing: boolean;
+  entries: StoredEntry[];
+  /** Symptom data for this cycle */
+  symptomData?: { name: string; count: number; avgIntensity: number | null }[];
+  /** Flow pattern for this cycle */
+  flowPattern?: Record<string, number>;
+  /** For current cycle: symptoms new this cycle */
+  newSymptoms?: string[];
+  /** For previous cycle: symptoms that resolved */
+  resolvedSymptoms?: string[];
+  /** Custom products map from settings: productType -> CustomProduct[] */
+  customProducts?: Record<string, { id: string; name: string }[]>;
 }
 
-function CycleCard({ title, cycle, accentColor, isOngoing }: CycleCardProps) {
+function CycleCard({ 
+  title, 
+  cycle, 
+  accentColor, 
+  isOngoing, 
+  entries,
+  symptomData = [],
+  flowPattern = {},
+  newSymptoms = [],
+  resolvedSymptoms = [],
+  customProducts = {},
+}: CycleCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  const flowDaysCount = cycle.flowDays.length;
-  const totalDaysLogged = Object.values(cycle.phasesLogged).reduce((sum, count) => sum + count, 0);
+  const showContent = isExpanded || isHovered;
 
-  const bgColor = accentColor === "red" ? "bg-app-red/5" : "bg-app-gray/5";
-  const borderColor = accentColor === "red" ? "border-app-red/20" : "border-app-gray/20";
+  // Deduplicate flow days by date
+  const uniqueFlowDays = useMemo(() => {
+    const seen = new Set<string>();
+    return cycle.flowDays.filter(day => {
+      if (seen.has(day.date)) return false;
+      seen.add(day.date);
+      return true;
+    });
+  }, [cycle.flowDays]);
+
+  const flowDaysCount = uniqueFlowDays.length;
+
+  // Extract products used during this cycle
+  const productsUsed = useMemo(() => {
+    const endDate = cycle.endDate || new Date().toISOString().split('T')[0];
+    const cycleEntries = entries.filter(e => e.date >= cycle.startDate && e.date <= endDate);
+    
+    const productSet = new Set<string>();
+    for (const entry of cycleEntries) {
+      for (const product of entry.productUsage || []) {
+        let label = '';
+        
+        // Check if this is a custom product
+        if (product.customProductId && customProducts[product.productType]) {
+          const customProduct = customProducts[product.productType].find(
+            cp => cp.id === product.customProductId
+          );
+          if (customProduct) {
+            const typeLabels: Record<string, string> = {
+              'pad': 'pad',
+              'tampon': 'tampon',
+              'cup': 'cup',
+              'disc': 'disc',
+              'liner': 'liner',
+              'period-underwear': 'period underwear',
+              'other': 'other',
+            };
+            const typeLabel = typeLabels[product.productType] || product.productType;
+            label = `${customProduct.name} (${typeLabel})`;
+          }
+        }
+        
+        // Fallback to generic product type if no custom name found
+        if (!label) {
+          const typeLabels: Record<string, string> = {
+            'pad': 'Pad',
+            'tampon': 'Tampon',
+            'cup': 'Cup',
+            'disc': 'Disc',
+            'liner': 'Liner',
+            'period-underwear': 'Period Underwear',
+            'other': 'Other',
+          };
+          label = typeLabels[product.productType] || product.productType;
+          
+          if (product.size) {
+            label += ` (${product.size})`;
+          }
+        }
+        
+        productSet.add(label);
+      }
+    }
+    return Array.from(productSet);
+  }, [cycle.startDate, cycle.endDate, entries, customProducts]);
+
+  // Accent colors matching StatCard style
+  const accentBarColor = accentColor === "red" ? "bg-app-red" : "bg-app-gray";
+  const borderActiveColor = accentColor === "red" ? "border-app-red" : "border-app-gray";
   const textColor = accentColor === "red" ? "text-app-red" : "text-app-gray";
 
+  // Calculate cycle length display
+  const cycleLengthDisplay = cycle.length ?? (isOngoing ? calculateDaysSinceStart(cycle.startDate) : "—");
+  const cycleLengthLabel = isOngoing && !cycle.length ? "Day" : "Days";
+
   return (
-    <div className={`rounded-xl border ${borderColor} ${bgColor} overflow-hidden`}>
+    <div
+      className="relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-4 text-left"
+        className={`w-full bg-app-white rounded-xl border-2 shadow-sm overflow-hidden text-left transition-all duration-200 ${
+          showContent
+            ? `${borderActiveColor} shadow-md`
+            : "border-app-border hover:border-app-gray/30"
+        }`}
       >
-        <div className="flex items-start justify-between">
-          <div>
-            <h4 className={`text-sm font-semibold ${textColor}`}>{title}</h4>
-            <p className="text-xs text-app-gray mt-0.5">
-              Started {formatDateShort(cycle.startDate)}
-              {isOngoing && " (ongoing)"}
-            </p>
-          </div>
-          <svg
-            className={`w-4 h-4 text-app-gray transition-transform ${isExpanded ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
+        {/* Accent bar */}
+        <div className={`h-1 ${accentBarColor}`} />
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-2 mt-3">
-          <div className="text-center">
-            <p className={`text-lg font-bold ${textColor}`}>
-              {cycle.length ?? (isOngoing ? calculateDaysSinceStart(cycle.startDate) : "—")}
+        <div className="p-4">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <p className="text-xs font-medium text-app-gray uppercase tracking-wide">
+              {title}
             </p>
-            <p className="text-xs text-app-gray">{isOngoing && !cycle.length ? "Day" : "Days"}</p>
+            <svg
+              className={`w-3.5 h-3.5 text-app-gray transition-transform flex-shrink-0 ${
+                showContent ? "rotate-180" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
-          <div className="text-center">
+
+          {/* Main Stats Row */}
+          <div className="flex items-baseline gap-3 mt-1">
+            <p className={`text-2xl font-bold ${textColor}`}>
+              {cycleLengthDisplay}
+            </p>
+            <p className="text-sm text-app-gray">{cycleLengthLabel}</p>
+            <span className="text-app-gray/40">•</span>
             <p className={`text-lg font-bold ${textColor}`}>{flowDaysCount}</p>
-            <p className="text-xs text-app-gray">Flow Days</p>
+            <p className="text-sm text-app-gray">Flow</p>
           </div>
-          <div className="text-center">
-            <p className={`text-lg font-bold ${textColor}`}>{totalDaysLogged}</p>
-            <p className="text-xs text-app-gray">Logged</p>
+
+          {/* Subtext */}
+          <p className="text-xs text-app-gray mt-1">
+            {formatDateShort(cycle.startDate)} → {cycle.endDate ? formatDateShort(cycle.endDate) : "ongoing"}
+          </p>
+
+          {/* Expanded Content */}
+          <div
+            className={`overflow-hidden transition-all duration-200 ${
+              showContent ? "max-h-[600px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
+            }`}
+          >
+            <div className="space-y-3">
+              {/* Flow Pattern */}
+              {(Object.keys(flowPattern).length > 0 || uniqueFlowDays.length > 0) && (
+                <div>
+                  <p className="text-xs text-app-gray mb-1">Flow Pattern</p>
+                  <div className="flex flex-wrap gap-1">
+                    {Object.keys(flowPattern).length > 0 ? (
+                      Object.entries(flowPattern)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([flow, count]) => (
+                          <span
+                            key={flow}
+                            className={`px-2 py-0.5 text-xs rounded capitalize ${
+                              accentColor === "red" 
+                                ? "bg-app-red/10 text-app-red" 
+                                : "bg-app-gray/10 text-app-gray"
+                            }`}
+                          >
+                            {flow}: {count}d
+                          </span>
+                        ))
+                    ) : (
+                      (() => {
+                        const flowCounts: Record<string, number> = {};
+                        for (const day of uniqueFlowDays) {
+                          flowCounts[day.flow] = (flowCounts[day.flow] || 0) + 1;
+                        }
+                        return Object.entries(flowCounts)
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([flow, count]) => (
+                            <span
+                              key={flow}
+                              className={`px-2 py-0.5 text-xs rounded capitalize ${
+                                accentColor === "red" 
+                                  ? "bg-app-red/10 text-app-red" 
+                                  : "bg-app-gray/10 text-app-gray"
+                              }`}
+                            >
+                              {flow}: {count}d
+                            </span>
+                          ));
+                      })()
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Products Used */}
+              {productsUsed.length > 0 && (
+                <div>
+                  <p className="text-xs text-app-gray mb-1">Products Used</p>
+                  <div className="flex flex-wrap gap-1">
+                    {productsUsed.map((product) => (
+                      <span
+                        key={product}
+                        className={`px-2 py-0.5 text-xs rounded ${
+                          accentColor === "red" 
+                            ? "bg-app-red/10 text-app-red" 
+                            : "bg-app-gray/10 text-app-gray"
+                        }`}
+                      >
+                        {product}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top Symptoms */}
+              {symptomData.length > 0 && (
+                <div>
+                  <p className="text-xs text-app-gray mb-1">Top Symptoms</p>
+                  <div className="bg-app-cream rounded-md overflow-hidden">
+                    <table className="w-full text-xs">
+                      <tbody>
+                        {symptomData.slice(0, 5).map((s) => (
+                          <tr key={s.name} className="border-b border-app-border/50 last:border-0">
+                            <td className="py-1.5 px-2 text-app-charcoal truncate max-w-[120px]" title={s.name}>
+                              {s.name}
+                            </td>
+                            <td className={`py-1.5 px-2 text-right font-medium ${textColor}`}>
+                              {s.count}×
+                              {s.avgIntensity !== null && (
+                                <span className="text-app-gray font-normal ml-1">
+                                  ({s.avgIntensity.toFixed(1)})
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* New Symptoms (for current cycle) */}
+              {newSymptoms.length > 0 && (
+                <div>
+                  <p className="text-xs text-app-gray mb-1">New This Cycle</p>
+                  <div className="flex flex-wrap gap-1">
+                    {newSymptoms.slice(0, 5).map((symptom) => (
+                      <span
+                        key={symptom}
+                        className="px-2 py-0.5 text-xs bg-app-red/10 text-app-red rounded-full"
+                      >
+                        {symptom}
+                      </span>
+                    ))}
+                    {newSymptoms.length > 5 && (
+                      <span className="text-xs text-app-gray">+{newSymptoms.length - 5}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Resolved Symptoms (for previous cycle) */}
+              {resolvedSymptoms.length > 0 && (
+                <div>
+                  <p className="text-xs text-app-gray mb-1">Resolved</p>
+                  <div className="flex flex-wrap gap-1">
+                    {resolvedSymptoms.slice(0, 5).map((symptom) => (
+                      <span
+                        key={symptom}
+                        className="px-2 py-0.5 text-xs bg-app-teal/10 text-app-teal rounded-full"
+                      >
+                        {symptom}
+                      </span>
+                    ))}
+                    {resolvedSymptoms.length > 5 && (
+                      <span className="text-xs text-app-gray">+{resolvedSymptoms.length - 5}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Phases Logged */}
+              {Object.keys(cycle.phasesLogged).length > 0 && (
+                <div>
+                  <p className="text-xs text-app-gray mb-1">Phases Logged</p>
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(cycle.phasesLogged)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([phase, count]) => (
+                        <span
+                          key={phase}
+                          className={`px-2 py-0.5 text-xs rounded capitalize ${
+                            accentColor === "red" 
+                              ? "bg-app-red/10 text-app-red" 
+                              : "bg-app-gray/10 text-app-gray"
+                          }`}
+                        >
+                          {formatPhase(phase)}: {count}d
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No data fallback */}
+              {symptomData.length === 0 && 
+               Object.keys(flowPattern).length === 0 && 
+               uniqueFlowDays.length === 0 && 
+               productsUsed.length === 0 && (
+                <p className="text-xs text-app-gray italic">No detailed data for this cycle yet.</p>
+              )}
+            </div>
           </div>
         </div>
       </button>
-
-      {/* Expanded Details */}
-      {isExpanded && (
-        <div className="px-4 pb-4 pt-2 border-t border-app-border/50 space-y-3">
-          {/* Date Range */}
-          <div>
-            <p className="text-xs text-app-gray">Date Range</p>
-            <p className="text-sm text-app-charcoal">
-              {formatDateShort(cycle.startDate)} → {cycle.endDate ? formatDateShort(cycle.endDate) : "Ongoing"}
-            </p>
-          </div>
-
-          {/* Phases Logged */}
-          {Object.keys(cycle.phasesLogged).length > 0 && (
-            <div>
-              <p className="text-xs text-app-gray mb-1">Phases Logged</p>
-              <div className="flex flex-wrap gap-1">
-                {Object.entries(cycle.phasesLogged)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([phase, count]) => (
-                    <span
-                      key={phase}
-                      className={`px-2 py-0.5 text-xs rounded capitalize ${
-                        accentColor === "red" 
-                          ? "bg-app-red/10 text-app-red" 
-                          : "bg-app-gray/10 text-app-gray"
-                      }`}
-                    >
-                      {formatPhase(phase)}: {count}d
-                    </span>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Flow Days */}
-          {cycle.flowDays.length > 0 && (
-            <div>
-              <p className="text-xs text-app-gray mb-1">Flow Pattern</p>
-              <div className="flex flex-wrap gap-1">
-                {cycle.flowDays.slice(0, 7).map((day, i) => (
-                  <span
-                    key={i}
-                    className={`px-2 py-0.5 text-xs rounded capitalize ${
-                      accentColor === "red" 
-                        ? "bg-app-red/10 text-app-red" 
-                        : "bg-app-gray/10 text-app-gray"
-                    }`}
-                  >
-                    {day.flow}
-                  </span>
-                ))}
-                {cycle.flowDays.length > 7 && (
-                  <span className="text-xs text-app-gray">+{cycle.flowDays.length - 7} more</span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -533,16 +754,16 @@ function CycleHistorySummary({ cycles }: CycleHistorySummaryProps) {
       <div className="p-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="text-center p-3 bg-app-red/5 rounded-lg">
-            <p className="text-xl font-bold text-app-red">{avgLength ?? "—"}</p>
-            <p className="text-xs text-app-gray">Avg Length</p>
-          </div>
-          <div className="text-center p-3 bg-app-red/5 rounded-lg">
             <p className="text-xl font-bold text-app-red">{avgFlowDays ?? "—"}</p>
             <p className="text-xs text-app-gray">Avg Flow Days</p>
           </div>
           <div className="text-center p-3 bg-app-red/5 rounded-lg">
             <p className="text-xl font-bold text-app-red">{shortest ?? "—"}</p>
             <p className="text-xs text-app-gray">Shortest</p>
+          </div>
+          <div className="text-center p-3 bg-app-red/5 rounded-lg">
+            <p className="text-xl font-bold text-app-red">{avgLength ?? "—"}</p>
+            <p className="text-xs text-app-gray">Avg Length</p>
           </div>
           <div className="text-center p-3 bg-app-red/5 rounded-lg">
             <p className="text-xl font-bold text-app-red">{longest ?? "—"}</p>
@@ -568,10 +789,11 @@ function CycleHistorySummary({ cycles }: CycleHistorySummaryProps) {
 interface PhasePatternViewProps {
   cyclePhaseHeatMapData: CyclePhaseSymptomData[];
   entries: StoredEntry[];
+  cycleCount: number;
 }
 
-function PhasePatternView({ cyclePhaseHeatMapData, entries }: PhasePatternViewProps) {
-  const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+function PhasePatternView({ cyclePhaseHeatMapData, entries, cycleCount }: PhasePatternViewProps) {
+  const [activeCell, setActiveCell] = useState<string | null>(null);
 
   if (cyclePhaseHeatMapData.length === 0) {
     return (
@@ -604,7 +826,15 @@ function PhasePatternView({ cyclePhaseHeatMapData, entries }: PhasePatternViewPr
   return (
     <div className="space-y-4">
       <div>
-        <h4 className="text-sm font-medium text-app-charcoal">Phase & Symptom Patterns</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-app-charcoal">Phase & Symptom Patterns</h4>
+          <span className="text-xs text-app-gray bg-app-cream/50 px-2 py-0.5 rounded-full">
+            {cycleCount > 0 
+              ? `Based on ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
+              : "Based on all logged data"
+            }
+          </span>
+        </div>
         <p className="text-xs text-app-gray mt-0.5">
           See which symptoms tend to occur during each cycle phase and at what intensities
         </p>
@@ -617,8 +847,17 @@ function PhasePatternView({ cyclePhaseHeatMapData, entries }: PhasePatternViewPr
           <div className="flex mb-2">
             <div className="w-32 shrink-0" />
             {phases.map((phase) => (
-              <div key={phase} className="flex-1 min-w-[70px] text-center">
-                <p className="text-xs font-medium text-app-charcoal">{phaseLabels[phase]}</p>
+              <div 
+                key={phase} 
+                className={`flex-1 min-w-[70px] text-center ${
+                  phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
+                }`}
+              >
+                <p className={`text-xs font-medium ${
+                  phase === "menstrual" ? "text-app-red" : "text-app-charcoal"
+                }`}>
+                  {phaseLabels[phase]}
+                </p>
               </div>
             ))}
           </div>
@@ -643,56 +882,97 @@ function PhasePatternView({ cyclePhaseHeatMapData, entries }: PhasePatternViewPr
                 {phases.map((phase) => {
                   const data = symptom.phases[phase];
                   const cellKey = `${symptom.symptom}-${phase}`;
-                  const isHovered = hoveredCell === cellKey;
+                  const isActive = activeCell === cellKey;
                   const hasData = data && data.count > 0;
                   const intensity = data?.avgIntensity ?? 0;
 
                   return (
-                    <div key={phase} className="flex-1 min-w-[70px] px-1 relative">
-                    <button
-                      type="button"
-                      onMouseEnter={() => setHoveredCell(cellKey)}
-                      onMouseLeave={() => setHoveredCell(null)}
-                      className={`w-full h-10 rounded-lg transition-all flex items-center justify-center ${
-                        hasData
-                          ? getPhaseIntensityStyle(intensity, maxIntensity, symptom.isPeriodRelated, phase)
-                          : "bg-app-border/30"
-                      } ${isHovered ? "ring-2 ring-app-charcoal ring-offset-1" : ""}`}
+                    <div 
+                      key={phase} 
+                      className={`flex-1 min-w-[70px] px-1 relative ${
+                        phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
+                      }`}
                     >
-                      {hasData && (
-                        <span className="text-xs font-medium">
-                          {data.avgIntensity !== null ? data.avgIntensity.toFixed(1) : data.count}
-                        </span>
-                      )}
-                    </button>
+                      <button
+                        type="button"
+                        onMouseEnter={() => hasData && setActiveCell(cellKey)}
+                        onMouseLeave={() => setActiveCell(null)}
+                        onClick={() => hasData && setActiveCell(isActive ? null : cellKey)}
+                        className={`w-full h-10 rounded-lg transition-all flex items-center justify-center ${
+                          hasData
+                            ? getPhaseIntensityStyle(intensity, maxIntensity, symptom.isPeriodRelated, phase)
+                            : "bg-app-border/30"
+                        } ${isActive ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
+                          hasData ? "cursor-pointer" : "cursor-default"
+                        }`}
+                      >
+                        {hasData && (
+                          <span className="text-xs font-medium">
+                            {data.avgIntensity !== null ? data.avgIntensity.toFixed(1) : data.count}
+                          </span>
+                        )}
+                      </button>
 
-                    {/* Hover tooltip - position below for first row to avoid clipping */}
-                    {isHovered && hasData && (
-                      <div className={`absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none ${
-                        rowIndex <= 2 ? "top-full mt-2" : "bottom-full mb-2"
-                      }`}>
-                        <div className="bg-app-charcoal text-white text-xs rounded-md px-3 py-2 whitespace-nowrap shadow-lg">
-                          <p className="font-medium mb-1">{symptom.symptom}</p>
-                          <div className="space-y-0.5 text-app-cream/90">
-                            <p>Phase: {phaseLabels[phase]}</p>
-                            <p>Logged: {data.count} time{data.count !== 1 ? "s" : ""}</p>
-                            {data.avgIntensity !== null && (
-                              <p>Avg intensity: {data.avgIntensity.toFixed(1)}/10</p>
-                            )}
+                      {/* Info blurb dropdown */}
+                      {isActive && hasData && (
+                        <div className={`absolute left-1/2 -translate-x-1/2 z-30 ${
+                          rowIndex <= 2 ? "top-full mt-2" : "bottom-full mb-2"
+                        }`}>
+                          <div className="bg-app-white border border-app-border rounded-lg shadow-lg min-w-[220px] overflow-hidden">
+                            {/* Header */}
+                            <div className={`px-3 py-2 border-b border-app-border ${
+                              symptom.isPeriodRelated ? "bg-app-red/10" : "bg-app-teal/10"
+                            }`}>
+                              <p className={`font-semibold text-sm ${
+                                symptom.isPeriodRelated ? "text-app-red" : "text-app-teal"
+                              }`}>
+                                {symptom.symptom}
+                              </p>
+                              <p className="text-xs text-app-gray">{phaseLabels[phase]} phase</p>
+                            </div>
+                            {/* Content */}
+                            <div className="px-3 py-2 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-app-gray">Times logged</span>
+                                <span className="text-sm font-medium text-app-charcoal">{data.count}</span>
+                              </div>
+                              {data.avgIntensity !== null && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs text-app-gray">Avg intensity</span>
+                                  <span className={`text-sm font-medium ${
+                                    symptom.isPeriodRelated ? "text-app-red" : "text-app-teal"
+                                  }`}>
+                                    {data.avgIntensity.toFixed(1)}/10
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {/* Arrow */}
+                            <div className={`absolute left-1/2 -translate-x-1/2 ${
+                              rowIndex <= 2 
+                                ? "bottom-full border-8 border-transparent border-b-app-white drop-shadow-sm" 
+                                : "top-full border-8 border-transparent border-t-app-white drop-shadow-sm"
+                            }`} style={{ filter: rowIndex <= 2 ? undefined : 'drop-shadow(0 1px 1px rgba(0,0,0,0.1))' }} />
                           </div>
-                          {/* Arrow - flip for first row */}
-                          <div className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${
-                            rowIndex === 0 
-                              ? "bottom-full border-b-app-charcoal" 
-                              : "top-full border-t-app-charcoal"
-                          }`} />
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
+            ))}
+          </div>
+
+          {/* Bottom border for period column */}
+          <div className="flex">
+            <div className="w-32 shrink-0" />
+            {phases.map((phase) => (
+              <div 
+                key={phase} 
+                className={`flex-1 min-w-[70px] ${
+                  phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
+                }`}
+              />
             ))}
           </div>
 
@@ -708,7 +988,7 @@ function PhasePatternView({ cyclePhaseHeatMapData, entries }: PhasePatternViewPr
       <div className="flex items-center justify-center gap-4 text-xs text-app-gray mt-2">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-app-red" />
-          <span>Period / Period symptoms</span>
+          <span>Period symptoms</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-app-teal" />
@@ -786,7 +1066,9 @@ function PhaseInsights({ data }: PhaseInsightsProps) {
               {insight.symptom}
             </span>
             <span className="text-app-gray">peaks in intensity during the</span>
-            <span className="font-medium text-app-charcoal">
+            <span className={`font-medium ${
+              insight.phase === "menstrual" ? "text-app-red" : "text-app-teal"
+            }`}>
               {phaseLabels[insight.phase]} phase
             </span>
             <span className="text-xs text-app-gray">
@@ -919,11 +1201,10 @@ function PhaseMedicinePatterns({ entries }: PhaseMedicinePatternsProps) {
 
 interface PhaseMedicineViewProps {
   entries: StoredEntry[];
+  cycleCount: number;
 }
 
-function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
-  const [hoveredCell, setHoveredCell] = useState<string | null>(null);
-
+function PhaseMedicineView({ entries, cycleCount }: PhaseMedicineViewProps) {
   // Build phase × medicine data
   const { phaseMedicineData, allMedicines, maxCount } = useMemo(() => {
     const data: Record<string, Record<string, { count: number; dosages: string[] }>> = {
@@ -986,6 +1267,13 @@ function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
     luteal: "Luteal",
   };
 
+  // Calculate average per medicine per phase
+  const getAverageCount = (medicine: string, phase: string): number | null => {
+    const data = phaseMedicineData[phase][medicine];
+    if (!data || data.count === 0 || cycleCount === 0) return null;
+    return Math.round((data.count / cycleCount) * 10) / 10;
+  };
+
   // Calculate phase totals for summary
   const phaseTotals = phases.map(phase => ({
     phase,
@@ -1024,9 +1312,340 @@ function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
   return (
     <div className="space-y-4">
       <div>
-        <h4 className="text-sm font-medium text-app-charcoal">Phase × Medicine Patterns</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-app-charcoal">Phase × Medicine Patterns</h4>
+          <span className="text-xs text-app-gray bg-app-cream/50 px-2 py-0.5 rounded-full">
+            {cycleCount > 0 
+              ? `Based on ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
+              : "Based on all logged data"
+            }
+          </span>
+        </div>
         <p className="text-xs text-app-gray mt-0.5">
           See which medicines you tend to take during each cycle phase
+        </p>
+      </div>
+
+      {/* Phase Summary Cards with Average */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {phaseTotals.map(({ phase, total }) => {
+          const avgPerCycle = cycleCount > 0 ? Math.round((total / cycleCount) * 10) / 10 : null;
+          return (
+            <div
+              key={phase}
+              className={`p-3 rounded-lg text-center group relative ${
+                phase === "menstrual" ? "bg-app-red/10" : "bg-app-green/10"
+              }`}
+              title={avgPerCycle !== null ? `Average of ${avgPerCycle} per cycle` : ""}
+            >
+              <p className={`text-lg font-bold ${
+                phase === "menstrual" ? "text-app-red" : "text-app-charcoal/50"
+              }`}>
+                {total}
+              </p>
+              <p className="text-xs text-app-gray">{phaseLabels[phase]}</p>
+              {avgPerCycle !== null && (
+                <p className={`text-xs mt-1 ${
+                  phase === "menstrual" ? "text-app-red/70" : "text-app-charcoal/50"
+                }`}>
+                  ~{avgPerCycle}× per cycle
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Heat Map Grid */}
+      <div className="overflow-x-auto overflow-y-visible relative">
+        <div className="min-w-[400px]">
+          {/* Phase Headers */}
+          <div className="flex mb-2">
+            <div className="w-32 shrink-0" />
+            {phases.map((phase) => (
+              <div 
+                key={phase} 
+                className={`flex-1 min-w-[70px] text-center ${
+                  phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
+                }`}
+              >
+                <p className={`text-xs font-medium ${
+                  phase === "menstrual" ? "text-app-red" : "text-app-charcoal"
+                }`}>
+                  {phaseLabels[phase]}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Medicine Rows */}
+          <div className="space-y-1 max-h-80 overflow-y-auto">
+            {allMedicines.slice(0, 10).map((medicine) => (
+              <div key={medicine} className="flex items-center">
+                {/* Medicine Name */}
+                <div className="w-32 shrink-0 pr-2">
+                  <p
+                    className="text-xs text-app-charcoal truncate"
+                    title={medicine}
+                  >
+                    {medicine}
+                  </p>
+                </div>
+
+                {/* Phase Cells */}
+                {phases.map((phase) => {
+                  const data = phaseMedicineData[phase][medicine];
+                  const hasData = data && data.count > 0;
+                  const count = data?.count || 0;
+                  const avgPerCycle = getAverageCount(medicine, phase);
+
+                  return (
+                    <div 
+                      key={phase} 
+                      className={`flex-1 min-w-[70px] px-1 relative ${
+                        phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
+                      }`}
+                    >
+                      <div
+                        className={`w-full h-10 rounded-lg transition-all flex flex-col items-center justify-center ${
+                          hasData
+                            ? getMedicineIntensityStyle(count, maxCount, phase)
+                            : "bg-app-green/5"
+                        }`}
+                        title={hasData && avgPerCycle !== null && cycleCount > 1
+                          ? `Logged ${count} times total across ${cycleCount} cycles (avg ~${avgPerCycle} times per cycle)` 
+                          : hasData 
+                            ? `Logged ${count} time${count !== 1 ? "s" : ""}`
+                            : "No data"
+                        }
+                      >
+                        {hasData && (
+                          <>
+                            {avgPerCycle !== null && cycleCount > 1 && (
+                              <span className="text-[10px] opacity-75 leading-none">~{avgPerCycle}×/cycle</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom border for period column */}
+          <div className="flex">
+            <div className="w-32 shrink-0" />
+            {phases.map((phase) => (
+              <div 
+                key={phase} 
+                className={`flex-1 min-w-[70px] ${
+                  phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
+                }`}
+              />
+            ))}
+          </div>
+
+          {allMedicines.length > 10 && (
+            <p className="text-xs text-app-gray text-center mt-2">
+              Showing top 10 of {allMedicines.length} medicines
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Color meaning */}
+      <div className="flex items-center justify-center gap-4 text-xs text-app-gray">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-app-red" />
+          <span>Period phase</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-app-green/40" />
+          <span>Other phases</span>
+        </div>
+      </div>
+
+      {/* Insights */}
+      {insights.length > 0 && (
+        <div className="bg-app-cream/50 rounded-lg p-4">
+          <h5 className="text-sm font-medium text-app-charcoal mb-2">Key Patterns</h5>
+          <div className="space-y-2">
+            {insights.map((insight, i) => (
+              <div key={i} className="flex items-center gap-2 text-sm">
+                <span className="text-app-taupe font-medium">{insight.medicine}</span>
+                <span className="text-app-gray">mostly taken during the</span>
+                <span className={`font-medium ${
+                  insight.phase === "menstrual" ? "text-app-red" : "text-app-teal"
+                }`}>
+                  {phaseLabels[insight.phase]} phase
+                </span>
+                <span className="text-xs text-app-gray">
+                  ({insight.percentage}% of usage)
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-app-gray mt-3">
+            These patterns can help you anticipate medication needs during your cycle.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+// ============================================
+// PHASE STOOL VIEW
+// ============================================
+
+interface PhaseStoolViewProps {
+  entries: StoredEntry[];
+  cycleCount: number;
+}
+
+function PhaseStoolView({ entries, cycleCount }: PhaseStoolViewProps) {
+  const [activeCell, setActiveCell] = useState<string | null>(null);
+
+  // Build phase × stool data
+  const { phaseStoolData, bristolTypes, maxCount } = useMemo(() => {
+    const data: Record<string, Record<number, { count: number; feelings: string[] }>> = {
+      menstrual: {},
+      follicular: {},
+      ovulation: {},
+      luteal: {},
+    };
+
+    const typeSet = new Set<number>();
+    let max = 0;
+
+    for (const entry of entries) {
+      if (!entry.cyclePhase || entry.cyclePhase === "not_sure") continue;
+      if (!entry.stoolType) continue;
+
+      typeSet.add(entry.stoolType);
+
+      if (!data[entry.cyclePhase][entry.stoolType]) {
+        data[entry.cyclePhase][entry.stoolType] = { count: 0, feelings: [] };
+      }
+      data[entry.cyclePhase][entry.stoolType].count++;
+      if (entry.stoolFeeling) {
+        data[entry.cyclePhase][entry.stoolType].feelings.push(entry.stoolFeeling);
+      }
+      if (data[entry.cyclePhase][entry.stoolType].count > max) {
+        max = data[entry.cyclePhase][entry.stoolType].count;
+      }
+    }
+
+    // Sort Bristol types
+    const types = Array.from(typeSet).sort((a, b) => a - b);
+
+    return { phaseStoolData: data, bristolTypes: types, maxCount: max };
+  }, [entries]);
+
+  // Check if we have data
+  if (bristolTypes.length === 0) {
+    return (
+      <div className="text-center py-8 bg-app-cream/30 rounded-lg">
+        <span className="text-2xl block mb-2">💩</span>
+        <p className="text-app-charcoal font-medium">No stool data with cycle phases</p>
+        <p className="text-sm text-app-gray mt-1">
+          Log bowel movements while tracking your cycle phase to see patterns
+        </p>
+      </div>
+    );
+  }
+
+  const phases = ["menstrual", "follicular", "ovulation", "luteal"];
+  const phaseLabels: Record<string, string> = {
+    menstrual: "Period",
+    follicular: "Follicular",
+    ovulation: "Ovulation",
+    luteal: "Luteal",
+  };
+
+  const bristolLabels: Record<number, string> = {
+    1: "Type 1",
+    2: "Type 2",
+    3: "Type 3",
+    4: "Type 4",
+    5: "Type 5",
+    6: "Type 6",
+    7: "Type 7",
+  };
+
+  const bristolDescriptions: Record<number, string> = {
+    1: "Hard lumps",
+    2: "Lumpy sausage",
+    3: "Cracked sausage",
+    4: "Smooth snake",
+    5: "Soft blobs",
+    6: "Mushy",
+    7: "Watery",
+  };
+
+  // Calculate phase totals for summary
+  const phaseTotals = phases.map(phase => ({
+    phase,
+    total: Object.values(phaseStoolData[phase]).reduce((sum, d) => sum + d.count, 0),
+  }));
+
+  // Find insights - which Bristol types are more common in which phases
+  const insights = useMemo(() => {
+    const results: { type: number; phase: string; count: number; percentage: number }[] = [];
+
+    for (const type of bristolTypes) {
+      let maxPhase: string | null = null;
+      let maxCount = 0;
+      let totalCount = 0;
+
+      for (const phase of phases) {
+        const count = phaseStoolData[phase][type]?.count || 0;
+        totalCount += count;
+        if (count > maxCount) {
+          maxCount = count;
+          maxPhase = phase;
+        }
+      }
+
+      if (maxPhase && maxCount >= 2 && totalCount >= 3) {
+        const percentage = Math.round((maxCount / totalCount) * 100);
+        if (percentage >= 40) {
+          results.push({ type, phase: maxPhase, count: maxCount, percentage });
+        }
+      }
+    }
+
+    return results.sort((a, b) => b.percentage - a.percentage).slice(0, 5);
+  }, [bristolTypes, phaseStoolData]);
+
+  // Format feeling for display
+  const formatFeeling = (feeling: string): string => {
+    const feelingLabels: Record<string, string> = {
+      complete_relief: "Complete relief",
+      partial_relief: "Partial relief",
+      incomplete: "Incomplete",
+      discomfort: "Discomfort",
+      pain: "Pain",
+      urgency_remains: "Urgency remains",
+    };
+    return feelingLabels[feeling] || feeling;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-app-charcoal">Phase × Stool Patterns</h4>
+          <span className="text-xs text-app-gray bg-app-cream/50 px-2 py-0.5 rounded-full">
+            {cycleCount > 0 
+              ? `Based on ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
+              : "Based on all logged data"
+            }
+          </span>
+        </div>
+        <p className="text-xs text-app-gray mt-0.5">
+          See how your bowel movements correlate with each cycle phase
         </p>
       </div>
 
@@ -1036,11 +1655,11 @@ function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
           <div
             key={phase}
             className={`p-3 rounded-lg text-center ${
-              phase === "menstrual" ? "bg-app-red/10" : "bg-app-taupe/10"
+              phase === "menstrual" ? "bg-app-red/10" : "bg-app-teal/10"
             }`}
           >
             <p className={`text-lg font-bold ${
-              phase === "menstrual" ? "text-app-red" : "text-app-taupe"
+              phase === "menstrual" ? "text-app-red" : "text-app-teal"
             }`}>
               {total}
             </p>
@@ -1056,7 +1675,12 @@ function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
           <div className="flex mb-2">
             <div className="w-32 shrink-0" />
             {phases.map((phase) => (
-              <div key={phase} className="flex-1 min-w-[70px] text-center">
+              <div 
+                key={phase} 
+                className={`flex-1 min-w-[70px] text-center ${
+                  phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
+                }`}
+              >
                 <p className={`text-xs font-medium ${
                   phase === "menstrual" ? "text-app-red" : "text-app-charcoal"
                 }`}>
@@ -1066,64 +1690,108 @@ function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
             ))}
           </div>
 
-          {/* Medicine Rows */}
-          <div className="space-y-1 max-h-64 overflow-y-auto">
-            {allMedicines.slice(0, 10).map((medicine, rowIndex) => (
-              <div key={medicine} className="flex items-center">
-                {/* Medicine Name */}
+          {/* Bristol Type Rows */}
+          <div className="space-y-1">
+            {bristolTypes.map((type, rowIndex) => (
+              <div key={type} className="flex items-center">
+                {/* Bristol Type Label */}
                 <div className="w-32 shrink-0 pr-2">
-                  <p
-                    className="text-xs text-app-charcoal truncate"
-                    title={medicine}
-                  >
-                    {medicine}
+                  <p className="text-xs text-app-charcoal font-medium">
+                    {bristolLabels[type]}
+                  </p>
+                  <p className="text-xs text-app-gray truncate" title={bristolDescriptions[type]}>
+                    {bristolDescriptions[type]}
                   </p>
                 </div>
 
                 {/* Phase Cells */}
                 {phases.map((phase) => {
-                  const data = phaseMedicineData[phase][medicine];
-                  const cellKey = `${medicine}-${phase}`;
-                  const isHovered = hoveredCell === cellKey;
+                  const data = phaseStoolData[phase][type];
+                  const cellKey = `${type}-${phase}`;
+                  const isActive = activeCell === cellKey;
                   const hasData = data && data.count > 0;
                   const count = data?.count || 0;
 
                   return (
-                    <div key={phase} className="flex-1 min-w-[70px] px-1 relative">
+                    <div 
+                      key={phase} 
+                      className={`flex-1 min-w-[70px] px-1 relative ${
+                        phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
+                      }`}
+                    >
                       <button
                         type="button"
-                        onMouseEnter={() => setHoveredCell(cellKey)}
-                        onMouseLeave={() => setHoveredCell(null)}
+                        onMouseEnter={() => hasData && setActiveCell(cellKey)}
+                        onMouseLeave={() => setActiveCell(null)}
+                        onClick={() => hasData && setActiveCell(isActive ? null : cellKey)}
                         className={`w-full h-10 rounded-lg transition-all flex items-center justify-center ${
                           hasData
-                            ? getMedicineIntensityStyle(count, maxCount, phase)
+                            ? getStoolIntensityStyle(count, maxCount, phase)
                             : "bg-app-border/30"
-                        } ${isHovered ? "ring-2 ring-app-charcoal ring-offset-1" : ""}`}
+                        } ${isActive ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
+                          hasData ? "cursor-pointer" : "cursor-default"
+                        }`}
                       >
                         {hasData && (
                           <span className="text-xs font-medium">{count}</span>
                         )}
                       </button>
 
-                      {/* Hover tooltip */}
-                      {isHovered && hasData && (
-                        <div className={`absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none ${
+                      {/* Info blurb dropdown */}
+                      {isActive && hasData && (
+                        <div className={`absolute left-1/2 -translate-x-1/2 z-30 ${
                           rowIndex <= 2 ? "top-full mt-2" : "bottom-full mb-2"
                         }`}>
-                          <div className="bg-app-charcoal text-white text-xs rounded-md px-3 py-2 whitespace-nowrap shadow-lg">
-                            <p className="font-medium mb-1">{medicine}</p>
-                            <div className="space-y-0.5 text-app-cream/90">
-                              <p>Phase: {phaseLabels[phase]}</p>
-                              <p>Taken: {data.count} time{data.count !== 1 ? "s" : ""}</p>
-                              {data.dosages.length > 0 && (
-                                <p>Dosages: {[...new Set(data.dosages)].slice(0, 3).join(", ")}</p>
+                          <div className="bg-app-white border border-app-border rounded-lg shadow-lg min-w-[220px] overflow-hidden">
+                            {/* Header */}
+                            <div className={`px-3 py-2 border-b border-app-border ${
+                              phase === "menstrual" ? "bg-app-red/10" : "bg-app-teal/10"
+                            }`}>
+                              <p className={`font-semibold text-sm ${
+                                phase === "menstrual" ? "text-app-red" : "text-app-teal"
+                              }`}>
+                                {bristolLabels[type]}
+                              </p>
+                              <p className="text-xs text-app-gray">
+                                {bristolDescriptions[type]} • {phaseLabels[phase]}
+                              </p>
+                            </div>
+                            {/* Content */}
+                            <div className="px-3 py-2 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-app-gray">Times logged</span>
+                                <span className="text-sm font-medium text-app-charcoal">{data.count}</span>
+                              </div>
+                              {data.feelings.length > 0 && (
+                                <div>
+                                  <span className="text-xs text-app-gray">How you felt</span>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {[...new Set(data.feelings)].slice(0, 3).map((feeling, i) => (
+                                      <span 
+                                        key={i}
+                                        className={`px-2 py-0.5 text-xs rounded ${
+                                          phase === "menstrual" 
+                                            ? "bg-app-red/10 text-app-red" 
+                                            : "bg-app-teal/10 text-app-teal"
+                                        }`}
+                                      >
+                                        {formatFeeling(feeling)}
+                                      </span>
+                                    ))}
+                                    {[...new Set(data.feelings)].length > 3 && (
+                                      <span className="text-xs text-app-gray">
+                                        +{[...new Set(data.feelings)].length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               )}
                             </div>
                             {/* Arrow */}
-                            <div className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${
-                              rowIndex <= 2
-                                ? "bottom-full border-b-app-charcoal"
-                                : "top-full border-t-app-charcoal"
+                            <div className={`absolute left-1/2 -translate-x-1/2 ${
+                              rowIndex < bristolTypes.length / 2 
+                                ? "bottom-full border-8 border-transparent border-b-app-white drop-shadow-sm" 
+                                : "top-full border-8 border-transparent border-t-app-white drop-shadow-sm"
                             }`} />
                           </div>
                         </div>
@@ -1135,33 +1803,20 @@ function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
             ))}
           </div>
 
-          {allMedicines.length > 10 && (
-            <p className="text-xs text-app-gray text-center mt-2">
-              Showing top 10 of {allMedicines.length} medicines
-            </p>
-          )}
+          {/* Bottom border for period column */}
+          <div className="flex">
+            <div className="w-32 shrink-0" />
+            {phases.map((phase) => (
+              <div 
+                key={phase} 
+                className={`flex-1 min-w-[70px] ${
+                  phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Legend */}
-      {/* <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-app-gray pt-2 border-t border-app-border">
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-app-border/30" />
-          <span>Not taken</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-app-taupe/30" />
-          <span>Low frequency</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-app-taupe/60" />
-          <span>Medium frequency</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-app-taupe" />
-          <span>High frequency</span>
-        </div>
-      </div> */}
 
       {/* Color meaning */}
       <div className="flex items-center justify-center gap-4 text-xs text-app-gray">
@@ -1170,7 +1825,7 @@ function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
           <span>Period phase</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-app-taupe" />
+          <div className="w-3 h-3 rounded bg-app-teal" />
           <span>Other phases</span>
         </div>
       </div>
@@ -1182,21 +1837,23 @@ function PhaseMedicineView({ entries }: PhaseMedicineViewProps) {
           <div className="space-y-2">
             {insights.map((insight, i) => (
               <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="text-app-taupe font-medium">{insight.medicine}</span>
-                <span className="text-app-gray">mostly taken during</span>
+                <span className="text-app-teal font-medium">
+                  {bristolLabels[insight.type]}
+                </span>
+                <span className="text-app-gray">mostly occurs during the</span>
                 <span className={`font-medium ${
-                  insight.phase === "menstrual" ? "text-app-red" : "text-app-charcoal"
+                  insight.phase === "menstrual" ? "text-app-red" : "text-app-teal"
                 }`}>
-                  {phaseLabels[insight.phase]}
+                  {phaseLabels[insight.phase]} phase
                 </span>
                 <span className="text-xs text-app-gray">
-                  ({insight.percentage}% of usage)
+                  ({insight.percentage}% of occurrences)
                 </span>
               </div>
             ))}
           </div>
           <p className="text-xs text-app-gray mt-3">
-            These patterns can help you anticipate medication needs during your cycle.
+            These patterns can help you understand how your cycle affects your digestion.
           </p>
         </div>
       )}
@@ -1265,8 +1922,24 @@ function getMedicineIntensityStyle(count: number, maxCount: number, phase: strin
     if (ratio <= 0.66) return "bg-app-red/60 text-white";
     return "bg-app-red text-white";
   } else {
-    if (ratio <= 0.33) return "bg-app-taupe/30 text-app-taupe";
-    if (ratio <= 0.66) return "bg-app-taupe/60 text-white";
-    return "bg-app-taupe text-white";
+    if (ratio <= 0.33) return "bg-app-green/15 text-app-charcoal";
+    if (ratio <= 0.66) return "bg-app-green/40 text-app-charcoal";
+    return "bg-app-green/55 text-white";
   }
 }
+
+function getStoolIntensityStyle(count: number, maxCount: number, phase: string): string {
+  const ratio = count / maxCount;
+  const isPeriod = phase === "menstrual";
+
+  if (isPeriod) {
+    if (ratio <= 0.33) return "bg-app-red/30 text-app-red";
+    if (ratio <= 0.66) return "bg-app-red/60 text-white";
+    return "bg-app-red text-white";
+  } else {
+    if (ratio <= 0.33) return "bg-app-teal/30 text-app-teal";
+    if (ratio <= 0.66) return "bg-app-teal/60 text-white";
+    return "bg-app-teal text-white";
+  }
+}
+

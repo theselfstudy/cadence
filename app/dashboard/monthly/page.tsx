@@ -17,6 +17,7 @@ import {
   detectCycleBoundaries,
   compareCycles,
   getWeeksInMonth,
+  getDataMonthBounds
 } from "@/lib/monthlyUtils";
 
 import { useMonthlyFilters } from "@/hooks/useMonthlyFilters";
@@ -64,11 +65,14 @@ export default function MonthlyPage() {
   const [showStats, setShowStats] = useState(true);
   const [showEntries, setShowEntries] = useState(true);
   const [showCycleInsights, setShowCycleInsights] = useState(true);
+  const [comparisonOffset, setComparisonOffset] = useState(0); // 0 = current vs prev, -1 = prev vs prev-prev, etc.
+
 
   // Initialize client-side
   useEffect(() => {
     setIsClient(true);
   }, []);
+
 
   // Use monthly filters hook
   const {
@@ -79,13 +83,13 @@ export default function MonthlyPage() {
     goToNextMonth,
     goToPrevMonth,
     goToCurrentMonth,
-    goToMonth,
+    // goToMonth,
     monthEntries,
     prevMonthEntries,
     filteredEntries,
     selectedDays,
     filters,
-    activeFilterCount,
+    // activeFilterCount,
     categoryFilterCounts,
     availableOptions,
     hasAdvancedFilters,
@@ -109,22 +113,35 @@ export default function MonthlyPage() {
     clearAllFiltersAndDays,
   } = useMonthlyFilters(entries);
 
+
+  // Reset comparison offset when main month changes
+  // useEffect(() => {
+  //   setComparisonOffset(0);
+  // }, [monthOffset]);
+
   // Calculate stats for filtered entries
   const stats = useMemo(
     () => calculateMonthlyStats(filteredEntries),
     [filteredEntries]
   );
 
-  // Calculate cycle data for stats card
+  // Calculate cycle data for stats card - deduplicated by date
   const cycleData = useMemo(() => {
-    const phases: Record<string, number> = {};
+    // Track unique date -> phase mapping (last phase wins if multiple entries same day)
+    const dateToPhase: Record<string, string> = {};
     const daysWithCycleData = new Set<string>();
 
     for (const entry of filteredEntries) {
       if (entry.cyclePhase) {
-        phases[entry.cyclePhase] = (phases[entry.cyclePhase] || 0) + 1;
+        dateToPhase[entry.date] = entry.cyclePhase;
         daysWithCycleData.add(entry.date);
       }
+    }
+
+    // Count phases by unique days
+    const phases: Record<string, number> = {};
+    for (const phase of Object.values(dateToPhase)) {
+      phases[phase] = (phases[phase] || 0) + 1;
     }
 
     // Most common phase
@@ -143,36 +160,64 @@ export default function MonthlyPage() {
     };
   }, [filteredEntries]);
 
-  // Calculate phase date ranges for the current month
+  // Calculate phase date ranges for the current month - deduplicated by date
   const phaseRanges = useMemo(() => {
     const ranges: { phase: string; startDate: string; endDate: string | null; days: number }[] = [];
     
-    // Sort entries by date
-    const sortedEntries = [...filteredEntries]
-      .filter(e => e.cyclePhase)
+    // Priority order for phases (higher = more priority)
+    // Menstrual > Ovulation > Follicular > Luteal > Not Sure
+    const phasePriority: Record<string, number> = {
+      menstrual: 5,
+      ovulation: 4,
+      follicular: 3,
+      luteal: 2,
+      not_sure: 1,
+    };
+    
+    // Deduplicate entries by date using priority-based selection
+    const dateToPhase: Record<string, string> = {};
+    for (const entry of filteredEntries) {
+      if (entry.cyclePhase) {
+        const existingPhase = dateToPhase[entry.date];
+        const existingPriority = existingPhase ? (phasePriority[existingPhase] || 0) : 0;
+        const newPriority = phasePriority[entry.cyclePhase] || 0;
+        
+        // Keep the higher priority phase
+        if (newPriority > existingPriority) {
+          dateToPhase[entry.date] = entry.cyclePhase;
+        }
+      }
+    }
+    
+    // Convert to sorted array of unique date-phase pairs
+    const uniqueDayPhases = Object.entries(dateToPhase)
+      .map(([date, phase]) => ({ date, phase }))
       .sort((a, b) => a.date.localeCompare(b.date));
     
-    if (sortedEntries.length === 0) return ranges;
+    if (uniqueDayPhases.length === 0) return ranges;
     
-    let currentPhase = sortedEntries[0].cyclePhase;
-    let startDate = sortedEntries[0].date;
+    let currentPhase = uniqueDayPhases[0].phase;
+    let startDate = uniqueDayPhases[0].date;
     let days = 1;
+    let lastDate = uniqueDayPhases[0].date;
     
-    for (let i = 1; i < sortedEntries.length; i++) {
-      const entry = sortedEntries[i];
-      if (entry.cyclePhase === currentPhase) {
+    for (let i = 1; i < uniqueDayPhases.length; i++) {
+      const { date, phase } = uniqueDayPhases[i];
+      if (phase === currentPhase) {
         days++;
+        lastDate = date;
       } else {
         // Save previous range
         ranges.push({
-          phase: currentPhase!,
+          phase: currentPhase,
           startDate,
-          endDate: sortedEntries[i - 1].date,
+          endDate: lastDate,
           days,
         });
         // Start new range
-        currentPhase = entry.cyclePhase;
-        startDate = entry.date;
+        currentPhase = phase;
+        startDate = date;
+        lastDate = date;
         days = 1;
       }
     }
@@ -180,13 +225,12 @@ export default function MonthlyPage() {
     // Push the last range
     if (currentPhase) {
       const today = new Date().toISOString().split("T")[0];
-      const lastEntryDate = sortedEntries[sortedEntries.length - 1].date;
-      const isOngoing = lastEntryDate >= today.slice(0, 7); // Same month check
+      const isOngoing = lastDate >= today.slice(0, 7); // Same month check
       
       ranges.push({
         phase: currentPhase,
         startDate,
-        endDate: isOngoing ? null : lastEntryDate,
+        endDate: isOngoing ? null : lastDate,
         days,
       });
     }
@@ -290,11 +334,42 @@ export default function MonthlyPage() {
       .sort((a, b) => b.count - a.count);
   }, [prevMonthEntries]);
 
-  // Month-over-month comparison (uses full month data, not filtered)
-  const comparison = useMemo(
+// Stats card comparison - always based on current month view (not affected by Month over Month navigation)
+  const statsComparison = useMemo(
     () => compareMonths(monthEntries, prevMonthEntries),
     [monthEntries, prevMonthEntries]
   );
+
+  // Month-over-month comparison - COMPLETELY INDEPENDENT of main month filter
+  // comparisonOffset of 0 = current month vs previous month
+  // comparisonOffset of -1 = previous month vs month before that
+  const comparisonMonthEntries = useMemo(() => {
+    return getEntriesForMonth(entries, comparisonOffset);
+  }, [entries, comparisonOffset]);
+
+  const comparisonPrevMonthEntries = useMemo(() => {
+    return getEntriesForMonth(entries, comparisonOffset - 1);
+  }, [entries, comparisonOffset]);
+
+  const monthOverMonthComparison = useMemo(
+    () => compareMonths(comparisonMonthEntries, comparisonPrevMonthEntries),
+    [comparisonMonthEntries, comparisonPrevMonthEntries]
+  );
+
+  // Labels for comparison months - independent of main month filter
+  const comparisonLabels = useMemo(() => {
+    const currentRange = getMonthRange(comparisonOffset);
+    const prevRange = getMonthRange(comparisonOffset - 1);
+    return {
+      current: currentRange.shortLabel,
+      previous: prevRange.shortLabel,
+    };
+  }, [comparisonOffset]);
+
+  // Navigation bounds for comparison - independent of main month filter
+  const { earliest: earliestMonth } = useMemo(() => getDataMonthBounds(entries), [entries]);
+  const canGoNextComparison = comparisonOffset < 0;
+  const canGoPrevComparison = (comparisonOffset - 1) >= earliestMonth;
 
   // Build symptom heat map data
   const symptomHeatMapData = useMemo(
@@ -304,8 +379,12 @@ export default function MonthlyPage() {
 
   // Build Bristol weekly trend data
   const bristolTrendData = useMemo(
-    () => buildBristolWeeklyTrend(monthEntries, monthOffset, weekStartDay),
-    [monthEntries, monthOffset, weekStartDay]
+    () => buildBristolWeeklyTrend(
+      selectedDays.length > 0 ? filteredEntries : monthEntries, 
+      monthOffset, 
+      weekStartDay
+    ),
+    [monthEntries, filteredEntries, selectedDays.length, monthOffset, weekStartDay]
   );
 
   // Build cycle phase × symptom heat map (uses all entries, not just this month)
@@ -454,7 +533,7 @@ export default function MonthlyPage() {
             {/* Stats Cards */}
             <MonthlyStatsCards
             stats={stats}
-            comparison={comparison}
+            comparison={statsComparison}
             hasPreviousMonthData={prevMonthEntries.length > 0}
             topSymptoms={topSymptoms}
             lastMonthTopSymptoms={lastMonthTopSymptoms}
@@ -463,6 +542,8 @@ export default function MonthlyPage() {
             cycleDaysLogged={cycleData.cycleDaysLogged}
             daysInMonth={daysInMonth}
             phaseRanges={phaseRanges}
+            selectedDays={selectedDays}
+            monthRange={monthRange}
           />
 
             {/* Charts */}
@@ -478,12 +559,27 @@ export default function MonthlyPage() {
               onDayClick={toggleDay}
               customProducts={settings.periodTracking.productTracking?.customProducts}
               medicines={settings.medicineTracking.medicines}
+              monthRange={monthRange}
             />
 
             {/* Month Comparison */}
             <MonthlyComparison
-              comparison={comparison}
-              hasPreviousMonthData={prevMonthEntries.length > 0}
+              comparison={monthOverMonthComparison}
+              hasPreviousMonthData={comparisonPrevMonthEntries.length > 0}
+              currentMonthLabel={comparisonLabels.current}
+              previousMonthLabel={comparisonLabels.previous}
+              onMonthChange={(direction) => {
+                if (direction === "prev") {
+                  setComparisonOffset(prev => prev - 1);
+                } else if (direction === "next") {
+                  setComparisonOffset(prev => prev + 1);
+                } else {
+                  // "current" - reset to comparing current month vs previous
+                  setComparisonOffset(0);
+                }
+              }}
+              canGoPrev={canGoPrevComparison}
+              canGoNext={canGoNextComparison}
             />
           </div>
         )}
@@ -736,8 +832,8 @@ function MonthCalendarFilter({
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium text-app-charcoal">Filter by Day</p>
           <span className="text-xs text-app-gray">
-            <span className="text-app-red ml-1">{totalPeriodDays} period{totalPeriodDays !== 1 ? "s" : ""} logged </span>
-            • {totalDaysWithEntries} day{totalDaysWithEntries !== 1 ? "s" : ""} logged
+            <span className="text-app-red ml-1">{totalPeriodDays} period day{totalPeriodDays !== 1 ? "s" : ""} logged </span>
+            • {totalDaysWithEntries} total day{totalDaysWithEntries !== 1 ? "s" : ""} logged
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -809,43 +905,59 @@ function MonthCalendarFilter({
                 "bg-app-teal/60", // 3 - high
               ];
 
-              return (
-                <button
-                  key={day}
-                  onClick={() => handleDayClick(day)}
-                  onDoubleClick={() => handleDayDoubleClick(day)}
-                  onMouseEnter={() => setHoverDay(day)}
-                  onMouseLeave={() => setHoverDay(null)}
-                  className={`h-10 rounded-md text-xs font-medium transition-all flex flex-col items-center justify-center gap-0.5 ${
-                    isSelected
-                      ? "bg-app-teal text-white ring-2 ring-app-teal ring-offset-1"
-                      : isRangeStart
-                        ? "bg-app-teal/70 text-white ring-2 ring-app-teal"
-                        : isInPreview
-                          ? "bg-app-teal/30 text-app-charcoal ring-1 ring-app-teal/50"
-                          : hasEntries
-                            ? `${intensityClasses[intensity]} text-app-charcoal hover:ring-2 hover:ring-app-teal/50`
-                            : "bg-app-white text-app-gray hover:bg-app-cream border border-app-border/50"
-                  }`}
-                  title={
-                    hasEntries
-                      ? `${entryCount} ${entryCount === 1 ? "entry" : "entries"}${isMenstruating ? " • Period" : ""}${rangeStart ? " • Click to complete range" : ""}`
-                      : rangeStart ? "Click to complete range" : "No entries"
+                // Determine background and border classes based on state
+                const getButtonClasses = () => {
+                  if (isSelected) {
+                    return isMenstruating
+                      ? "bg-app-red text-white ring-2 ring-app-red ring-offset-1"
+                      : "bg-app-teal text-white ring-2 ring-app-teal ring-offset-1";
                   }
-                >
-                  <span>{day}</span>
-                  {/* Indicator dots - consistent size, side by side */}
-                  {hasEntries && !isSelected && !isRangeStart && (
-                    <div className="flex items-center gap-0.5">
-                      {isMenstruating ? (
-                        <span className="w-1.5 h-1.5 rounded-full bg-app-red" />
-                      ) : (
-                        <span className="w-1.5 h-1.5 rounded-full bg-app-teal" />
-                      )}
-                    </div>
-                  )}
-                </button>
-              );
+                  if (isRangeStart) {
+                    return isMenstruating
+                      ? "bg-app-red/70 text-white ring-2 ring-app-red"
+                      : "bg-app-teal/70 text-white ring-2 ring-app-teal";
+                  }
+                  if (isInPreview) {
+                    return isMenstruating
+                      ? "bg-app-red/30 text-app-charcoal ring-1 ring-app-red/50"
+                      : "bg-app-teal/30 text-app-charcoal ring-1 ring-app-teal/50";
+                  }
+                  if (hasEntries) {
+                    if (isMenstruating) {
+                      return "bg-app-red/30 text-app-charcoal border border-app-red hover:ring-2 hover:ring-app-red/50";
+                    }
+                    return `${intensityClasses[intensity]} text-app-charcoal hover:ring-2 hover:ring-app-teal/50`;
+                  }
+                  return "bg-app-white text-app-gray hover:bg-app-cream border border-app-border/50";
+                };
+
+                return (
+                  <button
+                    key={day}
+                    onClick={() => handleDayClick(day)}
+                    onDoubleClick={() => handleDayDoubleClick(day)}
+                    onMouseEnter={() => setHoverDay(day)}
+                    onMouseLeave={() => setHoverDay(null)}
+                    className={`h-10 rounded-md text-xs font-medium transition-all flex flex-col items-center justify-center gap-0.5 ${getButtonClasses()}`}
+                    title={
+                      hasEntries
+                        ? `${entryCount} ${entryCount === 1 ? "entry" : "entries"}${isMenstruating ? " • Period" : ""}${rangeStart ? " • Click to complete range" : ""}`
+                        : rangeStart ? "Click to complete range" : "No entries"
+                    }
+                  >
+                    <span>{day}</span>
+                    {/* Indicator dots - consistent size, side by side */}
+                    {hasEntries && !isSelected && !isRangeStart && (
+                      <div className="flex items-center gap-0.5">
+                        {isMenstruating ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-app-red" />
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-app-teal" />
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
             })}
           </div>
 

@@ -27,9 +27,12 @@ interface MonthlyStatsCardsProps {
   cycleDaysLogged?: number;
   /** Total days in the current month */
   daysInMonth?: number;
- /** Getting phase ranges per month from entries */  
- phaseRanges?: { phase: string; startDate: string; endDate: string | null; days: number }[];
-
+  /** Getting phase ranges per month from entries */  
+  phaseRanges?: { phase: string; startDate: string; endDate: string | null; days: number }[];
+  /** Currently selected days for filtering */
+  selectedDays?: number[];
+  /** Current month range for date formatting */
+  monthRange?: { year: number; month: number; label: string };
 }
 
 export function MonthlyStatsCards({
@@ -42,18 +45,51 @@ export function MonthlyStatsCards({
   currentCyclePhase = null,
   cycleDaysLogged = 0,
   daysInMonth = 30,
-  phaseRanges = [], 
+  phaseRanges = [],
+  selectedDays = [],
+  monthRange,
 }: MonthlyStatsCardsProps) {
+  // Helper to format date range for display
+  const formatDateRangeLabel = (): string | null => {
+    if (selectedDays.length === 0 || !monthRange) return null;
+    
+    const sortedDays = [...selectedDays].sort((a, b) => a - b);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthName = monthNames[monthRange.month];
+    
+    if (sortedDays.length === 1) {
+      return `${monthName} ${sortedDays[0]}, ${monthRange.year}`;
+    }
+    
+    // Check if consecutive
+    const isConsecutive = sortedDays.every((day, i) => 
+      i === 0 || day === sortedDays[i - 1] + 1
+    );
+    
+    if (isConsecutive) {
+      return `${monthName} ${sortedDays[0]}-${sortedDays[sortedDays.length - 1]}, ${monthRange.year}`;
+    }
+    
+    // Non-consecutive: show first-last with indicator
+    return `${monthName} ${sortedDays[0]}-${sortedDays[sortedDays.length - 1]} (${sortedDays.length} days)`;
+  };
+
+  const dateRangeLabel = formatDateRangeLabel();
+  const hasDateFilter = selectedDays.length > 0;
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {/* Top Symptom Card */}
       <StatCard
         label="Top Symptom"
         value={topSymptoms[0]?.name || "—"}
         subtext={
           topSymptoms[0]
-            ? `${topSymptoms[0].count}× this month`
-            : "No symptoms logged"
+            ? hasDateFilter && dateRangeLabel
+              ? `${topSymptoms[0].count}× (${dateRangeLabel})`
+              : `${topSymptoms[0].count}× this month`
+            : hasDateFilter 
+              ? "No symptoms in selected range"
+              : "No symptoms logged"
         }
         accentColor="teal"
         valueSize="small"
@@ -158,6 +194,11 @@ export function MonthlyStatsCards({
           daysInMonth={daysInMonth}
           topSymptoms={topSymptoms}
           phaseRanges={phaseRanges}
+          hasDateFilter={hasDateFilter}
+          dateRangeLabel={dateRangeLabel}
+          phaseDistribution={comparison?.cycle.thisMonth.phaseDistribution}
+          monthRange={monthRange}
+          selectedDays={selectedDays}
         />
       )}
 
@@ -167,6 +208,7 @@ export function MonthlyStatsCards({
         hasPreviousMonthData={hasPreviousMonthData}
         topSymptoms={topSymptoms}
         lastMonthTopSymptoms={lastMonthTopSymptoms}
+        hasDateFilter={hasDateFilter}
       />
     </div>
   );
@@ -289,20 +331,29 @@ interface CyclePhaseCardProps {
   daysInMonth: number;
   topSymptoms: { name: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
   phaseRanges: { phase: string; startDate: string; endDate: string | null; days: number }[];
+  hasDateFilter?: boolean;
+  dateRangeLabel?: string | null;
+  phaseDistribution?: Record<string, number>;
+  monthRange?: { year: number; month: number; label: string };
+  selectedDays?: number[];
 }
 
 function CyclePhaseCard({ 
   currentPhase, 
   daysLogged, 
-  daysInMonth, 
   topSymptoms,
   phaseRanges,
+  hasDateFilter = false,
+  dateRangeLabel,
+  phaseDistribution = {},
+  monthRange,
+  selectedDays = [],
 }: CyclePhaseCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   const showContent = isExpanded || isHovered;
-
+  
   // Find highest intensity symptom (with isPeriodRelated info)
   const highestIntensity = topSymptoms
     .filter((s) => s.avgIntensity !== null)
@@ -310,34 +361,207 @@ function CyclePhaseCard({
     | { name: string; avgIntensity: number; count: number; isPeriodRelated: boolean }
     | undefined;
 
-  // Get current phase range for the subtext date display
-  const currentPhaseRange = phaseRanges.find(r => r.phase === currentPhase);
-
-  // Format a date string to "Jan 21" format
-  const formatDateShort = (dateStr: string): string => {
-    const [year, month, day] = dateStr.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  // Format date as "Jan 1" 
+  const formatDateCompact = (dateStr: string): string => {
+    const [, month, day] = dateStr.split("-").map(Number);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${monthNames[month - 1]} ${day}`;
   };
 
-  // Format phase range as "Jan 21 - Jan 24" or "Jan 21 - present"
-  const formatPhaseRange = (range: { startDate: string; endDate: string | null; days: number }): string => {
-    const start = formatDateShort(range.startDate);
-    const end = range.endDate ? formatDateShort(range.endDate) : "present";
-    return `${start} - ${end}`;
+  // Priority order for phases (higher = more priority)
+  // Menstrual > Ovulation > Follicular > Luteal > Not Sure
+  const phasePriority: Record<string, number> = {
+    menstrual: 5,
+    ovulation: 4,
+    follicular: 3,
+    luteal: 2,
+    not_sure: 1,
   };
 
-  // Build subtext: show date range if available, otherwise fallback
-  const getSubtext = (): string => {
-    if (currentPhaseRange) {
-      const rangeStr = formatPhaseRange(currentPhaseRange);
-      return `${rangeStr} (${currentPhaseRange.days} day${currentPhaseRange.days !== 1 ? "s" : ""})`;
+  // Calculate phase distribution for selected days only (when filtered)
+  // This handles the case where phaseDistribution from props contains whole month data
+    // Calculate phase distribution for selected days only (when filtered)
+  // This handles the case where phaseDistribution from props contains whole month data
+  // Applies priority-based selection: Menstrual > Ovulation > Follicular > Luteal > Not Sure
+  const getFilteredPhaseDistribution = (): Record<string, number> => {
+    if (!hasDateFilter || selectedDays.length === 0 || !monthRange) {
+      // No filter - use the full month distribution
+      return phaseDistribution;
     }
-    if (daysLogged > 0) {
-      return `${daysLogged} day${daysLogged !== 1 ? "s" : ""} logged`;
+
+    // Build a set of selected date strings for quick lookup
+    const selectedDateStrings = new Set(
+      selectedDays.map(day => {
+        const month = String(monthRange.month + 1).padStart(2, '0');
+        const dayStr = String(day).padStart(2, '0');
+        return `${monthRange.year}-${month}-${dayStr}`;
+      })
+    );
+
+    // For each selected date, find the highest priority phase from phaseRanges
+    const dateToPhase: Record<string, string> = {};
+    
+    for (const range of phaseRanges) {
+      // Handle single-day ranges (where startDate === endDate or endDate is null for same day)
+      const startDate = new Date(range.startDate + "T12:00:00");
+      const endDate = range.endDate 
+        ? new Date(range.endDate + "T12:00:00") 
+        : new Date(range.startDate + "T12:00:00"); // Same day if no end date
+      
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        // Only process if this date is in our selection
+        if (selectedDateStrings.has(dateStr)) {
+          const existingPhase = dateToPhase[dateStr];
+          const existingPriority = existingPhase ? (phasePriority[existingPhase] || 0) : 0;
+          const newPriority = phasePriority[range.phase] || 0;
+          
+          // Use priority-based selection - higher priority wins
+          if (newPriority > existingPriority) {
+            dateToPhase[dateStr] = range.phase;
+          }
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
     }
-    return `No data for the current selection`;
+
+    // Count phases from the deduplicated date->phase map
+    const filteredDistribution: Record<string, number> = {};
+    for (const phase of Object.values(dateToPhase)) {
+      filteredDistribution[phase] = (filteredDistribution[phase] || 0) + 1;
+    }
+
+    return filteredDistribution;
   };
+
+  // Get the phase distribution to use (filtered or full month)
+  const effectivePhaseDistribution = getFilteredPhaseDistribution();
+  
+  // Full month distribution for showing context in dropdown
+  const fullMonthPhaseDistribution = phaseDistribution;
+
+  // Count unique phases with data in the effective (possibly filtered) distribution
+  const uniquePhasesInSelection = Object.keys(effectivePhaseDistribution).filter(
+    (phase) => (effectivePhaseDistribution[phase] || 0) > 0
+  ).length;
+
+  // Get the set of phases that are part of the current selection (for highlighting)
+  const selectedPhases = new Set(
+    Object.keys(effectivePhaseDistribution).filter(
+      (phase) => (effectivePhaseDistribution[phase] || 0) > 0
+    )
+  );
+
+  // Helper to get the most recent phase info
+  const getMostRecentPhaseInfo = (): { phase: string; startDate: string; endDate: string | null; days: number } | null => {
+    if (phaseRanges.length === 0) return null;
+    return phaseRanges[phaseRanges.length - 1];
+  };
+
+  const mostRecentPhase = getMostRecentPhaseInfo();
+  const hasAnyPhaseData = Object.keys(fullMonthPhaseDistribution).length > 0;
+
+  // Determine what to show as main display
+  const getMainDisplay = (): { 
+    phase: string; 
+    dateRange: string; 
+    isMultiPhase: boolean;
+    highlightedPhases: Set<string>;
+    singleSelectedPhase: string | null;
+  } => {
+    // If date filter is active
+    if (hasDateFilter) {
+      // No phase data in selection
+      if (uniquePhasesInSelection === 0) {
+        return {
+          phase: "—",
+          dateRange: dateRangeLabel || "No cycle data in selected range",
+          isMultiPhase: false,
+          highlightedPhases: new Set(),
+          singleSelectedPhase: null,
+        };
+      }
+      
+      // Single phase in selection (could be single day or range with same phase)
+      if (uniquePhasesInSelection === 1) {
+        const singlePhase = Object.keys(effectivePhaseDistribution).find(
+          (phase) => (effectivePhaseDistribution[phase] || 0) > 0
+        )!;
+        return {
+          phase: formatPhase(singlePhase),
+          dateRange: dateRangeLabel || "",
+          isMultiPhase: false,
+          highlightedPhases: new Set([singlePhase]),
+          singleSelectedPhase: singlePhase,
+        };
+      }
+      
+      // Multiple phases in selection
+      return {
+        phase: `${uniquePhasesInSelection} Phases`,
+        dateRange: dateRangeLabel || "",
+        isMultiPhase: true,
+        highlightedPhases: selectedPhases,
+        singleSelectedPhase: null,
+      };
+    }
+    
+    // No date filter (whole month view)
+    const uniquePhasesInMonth = Object.keys(fullMonthPhaseDistribution).filter(
+      (phase) => (fullMonthPhaseDistribution[phase] || 0) > 0
+    ).length;
+
+    if (uniquePhasesInMonth > 1) {
+      const totalDays = Object.values(fullMonthPhaseDistribution).reduce((sum, days) => sum + days, 0);
+      return {
+        phase: `${uniquePhasesInMonth} Phases`,
+        dateRange: `${totalDays} days logged`,
+        isMultiPhase: true,
+        highlightedPhases: new Set(), // No highlighting for whole month
+        singleSelectedPhase: null,
+      };
+    }
+    
+    // Single phase for whole month
+    if (mostRecentPhase) {
+      const startStr = formatDateCompact(mostRecentPhase.startDate);
+      const endStr = mostRecentPhase.endDate ? formatDateCompact(mostRecentPhase.endDate) : "present";
+      return {
+        phase: formatPhase(mostRecentPhase.phase),
+        dateRange: `${startStr} - ${endStr}`,
+        isMultiPhase: false,
+        highlightedPhases: new Set(), // No highlighting for whole month
+        singleSelectedPhase: null,
+      };
+    }
+    
+    // Fallback to currentPhase prop if no phaseRanges
+    if (currentPhase) {
+      return {
+        phase: formatPhase(currentPhase),
+        dateRange: "",
+        isMultiPhase: false,
+        highlightedPhases: new Set(),
+        singleSelectedPhase: null,
+      };
+    }
+    
+    return {
+      phase: "—",
+      dateRange: hasDateFilter ? "No cycle data in selected range" : "No cycle data this month",
+      isMultiPhase: false,
+      highlightedPhases: new Set(),
+      singleSelectedPhase: null,
+    };
+  };
+
+  const mainDisplay = getMainDisplay();
 
   return (
     <div
@@ -375,27 +599,113 @@ function CyclePhaseCard({
             </svg>
           </div>
 
-          {/* Main Value */}
-          <p className="text-xl font-bold text-app-charcoal mt-1 capitalize">
-            {formatPhase(currentPhase)}
+          {/* Main Value - Current/Most Recent Phase */}
+          <p className={`text-xl font-bold mt-1 ${
+            mainDisplay.isMultiPhase 
+              ? "text-app-charcoal" 
+              : mainDisplay.singleSelectedPhase === "menstrual" || 
+                (!hasDateFilter && mostRecentPhase?.phase === "menstrual")
+                ? "text-app-red" 
+                : "text-app-charcoal"
+          }`}>
+            {mainDisplay.phase}
           </p>
 
-          {/* Subtext: Date range */}
+          {/* Date Range */}
           <p className="text-xs text-app-red mt-1">
-            {getSubtext()}
+            {mainDisplay.dateRange}
           </p>
 
-          {/* Expanded Content */}
+          {/* Expanded Content - Phase Breakdown Table */}
           <div
             className={`overflow-hidden transition-all duration-200 ${
               showContent ? "max-h-[500px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
             }`}
           >
             <div className="space-y-3">
+              {/* Phase Breakdown - Shows full month context with highlighting for selection */}
+              {hasAnyPhaseData && (
+                <div>
+                  <p className="text-xs text-app-gray mb-2">
+                    {hasDateFilter && mainDisplay.highlightedPhases.size > 0 
+                      ? "Phase Breakdown (selected highlighted)" 
+                      : "Phase Breakdown"}
+                  </p>
+                  <div className="space-y-1">
+                    {(() => {
+                      const phaseOrder = ["menstrual", "follicular", "ovulation", "luteal", "not_sure"];
+                      const phaseLabels: Record<string, string> = {
+                        menstrual: "Period",
+                        follicular: "Follicular",
+                        ovulation: "Ovulation",
+                        luteal: "Luteal",
+                        not_sure: "Unsure",
+                      };
+                      
+                      // Get all phases from the full month for context
+                      const allPhasesInMonth = new Set(
+                        Object.keys(fullMonthPhaseDistribution).filter(
+                          p => (fullMonthPhaseDistribution[p] || 0) > 0
+                        )
+                      );
+                      
+                      return phaseOrder
+                        .filter((phase) => allPhasesInMonth.has(phase))
+                        .map((phase) => {
+                          // When filtered, show selected days count; otherwise show full month count
+                          const days = hasDateFilter 
+                            ? (effectivePhaseDistribution[phase] || 0)
+                            : (fullMonthPhaseDistribution[phase] || 0);
+                          const fullMonthDays = fullMonthPhaseDistribution[phase] || 0;
+                          
+                          const label = phaseLabels[phase];
+                          const isMenstrual = phase === "menstrual";
+                          const isHighlighted = mainDisplay.highlightedPhases.has(phase);
+                          
+                          // Determine border style for highlighted phases
+                          const borderClass = isHighlighted
+                            ? isMenstrual
+                              ? "border-2 border-app-red"
+                              : "border-2 border-app-teal"
+                            : "border-2 border-transparent";
+                          
+                          return (
+                            <div 
+                              key={phase} 
+                              className={`flex justify-between items-center p-2 rounded-lg ${
+                                isMenstrual ? "bg-app-red/10" : "bg-app-teal/10"
+                              } ${borderClass}`}
+                            >
+                              <span className={`text-sm font-medium ${isMenstrual ? "text-app-red" : "text-app-charcoal"}`}>
+                                {label}
+                              </span>
+                              <span className={`text-sm font-medium ${
+                                days > 0 
+                                  ? isMenstrual ? "text-app-red" : "text-app-teal"
+                                  : "text-app-gray"
+                              }`}>
+                                {hasDateFilter ? (
+                                  // Show "X of Y days" when filtered
+                                  days > 0 
+                                    ? `${days}d` + (fullMonthDays !== days ? ` of ${fullMonthDays}d` : "")
+                                    : `— of ${fullMonthDays}d`
+                                ) : (
+                                  // Show just days when not filtered
+                                  `${days}d`
+                                )}
+                              </span>
+                            </div>
+                          );
+                        });
+                    })()}
+                  </div>
+                </div>
+              )}
+
               {/* Highest Intensity Symptom */}
               {highestIntensity && (
                 <div className={`p-2 rounded-lg ${highestIntensity.isPeriodRelated ? "bg-app-red/10" : "bg-app-teal/10"}`}>
-                  <p className="text-xs text-app-gray">Most Intense</p>
+                  <p className="text-xs text-app-gray">Most Intense Symptom</p>
                   <p className={`text-sm font-medium ${highestIntensity.isPeriodRelated ? "text-app-red" : "text-app-teal"}`}>
                     {highestIntensity.name}{" "}
                     <span className="text-app-charcoal">
@@ -405,42 +715,11 @@ function CyclePhaseCard({
                 </div>
               )}
 
-              {/* Symptoms by Intensity */}
-              {topSymptoms.filter(s => s.avgIntensity !== null).length > 0 && (
-                <div>
-                  <p className="text-xs text-app-gray mb-1">By Intensity</p>
-                  <div className="bg-app-cream rounded-md overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-app-border/50">
-                          <th className="py-1.5 px-2 text-left text-app-gray font-medium">Symptom</th>
-                          <th className="py-1.5 px-2 text-right text-app-gray font-medium">Avg</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {topSymptoms
-                          .filter(s => s.avgIntensity !== null)
-                          .sort((a, b) => (b.avgIntensity ?? 0) - (a.avgIntensity ?? 0))
-                          .slice(0, 5)
-                          .map((symptom) => (
-                            <tr key={symptom.name} className="border-b border-app-border/50 last:border-0">
-                              <td className="py-1.5 px-2 text-app-charcoal truncate max-w-[100px]">
-                                {symptom.name}
-                              </td>
-                              <td className="py-1.5 px-2 text-app-red text-right font-medium">
-                                {symptom.avgIntensity}
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* No symptoms */}
-              {topSymptoms.filter(s => s.avgIntensity !== null).length === 0 && (
-                <p className="text-xs text-app-gray italic">No symptoms with intensity logged</p>
+              {/* No data state */}
+              {!hasAnyPhaseData && (
+                <p className="text-xs text-app-gray italic">
+                  {hasDateFilter ? "No cycle data in selected range" : "Log cycle phases to see breakdown"}
+                </p>
               )}
             </div>
           </div>
@@ -459,6 +738,7 @@ interface NewThisMonthCardProps {
   hasPreviousMonthData: boolean;
   topSymptoms: { name: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
   lastMonthTopSymptoms: { name: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
+  hasDateFilter?: boolean;
 }
 
 function NewThisMonthCard({
@@ -466,7 +746,9 @@ function NewThisMonthCard({
   hasPreviousMonthData,
   topSymptoms,
   lastMonthTopSymptoms,
+  hasDateFilter = false,
 }: NewThisMonthCardProps) {
+  const cardLabel = hasDateFilter ? "New in Selection" : "New This Month";
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -479,7 +761,7 @@ function NewThisMonthCard({
         <div className="h-1 bg-gradient-to-r from-app-teal via-app-plumb to-app-red" />
         <div className="p-4">
           <p className="text-xs font-medium text-app-gray uppercase tracking-wide">
-            New This Month
+            {cardLabel}
           </p>
           <p className="text-2xl font-bold text-app-gray mt-1">—</p>
           <p className="text-xs text-app-gray mt-1">
@@ -529,7 +811,7 @@ function NewThisMonthCard({
           {/* Header */}
           <div className="flex items-start justify-between">
             <p className="text-xs font-medium text-app-gray uppercase tracking-wide">
-              New This Month
+              {cardLabel}
             </p>
             <svg
               className={`w-3.5 h-3.5 text-app-gray transition-transform flex-shrink-0 ${
