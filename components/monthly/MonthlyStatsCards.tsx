@@ -380,8 +380,6 @@ function CyclePhaseCard({
 
   // Calculate phase distribution for selected days only (when filtered)
   // This handles the case where phaseDistribution from props contains whole month data
-    // Calculate phase distribution for selected days only (when filtered)
-  // This handles the case where phaseDistribution from props contains whole month data
   // Applies priority-based selection: Menstrual > Ovulation > Follicular > Luteal > Not Sure
   const getFilteredPhaseDistribution = (): Record<string, number> => {
     if (!hasDateFilter || selectedDays.length === 0 || !monthRange) {

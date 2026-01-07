@@ -300,7 +300,6 @@ function CycleComparisonView({
       {/* Cycle Overview Cards */}
       <div className={`grid gap-4 ${hasComparison ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
         {/* Current Cycle Card */}
-                {/* Current Cycle Card */}
         {currentCycle && (
           <CycleCard
             title={`${currentCycleLabel} Cycle`}
@@ -429,46 +428,65 @@ function CycleCard({
     const endDate = cycle.endDate || new Date().toISOString().split('T')[0];
     const cycleEntries = entries.filter(e => e.date >= cycle.startDate && e.date <= endDate);
     
+    const typeLabels: Record<string, string> = {
+      'pad': 'Pad',
+      'tampon': 'Tampon',
+      'cup': 'Cup',
+      'disc': 'Disc',
+      'liner': 'Liner',
+      'period-underwear': 'Period Underwear',
+      'other': 'Other',
+    };
+    
     const productSet = new Set<string>();
     for (const entry of cycleEntries) {
       for (const product of entry.productUsage || []) {
         let label = '';
+        let customProduct: { id: string; name: string } | undefined;
         
         // Check if this is a custom product
-        if (product.customProductId && customProducts[product.productType]) {
-          const customProduct = customProducts[product.productType].find(
-            cp => cp.id === product.customProductId
-          );
-          if (customProduct) {
-            const typeLabels: Record<string, string> = {
-              'pad': 'pad',
-              'tampon': 'tampon',
-              'cup': 'cup',
-              'disc': 'disc',
-              'liner': 'liner',
-              'period-underwear': 'period underwear',
-              'other': 'other',
-            };
-            const typeLabel = typeLabels[product.productType] || product.productType;
-            label = `${customProduct.name} (${typeLabel})`;
+        if (product.customProductId) {
+          // First try the specific product type category
+          if (customProducts[product.productType]) {
+            customProduct = customProducts[product.productType].find(
+              cp => cp.id === product.customProductId
+            );
           }
+          
+          // If not found, search ALL categories (in case type doesn't match)
+          if (!customProduct) {
+            for (const products of Object.values(customProducts)) {
+              const found = products.find(cp => cp.id === product.customProductId);
+              if (found) {
+                customProduct = found;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (customProduct) {
+          const typeLabel = typeLabels[product.productType] || product.productType
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase());
+          label = `${customProduct.name} (${typeLabel})`;
         }
         
         // Fallback to generic product type if no custom name found
         if (!label) {
-          const typeLabels: Record<string, string> = {
-            'pad': 'Pad',
-            'tampon': 'Tampon',
-            'cup': 'Cup',
-            'disc': 'Disc',
-            'liner': 'Liner',
-            'period-underwear': 'Period Underwear',
-            'other': 'Other',
-          };
-          label = typeLabels[product.productType] || product.productType;
+          // Format the product type nicely (handle slugified values)
+          label = typeLabels[product.productType] || product.productType
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase());
           
-          if (product.size) {
-            label += ` (${product.size})`;
+          // Filter out invalid size values
+          const validSize = product.size && 
+            !['yes', 'true', 'false', 'no'].includes(product.size.toLowerCase())
+              ? product.size
+              : null;
+          
+          if (validSize) {
+            label += ` (${validSize})`;
           }
         }
         
@@ -1495,6 +1513,7 @@ function PhaseMedicineView({ entries, cycleCount }: PhaseMedicineViewProps) {
     </div>
   );
 }
+
 // ============================================
 // PHASE STOOL VIEW
 // ============================================

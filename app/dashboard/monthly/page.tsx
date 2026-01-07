@@ -924,7 +924,7 @@ function MonthCalendarFilter({
                   }
                   if (hasEntries) {
                     if (isMenstruating) {
-                      return "bg-app-red/30 text-app-charcoal border border-app-red hover:ring-2 hover:ring-app-red/50";
+                      return "bg-app-red/30 text-app-charcoal hover:ring-2 hover:ring-app-red/50";
                     }
                     return `${intensityClasses[intensity]} text-app-charcoal hover:ring-2 hover:ring-app-teal/50`;
                   }
