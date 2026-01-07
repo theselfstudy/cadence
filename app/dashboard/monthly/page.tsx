@@ -34,6 +34,7 @@ import { FilterBar } from "@/components/history";
 
 import { BRISTOL_TYPES, POST_BOWEL_FEELINGS, CYCLE_PHASES } from "@/lib/constants";
 import type { StoredEntry, TimeFormat } from "@/types";
+import { EntryCard } from "@/components/ui/EntryCard";
 
 // ============================================
 // TYPES
@@ -696,7 +697,12 @@ export default function MonthlyPage() {
             ) : viewMode === "cards" ? (
               <div className="space-y-3">
                 {filteredEntries.map((entry) => (
-                  <EntryCard key={entry.id} entry={entry} timeFormat={timeFormat} />
+                  <EntryCard 
+                    key={entry.id} 
+                    entry={entry} 
+                    timeFormat={timeFormat}
+                    customProducts={settings.periodTracking.productTracking?.customProducts}
+                  />
                 ))}
               </div>
             ) : (
@@ -1004,184 +1010,6 @@ function MonthCalendarFilter({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ============================================
-// ENTRY CARD COMPONENT
-// ============================================
-
-interface EntryCardProps {
-  entry: StoredEntry;
-  timeFormat: TimeFormat;
-}
-
-function EntryCard({ entry, timeFormat }: EntryCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const symptomCount = Object.keys(entry.symptomIntensities).length;
-  const periodSymptomCount = Object.keys(entry.periodSymptomIntensities).length;
-  const medicineCount = entry.medicineLog.length;
-
-  return (
-    <div className="bg-app-cream/50 rounded-lg border border-app-border p-4">
-      {/* Header Row */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="font-semibold text-app-charcoal">{formatDate(entry.date)}</p>
-          <p className="text-sm text-app-gray">
-            {formatTimeForDisplay(entry.startTime, timeFormat)} →{" "}
-            {formatTimeForDisplay(entry.endTime, timeFormat)}
-            <span className="mx-2">·</span>
-            <span className="text-app-teal">
-              {calculateDuration(entry.startTime, entry.endTime)}
-            </span>
-          </p>
-        </div>
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-app-gray hover:text-app-charcoal"
-        >
-          <svg
-            className={`w-5 h-5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Quick Stats Row */}
-      <div className="flex flex-wrap gap-2 mt-3">
-        {symptomCount > 0 && (
-          <span className="text-xs bg-app-teal/10 text-app-teal px-2 py-1 rounded-full">
-            {symptomCount} symptom{symptomCount !== 1 ? "s" : ""}
-          </span>
-        )}
-        {periodSymptomCount > 0 && (
-          <span className="text-xs bg-app-red/10 text-app-red px-2 py-1 rounded-full">
-            {periodSymptomCount} period symptom{periodSymptomCount !== 1 ? "s" : ""}
-          </span>
-        )}
-        {entry.stoolType && (
-          <span className="text-xs bg-app-plumb/10 text-app-plumb px-2 py-1 rounded-full">
-            Bristol {entry.stoolType}
-          </span>
-        )}
-        {entry.cyclePhase && (
-          <span className="text-xs bg-app-red/10 text-app-red px-2 py-1 rounded-full capitalize">
-            {entry.cyclePhase.replace("_", " ")}
-          </span>
-        )}
-        {medicineCount > 0 && (
-          <span className="text-xs bg-app-taupe/20 text-app-charcoal px-2 py-1 rounded-full">
-            {medicineCount} medicine{medicineCount !== 1 ? "s" : ""}
-          </span>
-        )}
-        {entry.notes && (
-          <span className="text-xs bg-app-gray/10 text-app-gray px-2 py-1 rounded-full">
-            Has notes
-          </span>
-        )}
-      </div>
-
-      {/* Expanded Details */}
-      {isExpanded && (
-        <div className="mt-4 pt-4 border-t border-app-border space-y-3">
-          {/* Symptoms */}
-          {symptomCount > 0 && (
-            <div>
-              <p className="text-xs font-medium text-app-gray mb-1">🏷️ General Symptoms</p>
-              <div className="flex flex-wrap gap-1">
-                {Object.entries(entry.symptomIntensities).map(([symptom, intensity]) => (
-                  <span
-                    key={symptom}
-                    className="text-xs bg-app-teal/10 text-app-teal px-2 py-0.5 rounded"
-                  >
-                    {symptom}
-                    {intensity !== null && ` (${intensity})`}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Bristol */}
-          {entry.stoolType && (
-            <div>
-              <p className="text-xs font-medium text-app-gray mb-1">🧻 Bowel Movement</p>
-              <p className="text-sm text-app-charcoal">
-                Type {entry.stoolType} -{" "}
-                {BRISTOL_TYPES.find((b) => b.type === entry.stoolType)?.name}
-                {entry.stoolFeeling && (
-                  <span className="text-app-gray">
-                    {" "}
-                    · {POST_BOWEL_FEELINGS.find((f) => f.value === entry.stoolFeeling)?.label}
-                  </span>
-                )}
-              </p>
-            </div>
-          )}
-
-          {/* Cycle */}
-          {(entry.cyclePhase || entry.periodFlow) && (
-            <div>
-              <p className="text-xs font-medium text-app-gray mb-1">🌸 Cycle</p>
-              <p className="text-sm text-app-charcoal">
-                {entry.cyclePhase &&
-                  CYCLE_PHASES.find((p) => p.value === entry.cyclePhase)?.label}
-                {entry.periodFlow && (
-                  <span className="text-app-gray capitalize"> · {entry.periodFlow} flow</span>
-                )}
-              </p>
-            </div>
-          )}
-
-          {/* Period Symptoms */}
-          {periodSymptomCount > 0 && (
-            <div>
-              <p className="text-xs font-medium text-app-gray mb-1">Period Symptoms</p>
-              <div className="flex flex-wrap gap-1">
-                {Object.entries(entry.periodSymptomIntensities).map(([symptom, intensity]) => (
-                  <span
-                    key={symptom}
-                    className="text-xs bg-app-red/10 text-app-red px-2 py-0.5 rounded"
-                  >
-                    {symptom}
-                    {intensity !== null && ` (${intensity})`}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Medicines */}
-          {medicineCount > 0 && (
-            <div>
-              <p className="text-xs font-medium text-app-gray mb-1">💊 Medicines</p>
-              <div className="space-y-1">
-                {entry.medicineLog.map((log, idx) => (
-                  <p key={idx} className="text-sm text-app-charcoal">
-                    {log.medicineName}
-                    {log.dosage && <span className="text-app-gray"> · {log.dosage}</span>}
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Notes */}
-          {entry.notes && (
-            <div>
-              <p className="text-xs font-medium text-app-gray mb-1">Notes</p>
-              <p className="text-sm text-app-charcoal whitespace-pre-wrap">{entry.notes}</p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

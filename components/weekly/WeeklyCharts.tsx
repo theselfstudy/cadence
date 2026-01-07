@@ -639,12 +639,21 @@ function CycleDayBreakdown({ dayBreakdown, customProducts = {} }: CycleDayBreakd
         </div>
       )}
 
-      {/* Hint text when nothing selected */}
-      {!selectedDay && dayBreakdown.some(d => d.products.length > 0 || d.periodMedicines.length > 0 || d.periodSymptoms.length > 0) && (
-        <p className="text-xs text-app-gray text-center mt-2">
-          Tap a day with a dot to see details
-        </p>
-      )}
+      {/* Legend for day strip */}
+      <div className="flex items-center justify-center gap-4 mt-2 text-xs text-app-gray">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-app-red/20 border border-app-red" />
+          <span>Period</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-app-teal/10 border border-app-teal" />
+          <span>Other phases</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-app-green" />
+          <span>Has details</span>
+        </div>
+      </div>
     </div>
   );
 }

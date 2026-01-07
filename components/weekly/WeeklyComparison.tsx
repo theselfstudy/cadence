@@ -526,11 +526,6 @@ export function WeeklyComparison({
               }
               change={
                 <div className="space-y-1">
-                  {comparison.cycle.phaseChanged && (
-                    <p className="text-xs text-app-red">
-                      Phase: {formatPhase(comparison.cycle.lastWeek.phase)} → {formatPhase(comparison.cycle.thisWeek.phase)}
-                    </p>
-                  )}
                   {comparison.cycle.flowChanged && (
                     <p className="text-xs text-app-red capitalize">
                       Flow: {comparison.cycle.lastWeek.flow ?? "none"} → {comparison.cycle.thisWeek.flow ?? "none"}
