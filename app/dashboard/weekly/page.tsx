@@ -168,31 +168,85 @@ export default function WeeklyPage() {
   
   // Calculate cycle data for stats card
   const cycleData = useMemo(() => {
-    const phases: Record<string, number> = {};
+    const phaseDates: Record<string, Set<string>> = {};
     const daysWithCycleData = new Set<string>();
     
     for (const entry of filteredEntries) {
       if (entry.cyclePhase) {
-        phases[entry.cyclePhase] = (phases[entry.cyclePhase] || 0) + 1;
+        if (!phaseDates[entry.cyclePhase]) {
+          phaseDates[entry.cyclePhase] = new Set();
+        }
+        phaseDates[entry.cyclePhase].add(entry.date);
         daysWithCycleData.add(entry.date);
       }
     }
     
-    // Most common phase
+    // Phase distribution - count unique days per phase
+    const phaseDistribution: Record<string, number> = {};
+    for (const [phase, dates] of Object.entries(phaseDates)) {
+      phaseDistribution[phase] = dates.size;
+    }
+    
+    // Most common phase (by unique days, not entries)
     let currentPhase: string | null = null;
     let maxCount = 0;
-    for (const [phase, count] of Object.entries(phases)) {
+    for (const [phase, count] of Object.entries(phaseDistribution)) {
       if (count > maxCount) {
         maxCount = count;
         currentPhase = phase;
       }
     }
     
+    // Calculate phase ranges (consecutive date ranges)
+    const phaseRanges: { phase: string; startDate: string; endDate: string | null; days: number }[] = [];
+    
+    // Get all dates with phases, sorted
+    const allDatesWithPhase: { date: string; phase: string }[] = [];
+    for (const entry of filteredEntries) {
+      if (entry.cyclePhase) {
+        // Only add if not already present (dedupe by date, keep first phase for that date)
+        if (!allDatesWithPhase.some(d => d.date === entry.date)) {
+          allDatesWithPhase.push({ date: entry.date, phase: entry.cyclePhase });
+        }
+      }
+    }
+    allDatesWithPhase.sort((a, b) => a.date.localeCompare(b.date));
+    
+    // Group consecutive days with same phase
+    let currentRange: { phase: string; startDate: string; endDate: string | null; days: number } | null = null;
+    
+    for (const { date, phase } of allDatesWithPhase) {
+      if (!currentRange) {
+        currentRange = { phase, startDate: date, endDate: date, days: 1 };
+      } else if (currentRange.phase === phase && isConsecutiveDate(currentRange.endDate!, date)) {
+        currentRange.endDate = date;
+        currentRange.days += 1;
+      } else {
+        phaseRanges.push(currentRange);
+        currentRange = { phase, startDate: date, endDate: date, days: 1 };
+      }
+    }
+    
+    if (currentRange) {
+      phaseRanges.push(currentRange);
+    }
+    
     return {
       currentCyclePhase: currentPhase,
       cycleDaysLogged: daysWithCycleData.size,
+      phaseDistribution,
+      phaseRanges,
     };
   }, [filteredEntries]);
+
+  // Helper to check if two dates are consecutive
+  function isConsecutiveDate(date1: string, date2: string): boolean {
+    const d1 = new Date(date1 + "T12:00:00");
+    const d2 = new Date(date2 + "T12:00:00");
+    const diffTime = d2.getTime() - d1.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    return diffDays === 1;
+  }
 
   // Calculate top symptoms with intensities for the stats card
   const topSymptoms = useMemo(() => {
@@ -438,6 +492,8 @@ export default function WeeklyPage() {
               periodTrackingEnabled={periodTrackingEnabled}
               currentCyclePhase={cycleData.currentCyclePhase}
               cycleDaysLogged={cycleData.cycleDaysLogged}
+              phaseDistribution={cycleData.phaseDistribution}
+              phaseRanges={cycleData.phaseRanges}
             />
 
             {/* Charts */}
@@ -456,6 +512,8 @@ export default function WeeklyPage() {
               hasPreviousWeekData={prevWeekEntries.length > 0}
               thisWeekLabel={weekRange.label}
               lastWeekLabel={prevWeekRange.label}
+              thisWeekStartLabel={formatWeekStart(weekRange.start)}
+              lastWeekStartLabel={formatWeekStart(prevWeekRange.start)}
             />
           </div>
         )}
@@ -720,6 +778,13 @@ function formatDate(dateStr: string): string {
 
   return date.toLocaleDateString("en-US", {
     weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatWeekStart(date: Date): string {
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });

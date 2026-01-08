@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { WeekComparison } from "@/lib/weeklyUtils";
 
 // ============================================
@@ -17,6 +18,10 @@ interface WeeklyComparisonProps {
   thisWeekLabel?: string;
   /** Label for previous week (e.g., "Mar 3-9") */
   lastWeekLabel?: string;
+  /** Short label for current week start (e.g., "Mar 10") - used in cards */
+  thisWeekStartLabel?: string;
+  /** Short label for previous week start (e.g., "Mar 3") - used in cards */
+  lastWeekStartLabel?: string;
 }
 
 export function WeeklyComparison({
@@ -24,7 +29,13 @@ export function WeeklyComparison({
   hasPreviousWeekData,
   thisWeekLabel = "This Week",
   lastWeekLabel = "Last Week",
+  thisWeekStartLabel,
+  lastWeekStartLabel,
 }: WeeklyComparisonProps) {
+  // Use short labels for cards, fall back to full labels if not provided
+  const cardThisWeekLabel = thisWeekStartLabel || thisWeekLabel;
+  const cardLastWeekLabel = lastWeekStartLabel || lastWeekLabel;
+
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // If no previous week data, show a different message
@@ -37,7 +48,7 @@ export function WeeklyComparison({
             Week over Week
           </h3>
           <p className="text-xs text-app-gray mt-0.5">
-            Comparing {thisWeekLabel} to {lastWeekLabel}
+            Comparing week starting {thisWeekStartLabel} to week starting {lastWeekStartLabel}
           </p>
         </div>
       </div>
@@ -57,7 +68,7 @@ export function WeeklyComparison({
             Week over Week
           </h3>
           <p className="text-xs text-app-gray mt-0.5">
-            Comparing this week to last week
+            Comparing week starting {thisWeekStartLabel} to week starting {lastWeekStartLabel}
           </p>
         </div>
         <span className="text-app-gray text-lg">{isCollapsed ? "+" : "−"}</span>
@@ -72,7 +83,7 @@ export function WeeklyComparison({
               icon="🏷️"
               title="Symptoms"
               accentColor="teal"
-              columnLabels={{ thisWeek: thisWeekLabel, lastWeek: lastWeekLabel }}
+              columnLabels={{ thisWeek: cardThisWeekLabel, lastWeek: cardLastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
                   <StatRow label="Unique" value={comparison.symptoms.thisWeek.uniqueCount} />
@@ -136,7 +147,7 @@ export function WeeklyComparison({
                       <div className="grid grid-cols-2 gap-2">
                         {/* This Week */}
                         <div>
-                          <p className="text-xs text-app-teal font-medium mb-1">This Week</p>
+                          <p className="text-xs text-app-teal font-medium mb-1">{thisWeekLabel}</p>
                           {comparison.symptoms.thisWeek.topByIntensity.length > 0 ? (
                             <div className="bg-app-cream rounded-md overflow-hidden">
                               <table className="w-full text-xs">
@@ -167,7 +178,7 @@ export function WeeklyComparison({
 
                         {/* Last Week */}
                         <div>
-                          <p className="text-xs text-app-gray font-medium mb-1">Last Week</p>
+                          <p className="text-xs text-app-gray font-medium mb-1">{lastWeekLabel}</p>
                           {comparison.symptoms.lastWeek.topByIntensity.length > 0 ? (
                             <div className="bg-app-cream rounded-md overflow-hidden">
                               <table className="w-full text-xs">
@@ -273,7 +284,7 @@ export function WeeklyComparison({
               icon="🧻"
               title="Bowel"
               accentColor="plumb"
-              columnLabels={{ thisWeek: thisWeekLabel, lastWeek: lastWeekLabel }}
+              columnLabels={{ thisWeek: cardThisWeekLabel, lastWeek: cardLastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
                   <StatRow label="Total BMs" value={comparison.bowel.thisWeek.totalBMs} />
@@ -378,7 +389,7 @@ export function WeeklyComparison({
                         <div className="grid grid-cols-2 gap-2">
                           {/* This Week Feelings */}
                           <div>
-                            <p className="text-xs text-app-teal font-medium mb-1">This Week</p>
+                            <p className="text-xs text-app-teal font-medium mb-1">{lastWeekLabel}</p>
                             {Object.keys(comparison.bowel.thisWeek.feelingDistribution).length > 0 ? (
                               <div className="bg-app-cream rounded-md overflow-hidden">
                                 <table className="w-full text-xs">
@@ -443,7 +454,7 @@ export function WeeklyComparison({
                         <div className="grid grid-cols-2 gap-2">
                           {/* This Week Time */}
                           <div>
-                            <p className="text-xs text-app-teal font-medium mb-1">This Week</p>
+                            <p className="text-xs text-app-teal font-medium mb-1">{thisWeekLabel}</p>
                             <div className="flex gap-1">
                               {[
                                 { label: "Morning", keys: ["Morning", "Afternoon"] },
@@ -481,7 +492,7 @@ export function WeeklyComparison({
                           
                           {/* Last Week Time */}
                           <div>
-                            <p className="text-xs text-app-gray font-medium mb-1">Last Week</p>
+                            <p className="text-xs text-app-gray font-medium mb-1">{lastWeekLabel}</p>
                             <div className="flex gap-1">
                               {[
                                 { label: "Morning", keys: ["Morning", "Afternoon"] },
@@ -538,7 +549,7 @@ export function WeeklyComparison({
               icon="🌸"
               title="Cycle"
               accentColor="red"
-              columnLabels={{ thisWeek: thisWeekLabel, lastWeek: lastWeekLabel }}
+              columnLabels={{ thisWeek: cardThisWeekLabel, lastWeek: cardLastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
                   <StatRow label="Phase" value={formatPhase(comparison.cycle.thisWeek.phase)} />
@@ -554,22 +565,15 @@ export function WeeklyComparison({
                 </div>
               }
               change={
-                <div className="space-y-1">
-                  {comparison.cycle.flowChanged && (
-                    <p className="text-xs text-app-gray">
-                      Flow went from <span className="capitalize">{comparison.cycle.lastWeek.flow ?? "none"}</span> ({lastWeekLabel}) to{" "}
-                      <span className="text-app-red capitalize">{comparison.cycle.thisWeek.flow ?? "none"}</span> ({thisWeekLabel})
-                    </p>
-                  )}
-                  {!comparison.cycle.phaseChanged && !comparison.cycle.flowChanged && (
-                    <p className="text-xs text-app-gray">
-                      {comparison.cycle.thisWeek.hasData || comparison.cycle.lastWeek.hasData 
-                        ? "No change" 
-                        : "No data"
-                      }
-                    </p>
-                  )}
-                </div>
+                <p className="text-xs text-app-gray">
+                  For deeper cycle insights, visit{" "}
+                  <Link 
+                    href="/dashboard/cycleinsights" 
+                    className="text-app-red hover:text-app-red/80 underline underline-offset-2"
+                  >
+                    Cycle Insights
+                  </Link>
+                </p>
               }
             />
 
@@ -578,7 +582,7 @@ export function WeeklyComparison({
               icon="💊"
               title="Medicine"
               accentColor="taupe"
-              columnLabels={{ thisWeek: thisWeekLabel, lastWeek: lastWeekLabel }}
+              columnLabels={{ thisWeek: cardThisWeekLabel, lastWeek: cardLastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
                   <StatRow label="Total doses" value={comparison.medicine.thisWeek.totalDoses} />
@@ -649,7 +653,7 @@ export function WeeklyComparison({
                         <div className="grid grid-cols-2 gap-2">
                           {/* This Week Time */}
                           <div>
-                            <p className="text-xs text-app-teal font-medium mb-1">This Week</p>
+                            <p className="text-xs text-app-teal font-medium mb-1">{thisWeekLabel}</p>
                             <div className="flex gap-1">
                               {[
                                 { label: "Morning", keys: ["Morning", "Afternoon"] },
@@ -687,7 +691,7 @@ export function WeeklyComparison({
                           
                           {/* Last Week Time */}
                           <div>
-                            <p className="text-xs text-app-gray font-medium mb-1">Last Week</p>
+                            <p className="text-xs text-app-gray font-medium mb-1">{lastWeekLabel}</p>
                             <div className="flex gap-1">
                               {[
                                 { label: "Morning", keys: ["Morning", "Afternoon"] },
@@ -776,7 +780,7 @@ interface ComparisonCardProps {
   accentColor: "teal" | "plumb" | "red" | "taupe";
   thisWeek: React.ReactNode;
   lastWeek: React.ReactNode;
-  change: React.ReactNode;
+  change?: React.ReactNode;
   expandedContent?: React.ReactNode;
   columnLabels?: { thisWeek: string; lastWeek: string };
 }
@@ -858,9 +862,11 @@ function ComparisonCard({
         </div>
 
         {/* Change Summary */}
-        <div className="pt-2 border-t border-app-border">
-          {change}
-        </div>
+        {change && (
+          <div className="pt-2 border-t border-app-border">
+            {change}
+          </div>
+        )}
 
         {/* Expanded Content */}
         {expandedContent && (

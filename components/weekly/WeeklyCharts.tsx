@@ -713,12 +713,13 @@ function CycleDayBreakdown({ dayBreakdown, customProducts = {} }: CycleDayBreakd
   const getColorClasses = (phase: string | null) => {
     if (isMenstrualPhase(phase)) {
       return {
-        bg: "bg-app-red/10",
+        bg: "bg-app-red/20",
         ring: "ring-app-red",
         dot: "bg-app-red",
         text: "text-app-red",
         panelBg: "bg-app-red/5",
         panelBorder: "border-app-red/20",
+        hoverBorder: "hover:border-app-red",
       };
     }
     return {
@@ -728,6 +729,7 @@ function CycleDayBreakdown({ dayBreakdown, customProducts = {} }: CycleDayBreakd
       text: "text-app-teal",
       panelBg: "bg-app-teal/5",
       panelBorder: "border-app-teal/20",
+      hoverBorder: "hover:border-app-teal",
     };
   };
 
@@ -750,9 +752,14 @@ function CycleDayBreakdown({ dayBreakdown, customProducts = {} }: CycleDayBreakd
               key={day.day}
               type="button"
               onClick={() => setSelectedDay(isSelected ? null : day.day)}
-              className={`flex-1 min-w-[50px] p-2 rounded-lg text-center transition-all ${
-                hasData ? colors.bg : "bg-app-border/50"
-              } ${isSelected ? `ring-2 ${colors.ring} shadow-md` : ""}`}
+              className={`flex-1 min-w-[50px] p-2 rounded-lg text-center transition-all border-2 border-transparent ${
+                hasData 
+                  ? `${colors.bg} ${colors.text} ${colors.hoverBorder}` 
+                  : "bg-app-cream/50 text-app-gray"
+              } ${isSelected 
+                  ? `ring-2 ${colors.ring} shadow-md scale-95` 
+                  : "hover:scale-95"
+              }`}
             >
               <p className="text-xs font-medium text-app-charcoal">{day.day}</p>
               {day.phase && (
@@ -941,7 +948,12 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
           <div>
             <p className="text-xs font-medium text-app-gray mb-2">Phases Logged</p>
             <div className="space-y-2">
-              {data.phases.map((item) => {
+              {[...data.phases]
+                .sort((a, b) => {
+                  const order = ["menstrual", "follicular", "ovulation", "luteal", "not_sure"];
+                  return order.indexOf(a.phase) - order.indexOf(b.phase);
+                })
+                .map((item) => {
                 const isMenstrual = item.phase === "menstrual";
                 return (
                   <div
@@ -1298,7 +1310,7 @@ function buildChartData(
   };
 
   // ===== CYCLE DATA =====
-  const phaseCounts: Record<string, number> = {};
+  const phaseDates: Record<string, Set<string>> = {};  // Track unique dates per phase
   const flowData: Record<string, { count: number; dates: string[] }> = {};
 
   const dayPhaseMap: Record<string, { 
@@ -1321,7 +1333,10 @@ function buildChartData(
 
   for (const entry of entries) {
     if (entry.cyclePhase) {
-      phaseCounts[entry.cyclePhase] = (phaseCounts[entry.cyclePhase] || 0) + 1;
+      if (!phaseDates[entry.cyclePhase]) {
+        phaseDates[entry.cyclePhase] = new Set();
+      }
+      phaseDates[entry.cyclePhase].add(entry.date);
 
       const date = new Date(entry.date + "T12:00:00");
       const dayName = dayNames[date.getDay()];
@@ -1407,10 +1422,10 @@ function buildChartData(
   }
 
   const cycleData: CycleData = {
-  phases: Object.entries(phaseCounts).map(([phase, count]) => ({
+  phases: Object.entries(phaseDates).map(([phase, dates]) => ({
     phase,
     label: CYCLE_PHASES.find((p) => p.value === phase)?.label || phase,
-    count,
+    count: dates.size,
   })),
   flows: Object.entries(flowData)
     .map(([flow, data]) => ({ flow, count: data.count, dates: data.dates.sort() }))

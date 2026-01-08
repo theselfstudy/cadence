@@ -25,6 +25,10 @@ interface WeeklyStatsCardsProps {
   currentCyclePhase?: string | null;
   /** Days logged with cycle data this week */
   cycleDaysLogged?: number;
+  /** Phase distribution - unique days per phase */
+  phaseDistribution?: Record<string, number>;
+  /** Phase date ranges for display */
+  phaseRanges?: { phase: string; startDate: string; endDate: string | null; days: number }[];
 }
 
 export function WeeklyStatsCards({
@@ -36,6 +40,8 @@ export function WeeklyStatsCards({
   periodTrackingEnabled = false,
   currentCyclePhase = null,
   cycleDaysLogged = 0,
+  phaseDistribution = {},
+  phaseRanges = [],
 }: WeeklyStatsCardsProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -129,6 +135,8 @@ export function WeeklyStatsCards({
           currentPhase={currentCyclePhase}
           daysLogged={cycleDaysLogged}
           topSymptoms={topSymptoms}
+          phaseDistribution={phaseDistribution}
+          phaseRanges={phaseRanges}
         />
       )}
 
@@ -258,13 +266,62 @@ interface CyclePhaseCardProps {
   currentPhase: string | null;
   daysLogged: number;
   topSymptoms: { name: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
+  phaseDistribution?: Record<string, number>;
+  phaseRanges?: { phase: string; startDate: string; endDate: string | null; days: number }[];
 }
 
-function CyclePhaseCard({ currentPhase, daysLogged, topSymptoms }: CyclePhaseCardProps) {
+function CyclePhaseCard({ 
+  currentPhase, 
+  daysLogged, 
+  topSymptoms,
+  phaseDistribution = {},
+  phaseRanges = [],
+}: CyclePhaseCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   const showContent = isExpanded || isHovered;
+
+  // Calculate unique phases logged
+  const uniquePhases = Object.keys(phaseDistribution).filter(
+    (phase) => (phaseDistribution[phase] || 0) > 0
+  );
+  const isMultiPhase = uniquePhases.length > 1;
+
+  // Format date as "Mon D"
+  const formatDateCompact = (dateStr: string): string => {
+    const [, month, day] = dateStr.split("-").map(Number);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${monthNames[month - 1]} ${day}`;
+  };
+
+  // Get display info for multi-phase or single phase
+  const getDisplayInfo = () => {
+    if (isMultiPhase) {
+      return {
+        phase: `${uniquePhases.length} Phases`,
+        dateRange: `${daysLogged} day${daysLogged !== 1 ? "s" : ""} logged`,
+      };
+    }
+    
+    // Single phase - show most recent range if available
+    if (phaseRanges.length > 0) {
+      const mostRecent = phaseRanges[phaseRanges.length - 1];
+      const startStr = formatDateCompact(mostRecent.startDate);
+      const endStr = mostRecent.endDate ? formatDateCompact(mostRecent.endDate) : "present";
+      return {
+        phase: formatPhase(mostRecent.phase),
+        dateRange: `${startStr} - ${endStr}`,
+      };
+    }
+    
+    return {
+      phase: formatPhase(currentPhase),
+      dateRange: daysLogged > 0 ? `${daysLogged} day${daysLogged !== 1 ? "s" : ""} logged` : "No data this week",
+    };
+  };
+
+  const displayInfo = getDisplayInfo();
 
   // Find highest intensity symptom (with isPeriodRelated info)
   const highestIntensity = topSymptoms
@@ -309,12 +366,18 @@ function CyclePhaseCard({ currentPhase, daysLogged, topSymptoms }: CyclePhaseCar
           </div>
 
           {/* Main Value */}
-          <p className="text-xl font-bold text-app-charcoal mt-1 capitalize">
-            {formatPhase(currentPhase)}
+          <p className={`text-xl font-bold mt-1 ${
+            isMultiPhase 
+              ? "text-app-charcoal" 
+              : currentPhase === "menstrual"
+                ? "text-app-red"
+                : "text-app-charcoal"
+          }`}>
+            {displayInfo.phase}
           </p>
 
-          <p className="text-xs text-app-gray mt-1">
-            {daysLogged > 0 ? `${daysLogged} day${daysLogged !== 1 ? "s" : ""} logged` : "No data this week"}
+          <p className="text-xs text-app-red mt-1">
+            {displayInfo.dateRange}
           </p>
 
           {/* Expanded Content */}
@@ -324,6 +387,44 @@ function CyclePhaseCard({ currentPhase, daysLogged, topSymptoms }: CyclePhaseCar
             }`}
           >
             <div className="space-y-3">
+              {/* Phase Breakdown - show when multiple phases */}
+              {isMultiPhase && Object.keys(phaseDistribution).length > 0 && (
+                <div>
+                  <p className="text-xs text-app-gray mb-2">Phase Breakdown</p>
+                  <div className="space-y-1">
+                    {["menstrual", "follicular", "ovulation", "luteal", "not_sure"]
+                      .filter((phase) => (phaseDistribution[phase] || 0) > 0)
+                      .map((phase) => {
+                        const days = phaseDistribution[phase] || 0;
+                        const isMenstrual = phase === "menstrual";
+                        const phaseLabels: Record<string, string> = {
+                          menstrual: "Period",
+                          follicular: "Follicular",
+                          ovulation: "Ovulation",
+                          luteal: "Luteal",
+                          not_sure: "Unsure",
+                        };
+                        
+                        return (
+                          <div 
+                            key={phase} 
+                            className={`flex justify-between items-center p-2 rounded-lg ${
+                              isMenstrual ? "bg-app-red/10" : "bg-app-teal/10"
+                            }`}
+                          >
+                            <span className={`text-sm font-medium ${isMenstrual ? "text-app-red" : "text-app-charcoal"}`}>
+                              {phaseLabels[phase]}
+                            </span>
+                            <span className={`text-sm font-medium ${isMenstrual ? "text-app-red" : "text-app-teal"}`}>
+                              {days}d
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
               {/* Highest Intensity Symptom */}
               {highestIntensity && (
                 <div className={`p-2 rounded-lg ${highestIntensity.isPeriodRelated ? "bg-app-red/10" : "bg-app-teal/10"}`}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { MonthComparison } from "@/lib/monthlyUtils";
 
 // ============================================
@@ -498,39 +499,15 @@ export function MonthlyComparison({
                 </div>
               }
                             change={
-                <div className="space-y-1">
-                  {(comparison.cycle.lastMonth.daysLogged > 0 || comparison.cycle.thisMonth.daysLogged > 0) ? (
-                    <p className="text-xs">
-                      <span className="text-app-gray">Period: </span>
-                      <span className="text-app-red font-medium">
-                        {comparison.cycle.thisMonth.daysLogged}d
-                      </span>
-                      <span className="text-app-gray"> → </span>
-                      <span className="text-app-gray font-medium">
-                        {comparison.cycle.lastMonth.daysLogged}d
-                      </span>
-                      {(() => {
-                        const diff = comparison.cycle.thisMonth.daysLogged - comparison.cycle.lastMonth.daysLogged;
-                        if (diff === 0) {
-                          return <span className="text-app-gray ml-1">(no change)</span>;
-                        }
-                        const arrow = diff > 0 ? "↑" : "↓";
-                        const descriptor = diff > 0 ? "longer" : "shorter";
-                        return (
-                          <span className={`ml-1 ${diff < 0 ? "text-app-teal" : "text-app-gray"}`}>
-                            ({arrow}{Math.abs(diff)}d {descriptor})
-                          </span>
-                        );
-                      })()}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-app-gray">
-                      {comparison.cycle.thisMonth.hasData || comparison.cycle.lastMonth.hasData
-                        ? "No period data"
-                        : "No data"}
-                    </p>
-                  )}
-                </div>
+                <p className="text-xs text-app-gray">
+                  For deeper cycle insights, visit{" "}
+                  <Link 
+                    href="/dashboard/cycleinsights" 
+                    className="text-app-red hover:text-app-red/80 underline underline-offset-2"
+                  >
+                    Cycle Insights
+                  </Link>
+                </p>
               }
               expandedContent={
                 (comparison.cycle.thisMonth.hasData || comparison.cycle.lastMonth.hasData) ? (
