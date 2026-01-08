@@ -31,19 +31,20 @@ interface WeeklyChartsProps {
   medicines?: { id: string; name: string; categories: string[] }[];
 }
 
+
 export function WeeklyCharts({
   entries,
   orderedDays,
   enabledSections,
-  onDayClick,
   selectedDays = [],
   customProducts = {},
   medicines = [],
+  onDayClick,
 }: WeeklyChartsProps) {
   const [activeChart, setActiveChart] = useState<"symptoms" | "bowel" | "cycle" | "medicine">("symptoms");
 
   // Build chart data
-  const { symptomData, bristolData, cycleData, medicineData } = useMemo(() => {
+  const { symptomData, bristolData, cycleData, medicineData, symptomHeatMapData } = useMemo(() => {
     return buildChartData(entries, orderedDays, medicines);
   }, [entries, orderedDays, medicines]);
 
@@ -111,9 +112,16 @@ export function WeeklyCharts({
 
       {/* Chart Content */}
       <div className="p-4">
-        {validActiveChart === "symptoms" && <SymptomFrequencyChart data={symptomData} />}
+        {validActiveChart === "symptoms" && (
+          <SymptomFrequencyChart 
+            data={symptomData} 
+            heatMapData={symptomHeatMapData}
+            selectedDays={selectedDays}
+            onDayClick={onDayClick}
+          />
+        )}      
         {validActiveChart === "bowel" && (
-        <BristolTimelineChart 
+          <BristolTimelineChart 
             data={bristolData} 
             onDayClick={onDayClick}
             selectedDays={selectedDays}
@@ -139,11 +147,26 @@ interface SymptomFrequencyData {
   lowestDay: string;
 }
 
-interface SymptomFrequencyChartProps {
-  data: SymptomFrequencyData[];
+interface SymptomHeatMapData {
+  symptom: string;
+  days: { day: string; intensity: number | null; logged: boolean }[];
 }
 
-function SymptomFrequencyChart({ data }: SymptomFrequencyChartProps) {
+interface SymptomFrequencyChartProps {
+  data: SymptomFrequencyData[];
+  heatMapData: SymptomHeatMapData[];
+  selectedDays?: string[];
+  onDayClick?: (day: string) => void;
+}
+
+function SymptomFrequencyChart({ 
+  data, 
+  heatMapData,
+  selectedDays = [],
+  onDayClick,
+}: SymptomFrequencyChartProps) {
+  const [viewMode, setViewMode] = useState<"table" | "heatmap">("heatmap");
+
   if (data.length === 0) {
     return (
       <div className="text-center py-8">
@@ -156,53 +179,264 @@ function SymptomFrequencyChart({ data }: SymptomFrequencyChartProps) {
 
   return (
     <div>
-      <div className="mb-4">
-        <h4 className="text-sm font-medium text-app-charcoal">Symptom Frequency</h4>
-        <p className="text-xs text-app-gray mt-0.5">
-          How often each symptom was logged this week • Scroll to see more symptoms
-        </p>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h4 className="text-sm font-medium text-app-charcoal">Symptom Frequency</h4>
+          <p className="text-xs text-app-gray mt-0.5">
+            {viewMode === "table" ? "How often each symptom was logged" : "Daily symptom intensity"}
+          </p>
+        </div>
+        
+        {/* View Toggle */}
+        <div className="flex rounded-lg overflow-hidden border border-app-border">
+          <button
+            onClick={() => setViewMode("heatmap")}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "heatmap"
+                ? "bg-app-teal text-white"
+                : "bg-white text-app-charcoal hover:bg-app-cream"
+            }`}
+          >
+            Heat Map
+          </button>
+          <button
+            onClick={() => setViewMode("table")}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "table"
+                ? "bg-app-teal text-white"
+                : "bg-white text-app-charcoal hover:bg-app-cream"
+            }`}
+          >
+            Table
+          </button>
+        </div>
       </div>
 
-      {/* Scrollable table for all symptoms */}
-      <div className="max-h-64 overflow-y-auto border border-app-border rounded-lg">
-        <table className="w-full text-sm">
-          <thead className="bg-app-cream sticky top-0">
-            <tr>
-              <th className="text-left py-2 px-3 font-medium text-app-charcoal">Symptom</th>
-              <th className="text-center py-2 px-3 font-medium text-app-charcoal">
-                <span className="block text-xs">Highest</span>
-                <span className="text-app-gray font-normal text-xs">Count / Day</span>
-              </th>
-              <th className="text-center py-2 px-3 font-medium text-app-charcoal">
-                <span className="block text-xs">Lowest</span>
-                <span className="text-app-gray font-normal text-xs">Count / Day</span>
-              </th>
-              <th className="text-right py-2 px-3 font-medium text-app-charcoal w-16">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-app-border">
-            {data.map((item) => (
-              <tr key={item.name} className="hover:bg-app-cream/30">
-                <td className="py-2 px-3 text-app-charcoal">{item.name}</td>
-                <td className="py-2 px-3 text-center">
-                  <span className="text-app-teal font-medium">{item.highestCount}</span>
-                  <span className="text-app-gray text-xs ml-1">/ {item.highestDay}</span>
-                </td>
-                <td className="py-2 px-3 text-center">
-                  <span className="text-app-gray font-medium">{item.lowestCount}</span>
-                  <span className="text-app-gray text-xs ml-1">/ {item.lowestDay}</span>
-                </td>
-                <td className="py-2 px-3 text-app-teal font-medium text-right">{item.totalCount}</td>
+      {viewMode === "table" ? (
+        <div className="max-h-64 overflow-y-auto border border-app-border rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="bg-app-cream sticky top-0">
+              <tr>
+                <th className="text-left py-2 px-3 font-medium text-app-charcoal">Symptom</th>
+                <th className="text-center py-2 px-3 font-medium text-app-charcoal">
+                  <span className="block text-xs">Highest</span>
+                  <span className="text-app-gray font-normal text-xs">Count / Day</span>
+                </th>
+                <th className="text-center py-2 px-3 font-medium text-app-charcoal">
+                  <span className="block text-xs">Lowest</span>
+                  <span className="text-app-gray font-normal text-xs">Count / Day</span>
+                </th>
+                <th className="text-right py-2 px-3 font-medium text-app-charcoal w-16">Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-app-border">
+              {data.map((item) => (
+                <tr key={item.name} className="hover:bg-app-cream/30">
+                  <td className="py-2 px-3 text-app-charcoal">{item.name}</td>
+                  <td className="py-2 px-3 text-center">
+                    <span className="text-app-teal font-medium">{item.highestCount}</span>
+                    <span className="text-app-gray text-xs ml-1">/ {item.highestDay}</span>
+                  </td>
+                  <td className="py-2 px-3 text-center">
+                    <span className="text-app-gray font-medium">{item.lowestCount}</span>
+                    <span className="text-app-gray text-xs ml-1">/ {item.lowestDay}</span>
+                  </td>
+                  <td className="py-2 px-3 text-app-teal font-medium text-right">{item.totalCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <WeeklySymptomHeatMap 
+          data={heatMapData} 
+          selectedDays={selectedDays}
+          onDayClick={onDayClick}
+        />
+      )}
+
       <p className="text-xs text-app-gray mt-2 text-center">
         {data.length} symptom{data.length !== 1 ? "s" : ""} tracked this week
       </p>
     </div>
   );
+}
+
+// ============================================
+// WEEKLY SYMPTOM HEAT MAP (moved from separate file)
+// ============================================
+
+interface WeeklySymptomHeatMapProps {
+  data: SymptomHeatMapData[];
+  maxHeight?: number;
+  onDayClick?: (day: string) => void;
+  selectedDays?: string[];
+}
+
+function WeeklySymptomHeatMap({
+  data,
+  maxHeight = 320,
+  onDayClick,
+  selectedDays = [],
+}: WeeklySymptomHeatMapProps) {
+  const [activeCell, setActiveCell] = useState<string | null>(null);
+
+  if (data.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <span className="text-3xl block mb-2">🏷️</span>
+        <p className="text-app-charcoal font-medium">No symptoms this week</p>
+        <p className="text-sm text-app-gray mt-1">Log symptoms to see the heat map</p>
+      </div>
+    );
+  }
+
+  // Get day labels from first symptom's data
+  const dayLabels = data[0]?.days.map((d) => d.day) || [];
+
+  return (
+    <div>
+      {/* Day Headers - Clickable */}
+      <div className="flex mb-2">
+        <div className="w-28 sm:w-36 shrink-0" />
+        {dayLabels.map((day) => {
+          const isSelected = selectedDays.includes(day);
+          return (
+            <button
+              key={day}
+              type="button"
+              onClick={() => onDayClick?.(day)}
+              disabled={!onDayClick}
+              className={`flex-1 min-w-[40px] text-center text-xs font-medium transition-colors rounded py-1 ${
+                isSelected
+                  ? "bg-app-teal text-white"
+                  : onDayClick
+                    ? "text-app-gray hover:bg-app-cream hover:text-app-charcoal cursor-pointer"
+                    : "text-app-gray"
+              }`}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Symptom Rows - Scrollable */}
+      <div 
+        className="space-y-1 overflow-y-auto pr-1"
+        style={{ maxHeight: `${maxHeight}px` }}
+      >
+        {data.map((symptom) => (
+          <div key={symptom.symptom} className="flex items-center">
+            {/* Symptom Name */}
+            <div className="w-28 sm:w-36 shrink-0 pr-2">
+              <p className="text-sm text-app-charcoal truncate" title={symptom.symptom}>
+                {symptom.symptom}
+              </p>
+            </div>
+
+            {/* Day Cells */}
+            {symptom.days.map((day) => {
+              const isSelected = selectedDays.includes(day.day);
+              const cellKey = `${symptom.symptom}-${day.day}`;
+              const isActive = activeCell === cellKey;
+
+              return (
+                <div key={day.day} className="flex-1 min-w-[40px] px-0.5">
+                  <button
+                    type="button"
+                    onClick={() => onDayClick?.(day.day)}
+                    onMouseEnter={() => setActiveCell(cellKey)}
+                    onMouseLeave={() => setActiveCell(null)}
+                    className={`w-full h-8 rounded transition-all ${getHeatMapIntensityStyle(
+                      day.intensity,
+                      day.logged
+                    )} ${isActive ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
+                      isSelected ? "ring-2 ring-app-teal" : ""
+                    }`}
+                    title={getHeatMapCellTitle(symptom.symptom, day.day, day.intensity, day.logged)}
+                  >
+                    {isActive && day.logged && (
+                      <span className="text-xs font-medium">
+                        {day.intensity !== null ? day.intensity : "✓"}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Scroll indicator for many symptoms */}
+      {data.length > 8 && (
+        <div className="flex justify-center mt-2 text-app-gray/50">
+          <svg 
+            className="w-4 h-4 animate-bounce" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M19 9l-7 7-7-7" 
+            />
+          </svg>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs text-app-gray">
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-border" />
+          <span>Not logged</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-teal/50" />
+          <span>Low Intensity</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-teal/75" />
+          <span>Medium Intensity</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-teal" />
+          <span>High Intensity</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Heat map helper functions
+function getHeatMapIntensityStyle(intensity: number | null, logged: boolean): string {
+  if (!logged) {
+    return "bg-app-border";
+  }
+  if (intensity === null) {
+    return "bg-app-teal/30 text-app-teal";
+  }
+  if (intensity <= 3) return "bg-app-teal/50 text-app-teal";
+  if (intensity <= 6) return "bg-app-teal/75 text-white";
+  return "bg-app-teal text-white";
+}
+
+function getHeatMapCellTitle(
+  symptom: string,
+  day: string,
+  intensity: number | null,
+  logged: boolean
+): string {
+  if (!logged) {
+    return `${symptom} - ${day}: Not logged`;
+  }
+  if (intensity === null) {
+    return `${symptom} - ${day}: Logged (no intensity)`;
+  }
+  return `${symptom} - ${day}: Intensity ${intensity}/10`;
 }
 
 // ============================================
@@ -664,8 +898,8 @@ function CycleDayBreakdown({ dayBreakdown, customProducts = {} }: CycleDayBreakd
 
 interface CycleData {
   phases: { phase: string; label: string; count: number }[];
-  flows: { flow: string; count: number }[];
-  dayBreakdown: { 
+  flows: { flow: string; count: number; dates: string[] }[];
+  dayBreakdown: {
     day: string; 
     phase: string | null; 
     flow: string | null;
@@ -707,15 +941,22 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
           <div>
             <p className="text-xs font-medium text-app-gray mb-2">Phases Logged</p>
             <div className="space-y-2">
-              {data.phases.map((item) => (
-                <div
-                  key={item.phase}
-                  className="flex items-center justify-between p-2 bg-app-red/5 rounded-lg"
-                >
-                  <span className="text-sm text-app-charcoal">{item.label}</span>
-                  <span className="text-sm text-app-red font-medium">{item.count}</span>
-                </div>
-              ))}
+              {data.phases.map((item) => {
+                const isMenstrual = item.phase === "menstrual";
+                return (
+                  <div
+                    key={item.phase}
+                    className={`flex items-center justify-between p-2 rounded-lg ${
+                      isMenstrual ? "bg-app-red/10" : "bg-app-teal/10"
+                    }`}
+                  >
+                    <span className="text-sm text-app-charcoal">{item.label}</span>
+                    <span className={`text-sm font-medium ${isMenstrual ? "text-app-red" : "text-app-teal"}`}>
+                      {item.count} day{item.count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -725,15 +966,40 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
           <div>
             <p className="text-xs font-medium text-app-gray mb-2">Flow Levels</p>
             <div className="space-y-2">
-              {data.flows.map((item) => (
-                <div
-                  key={item.flow}
-                  className="flex items-center justify-between p-2 bg-app-red/5 rounded-lg"
-                >
-                  <span className="text-sm text-app-charcoal capitalize">{item.flow}</span>
-                  <span className="text-sm text-app-red font-medium">{item.count}</span>
-                </div>
-              ))}
+              {data.flows.map((item) => {
+                // Format dates for display
+                const formatFlowDates = (dates: string[]): string => {
+                  if (dates.length === 0) return "";
+                  const sortedDates = [...dates].sort();
+                  const formatted = sortedDates.map(d => {
+                    const [, month, day] = d.split("-").map(Number);
+                    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    return `${monthNames[month - 1]} ${day}`;
+                  });
+                  
+                  if (formatted.length <= 3) {
+                    return formatted.join(", ");
+                  }
+                  return `${formatted[0]}, ${formatted[1]}, +${formatted.length - 2} more`;
+                };
+                
+                return (
+                  <div
+                    key={item.flow}
+                    className="p-2 bg-app-red/5 rounded-lg"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-app-charcoal capitalize">{item.flow}</span>
+                      <span className="text-sm text-app-red font-medium">{item.count} day{item.count !== 1 ? "s" : ""}</span>
+                    </div>
+                    {item.dates && item.dates.length > 0 && (
+                      <p className="text-xs text-app-gray mt-1">
+                        {formatFlowDates(item.dates)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -946,6 +1212,7 @@ function buildChartData(
   bristolData: BristolTimelineData;
   cycleData: CycleData;
   medicineData: MedicineChartData;
+  symptomHeatMapData: SymptomHeatMapData[];
 } {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -1032,7 +1299,7 @@ function buildChartData(
 
   // ===== CYCLE DATA =====
   const phaseCounts: Record<string, number> = {};
-  const flowCounts: Record<string, number> = {};
+  const flowData: Record<string, { count: number; dates: string[] }> = {};
 
   const dayPhaseMap: Record<string, { 
     phase: string | null; 
@@ -1063,7 +1330,13 @@ function buildChartData(
       }
     }
     if (entry.periodFlow) {
-      flowCounts[entry.periodFlow] = (flowCounts[entry.periodFlow] || 0) + 1;
+      if (!flowData[entry.periodFlow]) {
+        flowData[entry.periodFlow] = { count: 0, dates: [] };
+      }
+      flowData[entry.periodFlow].count++;
+      if (!flowData[entry.periodFlow].dates.includes(entry.date)) {
+        flowData[entry.periodFlow].dates.push(entry.date);
+      }
 
       const date = new Date(entry.date + "T12:00:00");
       const dayName = dayNames[date.getDay()];
@@ -1139,8 +1412,8 @@ function buildChartData(
     label: CYCLE_PHASES.find((p) => p.value === phase)?.label || phase,
     count,
   })),
-  flows: Object.entries(flowCounts)
-    .map(([flow, count]) => ({ flow, count }))
+  flows: Object.entries(flowData)
+    .map(([flow, data]) => ({ flow, count: data.count, dates: data.dates.sort() }))
     .sort((a, b) => b.count - a.count),
   dayBreakdown: orderedDays.map((day) => ({
     day,
@@ -1246,7 +1519,60 @@ function buildChartData(
       .sort((a, b) => b.count - a.count),
   };
 
-  return { symptomData, bristolData, cycleData, medicineData };
+  // ===== SYMPTOM HEAT MAP DATA =====
+  const symptomHeatMap: Record<string, Record<string, { intensity: number | null; logged: boolean }>> = {};
+  
+  for (const entry of entries) {
+    const date = new Date(entry.date + "T12:00:00");
+    const dayName = dayNames[date.getDay()];
+    
+    // General symptoms
+    for (const [symptom, intensity] of Object.entries(entry.symptomIntensities)) {
+      if (!symptomHeatMap[symptom]) {
+        symptomHeatMap[symptom] = {};
+        for (const d of orderedDays) {
+          symptomHeatMap[symptom][d] = { intensity: null, logged: false };
+        }
+      }
+      // Keep highest intensity if multiple entries on same day
+      const existing = symptomHeatMap[symptom][dayName];
+      if (!existing.logged || (intensity !== null && (existing.intensity === null || intensity > existing.intensity))) {
+        symptomHeatMap[symptom][dayName] = { 
+          intensity: intensity ?? existing.intensity, 
+          logged: true 
+        };
+      }
+    }
+    
+    // Period symptoms
+    for (const [symptom, intensity] of Object.entries(entry.periodSymptomIntensities)) {
+      if (!symptomHeatMap[symptom]) {
+        symptomHeatMap[symptom] = {};
+        for (const d of orderedDays) {
+          symptomHeatMap[symptom][d] = { intensity: null, logged: false };
+        }
+      }
+      const existing = symptomHeatMap[symptom][dayName];
+      if (!existing.logged || (intensity !== null && (existing.intensity === null || intensity > existing.intensity))) {
+        symptomHeatMap[symptom][dayName] = { 
+          intensity: intensity ?? existing.intensity, 
+          logged: true 
+        };
+      }
+    }
+  }
+  
+  // Convert to array format, sorted by total occurrences
+  const symptomHeatMapData: SymptomHeatMapData[] = Object.entries(symptomHeatMap)
+    .map(([symptom, dayData]) => ({
+      symptom,
+      days: orderedDays.map(day => ({ day, ...dayData[day] })),
+      totalLogged: Object.values(dayData).filter(d => d.logged).length,
+    }))
+    .sort((a, b) => b.totalLogged - a.totalLogged)
+    .map(({ symptom, days }) => ({ symptom, days }));
+
+  return { symptomData, bristolData, cycleData, medicineData, symptomHeatMapData };
 }
 
 // ============================================

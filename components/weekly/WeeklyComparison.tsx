@@ -13,11 +13,17 @@ interface WeeklyComparisonProps {
   comparison: WeekComparison;
   /** Whether there's data from the previous week */
   hasPreviousWeekData: boolean;
+  /** Label for current week (e.g., "Mar 10-16") */
+  thisWeekLabel?: string;
+  /** Label for previous week (e.g., "Mar 3-9") */
+  lastWeekLabel?: string;
 }
 
 export function WeeklyComparison({
   comparison,
   hasPreviousWeekData,
+  thisWeekLabel = "This Week",
+  lastWeekLabel = "Last Week",
 }: WeeklyComparisonProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -31,7 +37,7 @@ export function WeeklyComparison({
             Week over Week
           </h3>
           <p className="text-xs text-app-gray mt-0.5">
-            No previous week data to compare
+            Comparing {thisWeekLabel} to {lastWeekLabel}
           </p>
         </div>
       </div>
@@ -66,6 +72,7 @@ export function WeeklyComparison({
               icon="🏷️"
               title="Symptoms"
               accentColor="teal"
+              columnLabels={{ thisWeek: thisWeekLabel, lastWeek: lastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
                   <StatRow label="Unique" value={comparison.symptoms.thisWeek.uniqueCount} />
@@ -266,6 +273,7 @@ export function WeeklyComparison({
               icon="🧻"
               title="Bowel"
               accentColor="plumb"
+              columnLabels={{ thisWeek: thisWeekLabel, lastWeek: lastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
                   <StatRow label="Total BMs" value={comparison.bowel.thisWeek.totalBMs} />
@@ -292,22 +300,42 @@ export function WeeklyComparison({
               }
               change={
                 <div className="space-y-1">
-                  {comparison.bowel.typeShift && (
+                  {/* Type comparison */}
+                  {(comparison.bowel.lastWeek.mostCommonType !== null || comparison.bowel.thisWeek.mostCommonType !== null) && (
                     <p className="text-xs">
-                      <span className="text-app-plumb">
-                        Type {comparison.bowel.typeShift.from ?? "—"} → {comparison.bowel.typeShift.to ?? "—"}
+                      <span className="text-app-gray">Type: </span>
+                      <span className="text-app-plumb font-medium">
+                        {comparison.bowel.lastWeek.mostCommonType ?? "—"}
+                      </span>
+                      <span className="text-app-gray"> → </span>
+                      <span className="text-app-gray font-medium">
+                        {comparison.bowel.thisWeek.mostCommonType ?? "—"}
                       </span>
                     </p>
                   )}
-                  {comparison.bowel.trendTowardNormal !== null && (
-                    <p className="text-xs">
-                      <span className={comparison.bowel.trendTowardNormal ? "text-app-teal" : "text-app-gray"}>
-                        {comparison.bowel.trendTowardNormal ? "↗ Trending toward normal" : "↘ Away from normal"}
-                      </span>
-                    </p>
-                  )}
-                  {!comparison.bowel.typeShift && comparison.bowel.trendTowardNormal === null && (
-                    <p className="text-xs text-app-gray">No significant changes</p>
+                  {/* Feeling comparison */}
+                  {(() => {
+                    const lastWeekFeeling = getMostCommonFeeling(comparison.bowel.lastWeek.feelingDistribution);
+                    const thisWeekFeeling = getMostCommonFeeling(comparison.bowel.thisWeek.feelingDistribution);
+                    if (lastWeekFeeling || thisWeekFeeling) {
+                      return (
+                        <p className="text-xs">
+                          <span className="text-app-gray">Feeling: </span>
+                          <span className="text-app-plumb font-medium">
+                            {formatFeeling(lastWeekFeeling ?? "—")}
+                          </span>
+                          <span className="text-app-gray"> → </span>
+                          <span className="text-app-gray font-medium">
+                            {formatFeeling(thisWeekFeeling ?? "—")}
+                          </span>
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {comparison.bowel.lastWeek.mostCommonType === null && 
+                   comparison.bowel.thisWeek.mostCommonType === null && (
+                    <p className="text-xs text-app-gray">No data to compare</p>
                   )}
                 </div>
               }
@@ -510,6 +538,7 @@ export function WeeklyComparison({
               icon="🌸"
               title="Cycle"
               accentColor="red"
+              columnLabels={{ thisWeek: thisWeekLabel, lastWeek: lastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
                   <StatRow label="Phase" value={formatPhase(comparison.cycle.thisWeek.phase)} />
@@ -527,8 +556,9 @@ export function WeeklyComparison({
               change={
                 <div className="space-y-1">
                   {comparison.cycle.flowChanged && (
-                    <p className="text-xs text-app-red capitalize">
-                      Flow: {comparison.cycle.lastWeek.flow ?? "none"} → {comparison.cycle.thisWeek.flow ?? "none"}
+                    <p className="text-xs text-app-gray">
+                      Flow went from <span className="capitalize">{comparison.cycle.lastWeek.flow ?? "none"}</span> ({lastWeekLabel}) to{" "}
+                      <span className="text-app-red capitalize">{comparison.cycle.thisWeek.flow ?? "none"}</span> ({thisWeekLabel})
                     </p>
                   )}
                   {!comparison.cycle.phaseChanged && !comparison.cycle.flowChanged && (
@@ -548,6 +578,7 @@ export function WeeklyComparison({
               icon="💊"
               title="Medicine"
               accentColor="taupe"
+              columnLabels={{ thisWeek: thisWeekLabel, lastWeek: lastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
                   <StatRow label="Total doses" value={comparison.medicine.thisWeek.totalDoses} />
@@ -594,17 +625,13 @@ export function WeeklyComparison({
                       </span>
                     </p>
                   )}
-                  {comparison.medicine.doseChange !== 0 && (
-                    <p className="text-xs">
-                      <span className="text-app-teal">
-                        {comparison.medicine.doseChange > 0 ? "↑" : "↓"} {Math.abs(comparison.medicine.doseChange)} doses
-                      </span>
-                    </p>
-                  )}
                   {comparison.medicine.newMedicines.length === 0 && 
-                   comparison.medicine.stoppedMedicines.length === 0 && 
-                   comparison.medicine.doseChange === 0 && (
-                    <p className="text-xs text-app-gray">No significant changes</p>
+                   comparison.medicine.stoppedMedicines.length === 0 && (
+                    <p className="text-xs text-app-gray">
+                      {comparison.medicine.thisWeek.totalDoses > 0 || comparison.medicine.lastWeek.totalDoses > 0
+                        ? "No new/stopped medicine from last week"
+                        : "No medicine data to compare"}
+                    </p>
                   )}
                 </div>
               }
@@ -881,6 +908,18 @@ function StatRow({ label, value, small = false, capitalize = false }: StatRowPro
 function formatPhase(phase: string | null): string {
   if (!phase) return "—";
   return phase.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+function getMostCommonFeeling(distribution: Record<string, number>): string | null {
+  let maxCount = 0;
+  let mostCommon: string | null = null;
+  for (const [feeling, count] of Object.entries(distribution)) {
+    if (count > maxCount) {
+      maxCount = count;
+      mostCommon = feeling;
+    }
+  }
+  return mostCommon;
 }
 
 function formatFeeling(feeling: string): string {

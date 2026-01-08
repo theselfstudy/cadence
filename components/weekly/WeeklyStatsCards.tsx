@@ -359,7 +359,7 @@ function CyclePhaseCard({ currentPhase, daysLogged, topSymptoms }: CyclePhaseCar
                               <td className="py-1.5 px-2 text-app-charcoal truncate max-w-[100px]">
                                 {symptom.name}
                               </td>
-                              <td className="py-1.5 px-2 text-app-red text-right font-medium">
+                              <td className={`py-1.5 px-2 text-right font-medium ${symptom.isPeriodRelated ? "text-app-red" : "text-app-teal"}`}>
                                 {symptom.avgIntensity}
                               </td>
                             </tr>

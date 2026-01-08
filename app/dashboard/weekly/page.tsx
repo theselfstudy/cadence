@@ -12,14 +12,12 @@ import {
   getDataWeekBounds,
   calculateWeeklyStats,
   compareWeeks,
-  buildSymptomHeatMap,
 } from "@/lib/weeklyUtils";
 
 import {
   WeeklyNavigation,
   DayFilterBar,
   WeeklyStatsCards,
-  SymptomHeatMap,
   WeeklyComparison,
   WeeklyCharts,
 } from "@/components/weekly";
@@ -78,6 +76,12 @@ export default function WeeklyPage() {
   // Get week range for current offset
   const weekRange = useMemo(
     () => getWeekRange(weekStartDay, weekOffset),
+    [weekStartDay, weekOffset]
+  );
+
+  // Get previous week range for comparison labels
+  const prevWeekRange = useMemo(
+    () => getWeekRange(weekStartDay, weekOffset - 1),
     [weekStartDay, weekOffset]
   );
 
@@ -292,12 +296,6 @@ export default function WeeklyPage() {
     [weekEntries, prevWeekEntries]
   );
 
-  // Build heat map data
-  const heatMapData = useMemo(
-    () => buildSymptomHeatMap(weekEntries, weekStartDay, weekOffset),
-    [weekEntries, weekStartDay, weekOffset]
-  );
-
   // Toggle day selection
   const handleToggleDay = (day: string) => {
     setSelectedDays((prev) => {
@@ -442,15 +440,6 @@ export default function WeeklyPage() {
               cycleDaysLogged={cycleData.cycleDaysLogged}
             />
 
-            {/* Symptom Heat Map */}
-            {symptomsEnabled && (
-              <SymptomHeatMap
-                data={heatMapData}
-                onDayClick={handleToggleDay}
-                selectedDays={selectedDays}
-              />
-            )}
-
             {/* Charts */}
             <WeeklyCharts
               entries={weekEntries}
@@ -465,6 +454,8 @@ export default function WeeklyPage() {
             <WeeklyComparison
               comparison={comparison}
               hasPreviousWeekData={prevWeekEntries.length > 0}
+              thisWeekLabel={weekRange.label}
+              lastWeekLabel={prevWeekRange.label}
             />
           </div>
         )}

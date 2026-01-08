@@ -66,8 +66,6 @@ export default function MonthlyPage() {
   const [showStats, setShowStats] = useState(true);
   const [showEntries, setShowEntries] = useState(true);
   const [showCycleInsights, setShowCycleInsights] = useState(true);
-  const [comparisonOffset, setComparisonOffset] = useState(0); // 0 = current vs prev, -1 = prev vs prev-prev, etc.
-
 
   // Initialize client-side
   useEffect(() => {
@@ -335,42 +333,29 @@ export default function MonthlyPage() {
       .sort((a, b) => b.count - a.count);
   }, [prevMonthEntries]);
 
-// Stats card comparison - always based on current month view (not affected by Month over Month navigation)
+  // Stats card comparison - based on current month view
+    // Stats card comparison - based on current month view
   const statsComparison = useMemo(
     () => compareMonths(monthEntries, prevMonthEntries),
     [monthEntries, prevMonthEntries]
   );
 
-  // Month-over-month comparison - COMPLETELY INDEPENDENT of main month filter
-  // comparisonOffset of 0 = current month vs previous month
-  // comparisonOffset of -1 = previous month vs month before that
-  const comparisonMonthEntries = useMemo(() => {
-    return getEntriesForMonth(entries, comparisonOffset);
-  }, [entries, comparisonOffset]);
-
-  const comparisonPrevMonthEntries = useMemo(() => {
-    return getEntriesForMonth(entries, comparisonOffset - 1);
-  }, [entries, comparisonOffset]);
-
+  // Month-over-month comparison - ALWAYS uses full month data
+  // Ignores day/date range selections - those only affect stats cards and charts
   const monthOverMonthComparison = useMemo(
-    () => compareMonths(comparisonMonthEntries, comparisonPrevMonthEntries),
-    [comparisonMonthEntries, comparisonPrevMonthEntries]
+    () => compareMonths(monthEntries, prevMonthEntries),
+    [monthEntries, prevMonthEntries]
   );
 
-  // Labels for comparison months - independent of main month filter
+  // Labels for comparison - always full month labels
   const comparisonLabels = useMemo(() => {
-    const currentRange = getMonthRange(comparisonOffset);
-    const prevRange = getMonthRange(comparisonOffset - 1);
+    const currentRange = getMonthRange(monthOffset);
+    const prevRange = getMonthRange(monthOffset - 1);
     return {
       current: currentRange.shortLabel,
       previous: prevRange.shortLabel,
     };
-  }, [comparisonOffset]);
-
-  // Navigation bounds for comparison - independent of main month filter
-  const { earliest: earliestMonth } = useMemo(() => getDataMonthBounds(entries), [entries]);
-  const canGoNextComparison = comparisonOffset < 0;
-  const canGoPrevComparison = (comparisonOffset - 1) >= earliestMonth;
+  }, [monthOffset]);
 
   // Build symptom heat map data
   const symptomHeatMapData = useMemo(
@@ -566,21 +551,9 @@ export default function MonthlyPage() {
             {/* Month Comparison */}
             <MonthlyComparison
               comparison={monthOverMonthComparison}
-              hasPreviousMonthData={comparisonPrevMonthEntries.length > 0}
+              hasPreviousMonthData={prevMonthEntries.length > 0}
               currentMonthLabel={comparisonLabels.current}
               previousMonthLabel={comparisonLabels.previous}
-              onMonthChange={(direction) => {
-                if (direction === "prev") {
-                  setComparisonOffset(prev => prev - 1);
-                } else if (direction === "next") {
-                  setComparisonOffset(prev => prev + 1);
-                } else {
-                  // "current" - reset to comparing current month vs previous
-                  setComparisonOffset(0);
-                }
-              }}
-              canGoPrev={canGoPrevComparison}
-              canGoNext={canGoNextComparison}
             />
           </div>
         )}

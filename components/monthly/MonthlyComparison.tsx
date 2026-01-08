@@ -17,12 +17,6 @@ interface MonthlyComparisonProps {
   currentMonthLabel?: string;
   /** Previous month label for display */
   previousMonthLabel?: string;
-  /** Callback to navigate to different comparison months */
-  onMonthChange?: (direction: "prev" | "next" | "current") => void;
-  /** Whether we can navigate to previous months */
-  canGoPrev?: boolean;
-  /** Whether we can navigate to next months */
-  canGoNext?: boolean;
 }
 
 export function MonthlyComparison({
@@ -30,87 +24,21 @@ export function MonthlyComparison({
   hasPreviousMonthData,
   currentMonthLabel = "This Month",
   previousMonthLabel = "Last Month",
-  onMonthChange,
-  canGoPrev = true,
-  canGoNext = false,
 }: MonthlyComparisonProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   // If no previous month data, show message but keep navigation
+    // If no previous month data, show message
   if (!hasPreviousMonthData) {
     return (
       <div className="bg-app-white rounded-xl border border-app-border overflow-hidden">
         <div className="px-4 py-3 bg-app-cream/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
-                <span>📈</span>
-                Month over Month
-              </h3>
-              <p className="text-xs text-app-gray mt-0.5">
-                No data for {previousMonthLabel} to compare with {currentMonthLabel}
-              </p>
-            </div>
-            
-            {/* Month Navigation - always show so user can navigate to months with data */}
-            {onMonthChange && (
-              <div className="flex items-center gap-1 ml-2 border-l border-app-border pl-2">
-                {/* Previous (Earlier) Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMonthChange("prev");
-                  }}
-                  disabled={!canGoPrev}
-                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
-                    canGoPrev 
-                      ? "text-app-charcoal hover:bg-app-cream" 
-                      : "text-app-gray/30 cursor-not-allowed"
-                  }`}
-                  title="Compare earlier months"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-
-                {/* Current/Reset Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMonthChange("current");
-                  }}
-                  disabled={!canGoNext}
-                  className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-                    canGoNext
-                      ? "text-app-teal hover:bg-app-teal/10"
-                      : "text-app-gray/40 cursor-not-allowed"
-                  }`}
-                  title="Return to current month comparison"
-                >
-                  Current
-                </button>
-
-                {/* Next (Later) Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMonthChange("next");
-                  }}
-                  disabled={!canGoNext}
-                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
-                    canGoNext 
-                      ? "text-app-charcoal hover:bg-app-cream" 
-                      : "text-app-gray/30 cursor-not-allowed"
-                  }`}
-                  title="Compare later months"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </div>
+          <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
+            <span>📈</span>
+            Month over Month
+          </h3>
+          <p className="text-xs text-app-gray mt-0.5">
+            No data for {previousMonthLabel} to compare with {currentMonthLabel}
+          </p>
         </div>
       </div>
     );
@@ -119,86 +47,21 @@ export function MonthlyComparison({
   return (
     <div className="bg-app-white rounded-xl border border-app-border overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-app-border bg-app-cream/50">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex-1 text-left flex items-center justify-between"
-          >
-            <div>
-              <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
-                <span>📈</span>
-                Month over Month
-              </h3>
-              <p className="text-xs text-app-gray mt-0.5">
-                Comparing {currentMonthLabel} to {previousMonthLabel} • 
-                Use the arrows to switch months
-              </p>
-            </div>
-            <span className="text-app-gray text-lg mr-2">{isCollapsed ? "+" : "−"}</span>
-          </button>
-          
-          {/* Month Navigation */}
-          {onMonthChange && (
-            <div className="flex items-center gap-1 ml-2 border-l border-app-border pl-2">
-              {/* Previous (Earlier) Button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMonthChange("prev");
-                }}
-                disabled={!canGoPrev}
-                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
-                  canGoPrev 
-                    ? "text-app-charcoal hover:bg-app-cream" 
-                    : "text-app-gray/30 cursor-not-allowed"
-                }`}
-                title="Compare earlier months"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-
-              {/* Current/Reset Button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMonthChange("current");
-                }}
-                disabled={!canGoNext} // If can't go next, we're already at current
-                className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  canGoNext
-                    ? "text-app-teal hover:bg-app-teal/10"
-                    : "text-app-gray/40 cursor-not-allowed"
-                }`}
-                title="Return to current month comparison"
-              >
-                Current
-              </button>
-
-              {/* Next (Later) Button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMonthChange("next");
-                }}
-                disabled={!canGoNext}
-                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
-                  canGoNext 
-                    ? "text-app-charcoal hover:bg-app-cream" 
-                    : "text-app-gray/30 cursor-not-allowed"
-                }`}
-                title="Compare later months"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-          )}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="w-full px-4 py-3 border-b border-app-border bg-app-cream/50 flex items-center justify-between text-left"
+      >
+        <div>
+          <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
+            <span>📈</span>
+            Month over Month
+          </h3>
+          <p className="text-xs text-app-gray mt-0.5">
+            Comparing {currentMonthLabel} to {previousMonthLabel}
+          </p>
         </div>
-      </div>
+        <span className="text-app-gray text-lg">{isCollapsed ? "+" : "−"}</span>
+      </button>
 
       {/* Content - 2x2 Grid */}
       {!isCollapsed && (

@@ -340,7 +340,7 @@ interface CyclePhaseCardProps {
 
 function CyclePhaseCard({ 
   currentPhase, 
-  daysLogged, 
+  // daysLogged, 
   topSymptoms,
   phaseRanges,
   hasDateFilter = false,

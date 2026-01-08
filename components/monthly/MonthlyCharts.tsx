@@ -802,14 +802,14 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
                     className={`w-8 h-10 rounded-md text-xs transition-all flex flex-col items-center justify-center shrink-0 border ${
                       hasData 
                         ? isMenstrual 
-                          ? "bg-app-red/20 text-app-red border-app-red" 
-                          : "bg-app-teal/10 text-app-teal border-app-teal"
+                          ? "bg-app-red/20 text-app-red hover:border-app-red" 
+                          : "bg-app-teal/10 text-app-teal hover:border-app-teal"
                         : "bg-app-cream/50 text-app-gray border-transparent"
                     } ${isSelected 
                         ? isMenstrual 
-                          ? "ring-2 ring-app-red shadow-md scale-105" 
-                          : "ring-2 ring-app-teal shadow-md scale-105"
-                        : "hover:scale-105"
+                          ? "ring-2 ring-app-red shadow-md scale-85" 
+                          : "ring-2 ring-app-teal shadow-md scale-85"
+                        : "hover:scale-85"
                     }`}
                   >
                     <span className="font-medium">{day.day}</span>
@@ -954,6 +954,8 @@ interface MedicineChartData {
   totalDoses: number;
   daysWithMedicine: number;
   timeDistribution: { period: string; count: number }[];
+  coOccurringSymptoms: { symptom: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
+
 }
 
 interface MedicineLogsChartProps {
@@ -1139,6 +1141,27 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Co-occurring Symptoms */}
+      {data.coOccurringSymptoms.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-app-border">
+          <p className="text-xs font-medium text-app-gray mb-2">Often taken with these symptoms</p>
+          <div className="flex flex-wrap gap-1">
+            {data.coOccurringSymptoms.slice(0, 5).map((symptom) => (
+              <span
+                key={symptom.symptom}
+                className={`px-2 py-1 text-xs rounded-full ${
+                  symptom.isPeriodRelated 
+                    ? "bg-app-red/10 text-app-red" 
+                    : "bg-app-teal/10 text-app-teal"
+                }`}
+              >
+                {symptom.symptom} ({symptom.count}){symptom.avgIntensity !== null ? ` • ${symptom.avgIntensity}/10` : ""}
+              </span>
+            ))}
           </div>
         </div>
       )}
@@ -1373,6 +1396,7 @@ function buildChartData(
   }> = {};
   const daysWithMedicine = new Set<string>();
   const timeDistribution: Record<string, number> = {};
+  const symptomCoOccurrence: Record<string, { count: number; totalIntensity: number; intensityCount: number; isPeriodRelated: boolean }> = {};
 
   for (const entry of entries) {
     for (const log of entry.medicineLog) {
@@ -1420,6 +1444,31 @@ function buildChartData(
         timeDistribution[period] = (timeDistribution[period] || 0) + 1;
       }
     }
+    
+    // Track co-occurring symptoms (only for entries with medicine)
+    if (entry.medicineLog.length > 0) {
+      for (const [symptom, intensity] of Object.entries(entry.symptomIntensities)) {
+        if (!symptomCoOccurrence[symptom]) {
+          symptomCoOccurrence[symptom] = { count: 0, totalIntensity: 0, intensityCount: 0, isPeriodRelated: false };
+        }
+        symptomCoOccurrence[symptom].count++;
+        if (intensity !== null) {
+          symptomCoOccurrence[symptom].totalIntensity += intensity;
+          symptomCoOccurrence[symptom].intensityCount++;
+        }
+      }
+      for (const [symptom, intensity] of Object.entries(entry.periodSymptomIntensities)) {
+        if (!symptomCoOccurrence[symptom]) {
+          symptomCoOccurrence[symptom] = { count: 0, totalIntensity: 0, intensityCount: 0, isPeriodRelated: true };
+        }
+        symptomCoOccurrence[symptom].count++;
+        symptomCoOccurrence[symptom].isPeriodRelated = true;
+        if (intensity !== null) {
+          symptomCoOccurrence[symptom].totalIntensity += intensity;
+          symptomCoOccurrence[symptom].intensityCount++;
+        }
+      }
+    }
   }
 
   const medicineData: MedicineChartData = {
@@ -1428,7 +1477,7 @@ function buildChartData(
         name,
         count: data.count,
         dosages: data.dosages,
-        daysUsed: Array.from(data.daysUsed).sort((a, b) => a - b),
+        daysUsed: Array.from(data.daysUsed).sort((a, b) => a - b) as number[],
         dosagesByDay: data.dosagesByDay,
       }))
       .sort((a, b) => b.count - a.count),
@@ -1440,6 +1489,16 @@ function buildChartData(
         const order = ["Morning", "Afternoon", "Evening", "Night"];
         return order.indexOf(a.period) - order.indexOf(b.period);
       }),
+    coOccurringSymptoms: Object.entries(symptomCoOccurrence)
+      .map(([symptom, data]) => ({
+        symptom,
+        count: data.count,
+        avgIntensity: data.intensityCount > 0 
+          ? Math.round((data.totalIntensity / data.intensityCount) * 10) / 10 
+          : null,
+        isPeriodRelated: data.isPeriodRelated,
+      }))
+      .sort((a, b) => b.count - a.count),
   };
 
   return { symptomFrequencyData, cycleData, medicineData };
