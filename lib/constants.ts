@@ -262,6 +262,18 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/entry",
   },
   {
+    label: "Weekly View",
+    href: "/dashboard/weekly",
+  },
+  {
+    label: "Monthly View",
+    href: "/dashboard/monthly",
+  },
+  {
+    label: "Cycle Insights",
+    href: "/dashboard/cycleinsights",
+  },
+  {
     label: "Settings Overview",
     href: "/dashboard/settings-overview",
   },
@@ -311,7 +323,6 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     type: "cup",
     label: "Cup",
     hasSizes: true,
-    // sizes: ["Small", "Medium", "Large"],
     allowCustomProducts: true,
     maxCustomProducts: 5,
   },
@@ -319,7 +330,6 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     type: "disc",
     label: "Disc",
     hasSizes: true,
-    // sizes: ["Small", "Medium", "Large"],
     allowCustomProducts: true,
     maxCustomProducts: 5,
   },

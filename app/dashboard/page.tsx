@@ -84,7 +84,7 @@ export default function DashboardPage() {
         <h2 className="text-sm font-semibold text-app-gray uppercase tracking-wide">
           Quick Navigation
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <DashboardCard
             href="/dashboard/weekly"
             icon="📅"
@@ -99,6 +99,13 @@ export default function DashboardPage() {
             description="Monthly patterns & insights"
             color="plumb"
             // comingSoon
+          />          
+          <DashboardCard
+            href="/dashboard/cycleinsights"
+            icon="🌸"
+            title="Cycle Insights"
+            description="Menstrual cycle patterns & insights"
+            color="red"
           />
           <DashboardCard
             href="/dashboard/history"
@@ -122,7 +129,7 @@ interface DashboardCardProps {
   icon: string;
   title: string;
   description: string;
-  color: "green" | "teal" | "plumb" | "taupe" | "charcoal";
+  color: "green" | "teal" | "plumb" | "taupe" | "charcoal" | "red";
   comingSoon?: boolean;
 }
 
@@ -133,6 +140,7 @@ function DashboardCard({ href, icon, title, description, color, comingSoon }: Da
     plumb: "hover:border-app-plumb hover:bg-app-plumb/5",
     taupe: "hover:border-app-taupe hover:bg-app-taupe/5",
     charcoal: "hover:border-app-charcoal hover:bg-app-charcoal/5",
+    red: "hover:border-app-red hover:bg-app-red/5",
   };
 
   const content = (

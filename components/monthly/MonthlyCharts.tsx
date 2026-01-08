@@ -6,7 +6,6 @@ import type {
   WeekWithinMonth, 
   BristolWeekData, 
   MonthlySymptomHeatMapData,
-  CyclePhaseSymptomData 
 } from "@/lib/monthlyUtils";
 import { CYCLE_PHASES } from "@/lib/constants";
 
@@ -26,8 +25,6 @@ interface MonthlyChartsProps {
   bristolTrendData: BristolWeekData[];
   /** Symptom heat map data for the month */
   symptomHeatMapData: MonthlySymptomHeatMapData[];
-  /** Cycle phase × symptom heat map data */
-  cyclePhaseHeatMapData: CyclePhaseSymptomData[];
   /** Which tracking sections are enabled */
   enabledSections: {
     symptoms: boolean;
@@ -53,13 +50,11 @@ export function MonthlyCharts({
   weeksInMonth,
   bristolTrendData,
   symptomHeatMapData,
-  // cyclePhaseHeatMapData,
   enabledSections,
   selectedDays = [],
-  onDayClick,
   customProducts = {},
   medicines = [],
-  monthRange,
+  onDayClick,
 }: MonthlyChartsProps) {
   const [activeChart, setActiveChart] = useState<"symptoms" | "bristol" | "cycle" | "medicine">("symptoms");
 

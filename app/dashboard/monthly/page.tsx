@@ -8,16 +8,11 @@ import { useSettings } from "@/stores/useSettings";
 
 import {
   getMonthRange,
-  getEntriesForMonth,
   calculateMonthlyStats,
   compareMonths,
   buildMonthlySymptomHeatMap,
   buildBristolWeeklyTrend,
-  buildCyclePhaseSymptomHeatMap,
-  detectCycleBoundaries,
-  compareCycles,
   getWeeksInMonth,
-  getDataMonthBounds
 } from "@/lib/monthlyUtils";
 
 import { useMonthlyFilters } from "@/hooks/useMonthlyFilters";
@@ -27,7 +22,6 @@ import {
   MonthlyStatsCards,
   MonthlyComparison,
   MonthlyCharts,
-  CycleInsights,
 } from "@/components/monthly";
 
 import { FilterBar } from "@/components/history";
@@ -65,7 +59,6 @@ export default function MonthlyPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [showStats, setShowStats] = useState(true);
   const [showEntries, setShowEntries] = useState(true);
-  const [showCycleInsights, setShowCycleInsights] = useState(true);
 
   // Initialize client-side
   useEffect(() => {
@@ -373,23 +366,6 @@ export default function MonthlyPage() {
     [monthEntries, filteredEntries, selectedDays.length, monthOffset, weekStartDay]
   );
 
-  // Build cycle phase × symptom heat map (uses all entries, not just this month)
-  const cyclePhaseHeatMapData = useMemo(
-    () => buildCyclePhaseSymptomHeatMap(entries),
-    [entries]
-  );
-
-  // Detect cycles and build comparison
-  const detectedCycles = useMemo(
-    () => detectCycleBoundaries(entries),
-    [entries]
-  );
-
-  const cycleComparison = useMemo(
-    () => compareCycles(entries, detectedCycles),
-    [entries, detectedCycles]
-  );
-
   // Get weeks for the current month (for Bristol trend X-axis)
   const weeksInMonth = useMemo(
     () => getWeeksInMonth(monthOffset, weekStartDay),
@@ -539,7 +515,6 @@ export default function MonthlyPage() {
               weeksInMonth={weeksInMonth}
               bristolTrendData={bristolTrendData}
               symptomHeatMapData={symptomHeatMapData}
-              cyclePhaseHeatMapData={cyclePhaseHeatMapData}
               enabledSections={enabledSections}
               selectedDays={selectedDays}
               onDayClick={toggleDay}
@@ -558,38 +533,6 @@ export default function MonthlyPage() {
           </div>
         )}
       </div>
-
-      {/* Cycle Insights Section - Only show if period tracking enabled */}
-      {periodTrackingEnabled && (
-        <div className="card">
-          <button
-            onClick={() => setShowCycleInsights(!showCycleInsights)}
-            className="w-full flex items-center justify-between"
-          >
-            <div>
-            <h2 className="text-lg font-semibold text-app-charcoal flex items-center gap-2">
-              <span>🌸</span>
-              Cycle Insights
-            </h2>
-            <p className="text-xs text-app-gray mt-0.5">
-              Cycle-to-cycle comparison and patterns
-            </p>
-          </div>
-            <span className="text-app-gray text-xl">{showCycleInsights ? "−" : "+"}</span>
-          </button>
-
-          {showCycleInsights && (
-            <div className="mt-4">
-              <CycleInsights
-                detectedCycles={detectedCycles}
-                cycleComparison={cycleComparison}
-                cyclePhaseHeatMapData={cyclePhaseHeatMapData}
-                entries={entries}
-              />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Entry List Section - Shown by default */}
       <div className="card">
