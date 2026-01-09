@@ -844,7 +844,7 @@ function CycleDayBreakdown({ dayBreakdown, customProducts = {} }: CycleDayBreakd
               {selectedDayData.periodMedicines.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {selectedDayData.periodMedicines.map((m, idx) => (
-                    <span key={idx} className="px-2 py-1 text-xs bg-app-taupe/20 text-app-charcoal rounded">
+                    <span key={idx} className="px-2 py-1 text-xs bg-app-green/10 text-app-charcoal rounded">
                       {m.name}{m.dosage ? ` (${m.dosage})` : ""}
                     </span>
                   ))}
@@ -1073,16 +1073,16 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
 
       {/* Summary Stats Row */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="p-3 bg-app-taupe/10 rounded-lg text-center">
-          <p className="text-xl font-bold text-app-taupe">{data.totalDoses}</p>
+        <div className="p-3 bg-app-green/10 rounded-lg text-center">
+          <p className="text-xl font-bold text-app-green/50">{data.totalDoses}</p>
           <p className="text-xs text-app-gray">Total doses</p>
         </div>
-        <div className="p-3 bg-app-taupe/10 rounded-lg text-center">
-          <p className="text-xl font-bold text-app-taupe">{data.medicines.length}</p>
+        <div className="p-3 bg-app-green/10 rounded-lg text-center">
+          <p className="text-xl font-bold text-app-green/50">{data.medicines.length}</p>
           <p className="text-xs text-app-gray">Medicines</p>
         </div>
-        <div className="p-3 bg-app-taupe/10 rounded-lg text-center">
-          <p className="text-xl font-bold text-app-taupe">{data.daysWithMedicine}/7</p>
+        <div className="p-3 bg-app-green/10 rounded-lg text-center">
+          <p className="text-xl font-bold text-app-green/50">{data.daysWithMedicine}/7</p>
           <p className="text-xs text-app-gray">Days taken</p>
         </div>
       </div>
@@ -1102,7 +1102,7 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
                 <div key={period} className="flex-1 text-center">
                   <div className="h-16 bg-app-border/50 rounded-lg relative overflow-hidden mb-1">
                     <div
-                      className="absolute bottom-0 left-0 right-0 bg-app-taupe/60 transition-all"
+                      className="absolute bottom-0 left-0 right-0 bg-app-green/30 transition-all"
                       style={{ height: `${percentage}%` }}
                     />
                     {count > 0 && (
@@ -1160,7 +1160,7 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
                       {medicine.daysUsed.map((day) => (
                         <span
                           key={day}
-                          className="px-2 py-0.5 text-xs bg-app-taupe/20 text-app-charcoal rounded"
+                          className="px-2 py-0.5 text-xs bg-app-green/10 text-app-charcoal rounded"
                         >
                           {day}
                         </span>
@@ -1176,7 +1176,7 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
                         {[...new Set(medicine.dosages)].map((dosage, idx) => (
                           <span
                             key={idx}
-                            className="px-2 py-0.5 text-xs bg-app-taupe/10 text-app-charcoal rounded"
+                            className="px-2 py-0.5 text-xs bg-app-green/10 text-app-charcoal rounded"
                           >
                             {dosage}
                           </span>

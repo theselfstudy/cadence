@@ -581,7 +581,7 @@ export function WeeklyComparison({
             <ComparisonCard
               icon="💊"
               title="Medicine"
-              accentColor="taupe"
+              accentColor="lightgreen"
               columnLabels={{ thisWeek: cardThisWeekLabel, lastWeek: cardLastWeekLabel }}
               thisWeek={
                 <div className="space-y-1">
@@ -777,7 +777,7 @@ export function WeeklyComparison({
 interface ComparisonCardProps {
   icon: string;
   title: string;
-  accentColor: "teal" | "plumb" | "red" | "taupe";
+  accentColor: "teal" | "plumb" | "red" | "lightgreen";
   thisWeek: React.ReactNode;
   lastWeek: React.ReactNode;
   change?: React.ReactNode;
@@ -804,14 +804,14 @@ function ComparisonCard({
     teal: "border-l-app-teal",
     plumb: "border-l-app-plumb",
     red: "border-l-app-red",
-    taupe: "border-l-app-taupe",
+    lightgreen: "border-l-app-green/40",
   };
 
   const borderClasses: Record<string, string> = {
     teal: "border-app-teal",
     plumb: "border-app-plumb",
     red: "border-app-red",
-    taupe: "border-app-taupe",
+    lightgreen: "border-app-green/40",
   };
 
   return (

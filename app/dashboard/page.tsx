@@ -106,6 +106,7 @@ export default function DashboardPage() {
             title="Cycle Insights"
             description="Menstrual cycle patterns & insights"
             color="red"
+            // comingSoon
           />
           <DashboardCard
             href="/dashboard/history"

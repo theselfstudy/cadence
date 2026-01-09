@@ -201,7 +201,7 @@ export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardP
                 {entry.medicineLog.map((log, idx) => (
                   <span
                     key={idx}
-                    className="text-xs bg-app-taupe/20 text-app-charcoal px-2 py-1 rounded"
+                    className="text-xs bg-app-green/10 text-app-charcoal px-2 py-1 rounded"
                   >
                     {log.medicineName}{log.dosage ? ` (${log.dosage})` : ""}
                   </span>

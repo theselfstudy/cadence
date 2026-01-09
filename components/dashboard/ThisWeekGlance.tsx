@@ -389,7 +389,7 @@ export function ThisWeekGlance() {
                   ? `${stats.medicineStats.mostUsedMedicine.count}× this week`
                   : "No medicines logged"
                 }
-                accentColor="taupe"
+                accentColor="lightgreen"
                 valueSize="small"
                 expandedContent={
                   stats.medicineStats.hasData && stats.medicineStats.mostUsedMedicine ? (
@@ -515,7 +515,7 @@ interface StatCardProps {
   label: string;
   value: string | number;
   subtext?: string;
-  accentColor: "green" | "teal" | "plumb" | "charcoal" | "taupe" | "red";
+  accentColor: "green" | "teal" | "plumb" | "charcoal" | "taupe" | "red" | "lightgreen";
   valueSize?: "normal" | "small";
   expandedContent?: React.ReactNode;
   children?: React.ReactNode;
@@ -542,6 +542,7 @@ function StatCard({
     charcoal: "bg-app-charcoal",
     taupe: "bg-app-taupe",
     red: "bg-app-red",
+    lightgreen: "bg-app-green/50",
   };
 
   const borderClasses: Record<string, string> = {
@@ -551,6 +552,7 @@ function StatCard({
     charcoal: "border-app-charcoal",
     taupe: "border-app-taupe",
     red: "border-app-red",
+    lightgreen: "border-app-green/70",
   };
 
   return (

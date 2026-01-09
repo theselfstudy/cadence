@@ -916,7 +916,7 @@ function CycleLogsChart({ data, customProducts = {} }: CycleLogsChartProps) {
                     {[...new Map(selectedDayData.periodMedicines.map(m => [m.name, m])).values()].map((m, i) => (
                       <span 
                         key={i} 
-                        className="px-2 py-0.5 text-xs bg-app-taupe/20 text-app-charcoal rounded"
+                        className="px-2 py-0.5 text-xs bg-app-green/10 text-app-charcoal rounded"
                       >
                         {m.name}{m.dosage ? ` (${m.dosage})` : ""}
                       </span>
@@ -987,16 +987,16 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
 
       {/* Summary Stats Row */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="p-3 bg-app-taupe/10 rounded-lg text-center">
-          <p className="text-xl font-bold text-app-taupe">{data.totalDoses}</p>
+        <div className="p-3 bg-app-green/10 rounded-lg text-center">
+          <p className="text-xl font-bold text-app-green/50">{data.totalDoses}</p>
           <p className="text-xs text-app-gray">Total doses</p>
         </div>
-        <div className="p-3 bg-app-taupe/10 rounded-lg text-center">
-          <p className="text-xl font-bold text-app-taupe">{data.medicines.length}</p>
+        <div className="p-3 bg-app-green/10 rounded-lg text-center">
+          <p className="text-xl font-bold text-app-green/50">{data.medicines.length}</p>
           <p className="text-xs text-app-gray">Medicines</p>
         </div>
-        <div className="p-3 bg-app-taupe/10 rounded-lg text-center">
-          <p className="text-xl font-bold text-app-taupe">{data.daysWithMedicine}</p>
+        <div className="p-3 bg-app-green/10 rounded-lg text-center">
+          <p className="text-xl font-bold text-app-green/50">{data.daysWithMedicine}</p>
           <p className="text-xs text-app-gray">Days taken</p>
         </div>
       </div>
@@ -1006,7 +1006,7 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
         <div className="overflow-x-auto">
           <div className="min-w-max">
             {/* Header row - Days */}
-            <div className="flex bg-app-cream border-b border-app-border">
+            <div className="flex bg-app-green/10 border-b border-app-border">
               <div className="w-32 shrink-0 px-3 py-2 text-xs font-medium text-app-charcoal border-r border-app-border">
                 Medicine
               </div>
@@ -1123,7 +1123,7 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
                 <div key={label} className="flex-1 text-center">
                   <div className="h-12 bg-app-border/30 rounded-lg relative overflow-hidden mb-1">
                     <div
-                      className="absolute bottom-0 left-0 right-0 bg-app-taupe/60 transition-all"
+                      className="absolute bottom-0 left-0 right-0 bg-app-green/30 transition-all"
                       style={{ height: `${percentage}%` }}
                     />
                     {count > 0 && (

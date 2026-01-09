@@ -613,7 +613,7 @@ export function MonthlyComparison({
             <ComparisonCard
               icon="💊"
               title="Medicine"
-              accentColor="taupe"
+              accentColor="lightgreen"
               thisMonthLabel={currentMonthLabel}
               lastMonthLabel={previousMonthLabel}
               thisMonth={
@@ -706,7 +706,7 @@ export function MonthlyComparison({
                                   <div key={label} className="flex-1 text-center">
                                     <div className="h-8 bg-app-border/30 rounded relative overflow-hidden mb-1">
                                       <div
-                                        className="absolute bottom-0 left-0 right-0 bg-app-taupe/60 transition-all"
+                                        className="absolute bottom-0 left-0 right-0 bg-app-green/30 transition-all"
                                         style={{ height: `${percentage}%` }}
                                       />
                                       {count > 0 && (
@@ -810,7 +810,7 @@ export function MonthlyComparison({
 interface ComparisonCardProps {
   icon: string;
   title: string;
-  accentColor: "teal" | "plumb" | "red" | "taupe";
+  accentColor: "teal" | "plumb" | "red" | "lightgreen";
   thisMonth: React.ReactNode;
   lastMonth: React.ReactNode;
   change: React.ReactNode;
@@ -839,14 +839,14 @@ function ComparisonCard({
     teal: "border-l-app-teal",
     plumb: "border-l-app-plumb",
     red: "border-l-app-red",
-    taupe: "border-l-app-taupe",
+    lightgreen: "border-l-app-green/40",
   };
 
   const borderClasses: Record<string, string> = {
     teal: "border-app-teal",
     plumb: "border-app-plumb",
     red: "border-app-red",
-    taupe: "border-app-taupe",
+    lightgreen: "border-app-green/40",
   };
 
   return (

@@ -294,7 +294,7 @@ export default function SettingsOverviewPage() {
             <CountStatCard
               label="Medicines"
               count={totalMedicines}
-              color="taupe"
+              color="lightgreen"
             />
           )}
         </div>
@@ -341,7 +341,7 @@ export default function SettingsOverviewPage() {
               <FeaturePill 
                 label={`Medicine (${totalMedicines})`}
                 isEnabled={true} 
-                color="taupe"
+                color="lightgreen"
               />
             )}
           </div>
@@ -369,7 +369,7 @@ export default function SettingsOverviewPage() {
             )}
             {isMedicineTrackingEnabled && (
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-app-taupe"></span>
+                <span className="w-3 h-3 rounded-full bg-app-green/30"></span>
                 <span className="text-sm text-app-charcoal">Medicine</span>
               </div>
             )}
@@ -441,7 +441,7 @@ export default function SettingsOverviewPage() {
               {safeMedicineTracking.medicines.map((medicine) => (
                 <span
                   key={medicine.id}
-                  className="px-3 py-1.5 rounded-full text-sm font-medium text-white bg-app-taupe"
+                  className="px-3 py-1.5 rounded-full text-sm font-medium text-charcoal bg-app-green/30"
                 >
                   {medicine.name}
                   {medicine.dosages && (
@@ -498,7 +498,7 @@ export default function SettingsOverviewPage() {
 interface CountStatCardProps {
   label: string;
   count: number;
-  color: "green" | "teal" | "red" | "taupe";
+  color: "green" | "teal" | "red" | "taupe" | "lightgreen";
 }
 
 function CountStatCard({ label, count, color }: CountStatCardProps) {
@@ -507,6 +507,7 @@ function CountStatCard({ label, count, color }: CountStatCardProps) {
     teal: "text-app-teal",
     red: "text-app-red",
     taupe: "text-app-taupe",
+    lightgreen: "text-app-green/50",
   };
 
   return (
@@ -534,18 +535,19 @@ function ColorSwatch({ color, label }: ColorSwatchProps) {
 interface FeaturePillProps {
   label: string;
   isEnabled: boolean;
-  color?: "green" | "teal" | "red" | "plumb" | "taupe"; 
+  color?: "green" | "teal" | "red" | "plumb" | "taupe" | "lightgreen"; 
 }
 
 function FeaturePill({ label, isEnabled, color = "green" }: FeaturePillProps) {
   if (!isEnabled) return null;
 
   const colorClasses = {
-    green: "bg-app-green/10 text-app-green border-app-green/20",
+    green: "bg-app-green/20 text-app-green border-app-green/30",
     teal: "bg-app-teal/10 text-app-teal border-app-teal/20",
     red: "bg-app-red/10 text-app-red border-app-red/20",
     plumb: "bg-app-plumb/10 text-app-plumb border-app-plumb/20",
     taupe: "bg-app-taupe/10 text-app-taupe border-app-taupe/20",
+    lightgreen: "bg-app-green/10 text-app-green/70 border-app-green/20",
   };
   
   return (

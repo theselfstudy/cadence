@@ -3,7 +3,7 @@
 import { SafeLink } from "@/components/ui/SafeLink";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { APP_CONFIG, NAV_ITEMS, SETTINGS_NAV_ITEM } from "@/lib/constants";
+import { APP_CONFIG } from "@/lib/constants";
 
 /**
  * Header component with hamburger menu and navigation
@@ -102,6 +102,38 @@ interface SidebarProps {
 function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
 
+  // Navigation groups
+  const primaryItems = [
+    { href: "/entry", label: "New Entry" },
+    { href: "/dashboard", label: "Dashboard" },
+  ];
+
+  const viewItems = [
+    { href: "/dashboard/weekly", label: "Weekly View" },
+    { href: "/dashboard/monthly", label: "Monthly View" },
+    { href: "/dashboard/cycleinsights", label: "Cycle Insights" },
+  ];
+
+  const settingsItems = [
+    { href: "/dashboard/settings-overview", label: "Settings Overview" },
+    { href: "/settings", label: "Settings" },
+  ];
+
+  const NavLink = ({ href, label }: { href: string; label: string }) => (
+    <SafeLink
+      href={href}
+      onClick={onClose}
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
+        pathname === href
+          ? "bg-app-green text-white"
+          : "text-app-charcoal hover:bg-app-cream"
+      }`}
+    >
+      <NavIcon label={label} />
+      {label}
+    </SafeLink>
+  );
+
   return (
     <>
       {/* Backdrop */}
@@ -150,23 +182,28 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* Main Navigation Links */}
+        {/* Main Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto">
+          {/* Primary: New Entry + Dashboard */}
           <ul className="space-y-1">
-            {NAV_ITEMS.map((item) => (
+            {primaryItems.map((item) => (
               <li key={item.href}>
-                <SafeLink
-                  href={item.href}
-                  onClick={onClose}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-                    pathname === item.href
-                      ? "bg-app-green text-white"
-                      : "text-app-charcoal hover:bg-app-cream"
-                  }`}
-                >
-                  <NavIcon label={item.label} />
-                  {item.label}
-                </SafeLink>
+                <NavLink href={item.href} label={item.label} />
+              </li>
+            ))}
+          </ul>
+
+          {/* Divider */}
+          <div className="my-3 border-t border-app-border" />
+
+          {/* Views: Weekly, Monthly, Cycle Insights */}
+          <p className="px-4 py-2 text-xs font-medium text-app-gray uppercase tracking-wider">
+            Views
+          </p>
+          <ul className="space-y-1">
+            {viewItems.map((item) => (
+              <li key={item.href}>
+                <NavLink href={item.href} label={item.label} />
               </li>
             ))}
           </ul>
@@ -174,18 +211,13 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Settings at Bottom */}
         <div className="p-4 border-t border-app-border flex-shrink-0">
-          <SafeLink
-            href={SETTINGS_NAV_ITEM.href}
-            onClick={onClose}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-              pathname === SETTINGS_NAV_ITEM.href
-                ? "bg-app-green text-white"
-                : "text-app-charcoal hover:bg-app-cream"
-            }`}
-          >
-            <NavIcon label={SETTINGS_NAV_ITEM.label} />
-            {SETTINGS_NAV_ITEM.label}
-          </SafeLink>
+          <ul className="space-y-1">
+            {settingsItems.map((item) => (
+              <li key={item.href}>
+                <NavLink href={item.href} label={item.label} />
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </>
