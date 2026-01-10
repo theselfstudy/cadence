@@ -127,7 +127,8 @@ export const useSettings = create<SettingsStore>()(
 
       loadSettingsFromSheet: async (
         spreadsheetId: string,
-        accessToken: string
+        accessToken: string,
+        sheetName?: string 
       ): Promise<boolean> => {
         set({ isSyncing: true });
 
@@ -153,6 +154,7 @@ export const useSettings = create<SettingsStore>()(
           // Update the snapshot to reflect the corrected flags
           const correctedSnapshot = JSON.stringify({
             timeFormat: recoveredSettings.timeFormat,
+            weekStartDay: recoveredSettings.weekStartDay, 
             symptoms: recoveredSettings.symptoms,
             periodTracking: recoveredSettings.periodTracking,
             stoolTracking: recoveredSettings.stoolTracking,
@@ -166,7 +168,7 @@ export const useSettings = create<SettingsStore>()(
             isGoogleSheetConnected: true,
             googleSheet: {
               url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
-              name: "Restored Sheet",
+              name: sheetName || "Restored Sheet",
               addedAt: new Date().toISOString(),
             },
             isSyncing: false,

@@ -47,6 +47,59 @@ export interface SymptomTiming {
 }
 
 // ============================================
+// PHASE 3 TYPES
+// ============================================
+
+export interface EmergingPattern {
+  id: string;
+  type: 'occasional' | 'new' | 'increasing' | 'decreasing';
+  name: string;
+  itemType: 'symptom' | 'medicine' | 'stool';
+  cyclesPresent: number;
+  totalCycles: number;
+  firstAppeared?: { cycleIndex: number; monthLabel: string };
+  trend?: { direction: 'up' | 'down'; startValue: number; endValue: number };
+  description: string;
+  isPeriodRelated?: boolean;
+  /** Additional metadata for expanded view */
+  metadata?: {
+    firstLoggedDate: string;
+    lastLoggedDate: string;
+    cyclesAppearedIn: { cycleIndex: number; monthLabel: string }[];
+    avgIntensity?: number;
+  };
+}
+
+export interface CoOccurrence {
+  id: string;
+  item1: { type: 'symptom' | 'medicine'; name: string };
+  item2: { type: 'symptom' | 'medicine'; name: string };
+  coOccurrenceCount: number;
+  item1TotalCount: number;
+  item2TotalCount: number;
+  coOccurrenceRate: number;
+  description: string;
+  /** Additional metadata for expanded view */
+  metadata?: {
+    firstCoOccurrenceDate: string;
+    lastCoOccurrenceDate: string;
+    coOccurrenceDates: string[];
+  };
+}
+export interface NotableCycle {
+  cycleIndex: number;
+  monthLabel: string;
+  startDate: string;
+  reasons: NotableReason[];
+}
+
+export interface NotableReason {
+  type: 'length_long' | 'length_short' | 'missing_symptom' | 'new_symptom' | 'intensity_change';
+  description: string;
+  detail?: string;
+}
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
@@ -136,6 +189,54 @@ function getToday(): string {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Convert number to ordinal string (1 → "1st", 2 → "2nd", etc.)
+ */
+export function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/**
+ * Get month label from date string (e.g., "January 2024")
+ */
+function getMonthLabel(dateStr: string): string {
+  const [year, month] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, 1);
+  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+/**
+ * Simple linear regression to detect trend direction
+ * Returns null if not enough data points or no clear trend
+ */
+export function detectTrend(
+  values: number[]
+): { slope: number; direction: 'up' | 'down' } | null {
+  if (values.length < 4) return null;
+
+  const n = values.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+
+  for (let i = 0; i < n; i++) {
+    sumX += i;
+    sumY += values[i];
+    sumXY += i * values[i];
+    sumX2 += i * i;
+  }
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  
+  // Only report trend if slope is meaningful (at least 0.3 per cycle)
+  if (Math.abs(slope) < 0.3) return null;
+
+  return {
+    slope,
+    direction: slope > 0 ? 'up' : 'down',
+  };
 }
 
 /**
@@ -232,6 +333,30 @@ export function calculateThisCycleData(
   const today = getToday();
   const cycleDay = daysBetween(currentCycle.startDate, today) + 1;
 
+  // ============================================
+  // STALENESS CHECK
+  // If cycle has been "ongoing" for more than 60 days,
+  // treat as no active cycle. A typical cycle is 21-45 days,
+  // so 60 days is a generous buffer for irregular cycles.
+  // ============================================
+  const MAX_REASONABLE_CYCLE_LENGTH = 60;
+  
+  if (cycleDay > MAX_REASONABLE_CYCLE_LENGTH) {
+    // Cycle is stale - user needs to log a new period to restart tracking
+    return null;
+  }
+
+  // ============================================
+  // FUTURE DATE CHECK
+  // If cycle start date is in the future (negative cycle day),
+  // don't show current cycle data
+  // ============================================
+  if (cycleDay < 1) {
+    return null;
+  }
+
+  // ... rest of the function stays exactly the same ...
+  
   // Get entries for this cycle
   const cycleEntries = entries.filter((e) => e.date >= currentCycle.startDate);
   const deduplicatedEntries = deduplicateEntriesByDate(cycleEntries);
@@ -832,4 +957,633 @@ function buildPatternDescription(
   }
 
   return `${word} appear across your cycles`;
+}
+
+// ============================================
+// PHASE 3: EMERGING PATTERNS
+// ============================================
+
+interface ItemCycleTracking {
+  cyclesPresent: Set<number>;
+  firstCycleIndex: number;
+  intensityByCycle: Map<number, number[]>;
+  isPeriodRelated: boolean;
+}
+
+/**
+ * Calculate emerging patterns: occasional (30-59%), new appearances, and trends
+ */
+export function calculateEmergingPatterns(
+  entries: StoredEntry[],
+  cycles: DetectedCycle[]
+): EmergingPattern[] {
+  const completeCycles = cycles.filter((c) => !c.isOngoing && c.length !== null);
+  
+  if (completeCycles.length < 2) return [];
+
+  const patterns: EmergingPattern[] = [];
+  const totalCycles = completeCycles.length;
+
+  // Track items across cycles
+  const symptomTracking = new Map<string, ItemCycleTracking>();
+  const medicineTracking = new Map<string, ItemCycleTracking>();
+  const stoolTracking = new Map<number, ItemCycleTracking>();
+
+  // Process each cycle
+  completeCycles.forEach((cycle, cycleIndex) => {
+    const cycleEntries = entries.filter(
+      (e) => e.date >= cycle.startDate && 
+             (cycle.endDate === null || e.date <= cycle.endDate)
+    );
+    
+    const deduped = deduplicateEntriesByDate(cycleEntries);
+
+    deduped.forEach((entry) => {
+      // Track general symptoms
+      for (const [symptom, intensity] of Object.entries(entry.symptomIntensities || {})) {
+        if (!symptomTracking.has(symptom)) {
+          symptomTracking.set(symptom, {
+            cyclesPresent: new Set(),
+            firstCycleIndex: cycleIndex,
+            intensityByCycle: new Map(),
+            isPeriodRelated: false,
+          });
+        }
+        const data = symptomTracking.get(symptom)!;
+        data.cyclesPresent.add(cycleIndex);
+        
+        if (intensity !== null) {
+          if (!data.intensityByCycle.has(cycleIndex)) {
+            data.intensityByCycle.set(cycleIndex, []);
+          }
+          data.intensityByCycle.get(cycleIndex)!.push(intensity);
+        }
+      }
+
+      // Track period symptoms
+      for (const [symptom, intensity] of Object.entries(entry.periodSymptomIntensities || {})) {
+        if (!symptomTracking.has(symptom)) {
+          symptomTracking.set(symptom, {
+            cyclesPresent: new Set(),
+            firstCycleIndex: cycleIndex,
+            intensityByCycle: new Map(),
+            isPeriodRelated: true,
+          });
+        }
+        const data = symptomTracking.get(symptom)!;
+        data.cyclesPresent.add(cycleIndex);
+        data.isPeriodRelated = true;
+        
+        if (intensity !== null) {
+          if (!data.intensityByCycle.has(cycleIndex)) {
+            data.intensityByCycle.set(cycleIndex, []);
+          }
+          data.intensityByCycle.get(cycleIndex)!.push(intensity);
+        }
+      }
+
+      // Track medicines
+      for (const med of entry.medicineLog || []) {
+        const name = med.medicineName;
+        if (!medicineTracking.has(name)) {
+          medicineTracking.set(name, {
+            cyclesPresent: new Set(),
+            firstCycleIndex: cycleIndex,
+            intensityByCycle: new Map(),
+            isPeriodRelated: false,
+          });
+        }
+        medicineTracking.get(name)!.cyclesPresent.add(cycleIndex);
+      }
+
+      // Track stool types
+      if (entry.stoolType) {
+        if (!stoolTracking.has(entry.stoolType)) {
+          stoolTracking.set(entry.stoolType, {
+            cyclesPresent: new Set(),
+            firstCycleIndex: cycleIndex,
+            intensityByCycle: new Map(),
+            isPeriodRelated: false,
+          });
+        }
+        stoolTracking.get(entry.stoolType)!.cyclesPresent.add(cycleIndex);
+      }
+    });
+  });
+
+  const bristolLabels: Record<number, string> = {
+    1: "Type 1 (hard lumps)",
+    2: "Type 2 (lumpy sausage)",
+    3: "Type 3 (cracked sausage)",
+    4: "Type 4 (smooth snake)",
+    5: "Type 5 (soft blobs)",
+    6: "Type 6 (mushy)",
+    7: "Type 7 (watery)",
+  };
+
+  // ==========================================
+  // PROCESS SYMPTOMS
+  // ==========================================
+  symptomTracking.forEach((data, symptom) => {
+    const cyclesPresent = data.cyclesPresent.size;
+    const consistency = cyclesPresent / totalCycles;
+
+    // Build common metadata
+    const buildSymptomMetadata = () => {
+      const cyclesAppearedIn = Array.from(data.cyclesPresent)
+        .sort((a, b) => a - b)
+        .map((idx) => ({
+          cycleIndex: idx + 1,
+          monthLabel: getMonthLabel(completeCycles[idx].startDate),
+        }));
+
+      let avgIntensity: number | undefined;
+      if (data.intensityByCycle.size > 0) {
+        let totalIntensity = 0;
+        let totalCount = 0;
+        data.intensityByCycle.forEach((values) => {
+          values.forEach((v) => {
+            totalIntensity += v;
+            totalCount++;
+          });
+        });
+        if (totalCount > 0) {
+          avgIntensity = Math.round((totalIntensity / totalCount) * 10) / 10;
+        }
+      }
+
+      const firstCycleIdx = Math.min(...Array.from(data.cyclesPresent));
+      const lastCycleIdx = Math.max(...Array.from(data.cyclesPresent));
+
+      return {
+        firstLoggedDate: completeCycles[firstCycleIdx].startDate,
+        lastLoggedDate: completeCycles[lastCycleIdx].endDate || completeCycles[lastCycleIdx].startDate,
+        cyclesAppearedIn,
+        avgIntensity,
+      };
+    };
+
+    // Occasional patterns (30-59%)
+    if (consistency >= 0.3 && consistency < 0.6) {
+      patterns.push({
+        id: `occasional-symptom-${symptom}`,
+        type: 'occasional',
+        name: symptom,
+        itemType: 'symptom',
+        cyclesPresent,
+        totalCycles,
+        description: `has appeared in ${cyclesPresent} of ${totalCycles} cycles`,
+        isPeriodRelated: data.isPeriodRelated,
+        metadata: buildSymptomMetadata(),
+      });
+    }
+
+    // Recently appeared (first in last 2 cycles)
+    if (data.firstCycleIndex >= totalCycles - 2 && cyclesPresent <= 2) {
+      const monthLabel = getMonthLabel(completeCycles[data.firstCycleIndex].startDate);
+      patterns.push({
+        id: `new-symptom-${symptom}`,
+        type: 'new',
+        name: symptom,
+        itemType: 'symptom',
+        cyclesPresent,
+        totalCycles,
+        firstAppeared: { cycleIndex: data.firstCycleIndex + 1, monthLabel },
+        description: `first logged in your ${ordinal(data.firstCycleIndex + 1)} cycle (${monthLabel})`,
+        isPeriodRelated: data.isPeriodRelated,
+        metadata: buildSymptomMetadata(),
+      });
+    }
+
+    // Trends (need 4+ cycles with intensity data)
+    if (data.intensityByCycle.size >= 4) {
+      const cycleIndices = Array.from(data.intensityByCycle.keys()).sort((a, b) => a - b);
+      const avgIntensities = cycleIndices.map((idx) => {
+        const values = data.intensityByCycle.get(idx)!;
+        return values.reduce((a, b) => a + b, 0) / values.length;
+      });
+
+      const trend = detectTrend(avgIntensities);
+      if (trend) {
+        const startValue = Math.round(avgIntensities[0] * 10) / 10;
+        const endValue = Math.round(avgIntensities[avgIntensities.length - 1] * 10) / 10;
+        
+        const cyclesAppearedIn = cycleIndices.map((idx) => ({
+          cycleIndex: idx + 1,
+          monthLabel: getMonthLabel(completeCycles[idx].startDate),
+        }));
+
+        const overallAvg = Math.round(
+          (avgIntensities.reduce((a, b) => a + b, 0) / avgIntensities.length) * 10
+        ) / 10;
+
+        const firstCycleIdx = cycleIndices[0];
+        const lastCycleIdx = cycleIndices[cycleIndices.length - 1];
+
+        patterns.push({
+          id: `trend-symptom-${symptom}`,
+          type: trend.direction === 'up' ? 'increasing' : 'decreasing',
+          name: symptom,
+          itemType: 'symptom',
+          cyclesPresent,
+          totalCycles,
+          trend: { direction: trend.direction, startValue, endValue },
+          description: `intensity has been ${trend.direction === 'up' ? 'increasing' : 'decreasing'} over your last ${cycleIndices.length} cycles`,
+          isPeriodRelated: data.isPeriodRelated,
+          metadata: {
+            firstLoggedDate: completeCycles[firstCycleIdx].startDate,
+            lastLoggedDate: completeCycles[lastCycleIdx].endDate || completeCycles[lastCycleIdx].startDate,
+            cyclesAppearedIn,
+            avgIntensity: overallAvg,
+          },
+        });
+      }
+    }
+  });
+
+  // ==========================================
+  // PROCESS MEDICINES
+  // ==========================================
+  medicineTracking.forEach((data, medicine) => {
+    const cyclesPresent = data.cyclesPresent.size;
+    const consistency = cyclesPresent / totalCycles;
+
+    // Build common metadata for medicines
+    const buildMedicineMetadata = () => {
+      const cyclesAppearedIn = Array.from(data.cyclesPresent)
+        .sort((a, b) => a - b)
+        .map((idx) => ({
+          cycleIndex: idx + 1,
+          monthLabel: getMonthLabel(completeCycles[idx].startDate),
+        }));
+
+      const firstCycleIdx = Math.min(...Array.from(data.cyclesPresent));
+      const lastCycleIdx = Math.max(...Array.from(data.cyclesPresent));
+
+      return {
+        firstLoggedDate: completeCycles[firstCycleIdx].startDate,
+        lastLoggedDate: completeCycles[lastCycleIdx].endDate || completeCycles[lastCycleIdx].startDate,
+        cyclesAppearedIn,
+      };
+    };
+
+    // Occasional patterns (30-59%)
+    if (consistency >= 0.3 && consistency < 0.6) {
+      patterns.push({
+        id: `occasional-medicine-${medicine}`,
+        type: 'occasional',
+        name: medicine,
+        itemType: 'medicine',
+        cyclesPresent,
+        totalCycles,
+        description: `has appeared in ${cyclesPresent} of ${totalCycles} cycles`,
+        metadata: buildMedicineMetadata(),
+      });
+    }
+
+    // Recently appeared (first in last 2 cycles)
+    if (data.firstCycleIndex >= totalCycles - 2 && cyclesPresent <= 2) {
+      const monthLabel = getMonthLabel(completeCycles[data.firstCycleIndex].startDate);
+      patterns.push({
+        id: `new-medicine-${medicine}`,
+        type: 'new',
+        name: medicine,
+        itemType: 'medicine',
+        cyclesPresent,
+        totalCycles,
+        firstAppeared: { cycleIndex: data.firstCycleIndex + 1, monthLabel },
+        description: `first logged in your ${ordinal(data.firstCycleIndex + 1)} cycle (${monthLabel})`,
+        metadata: buildMedicineMetadata(),
+      });
+    }
+  });
+
+  // ==========================================
+  // PROCESS STOOL TYPES
+  // ==========================================
+  stoolTracking.forEach((data, stoolType) => {
+    const cyclesPresent = data.cyclesPresent.size;
+    const consistency = cyclesPresent / totalCycles;
+    const name = bristolLabels[stoolType] || `Bristol Type ${stoolType}`;
+
+    // Build common metadata for stool
+    const buildStoolMetadata = () => {
+      const cyclesAppearedIn = Array.from(data.cyclesPresent)
+        .sort((a, b) => a - b)
+        .map((idx) => ({
+          cycleIndex: idx + 1,
+          monthLabel: getMonthLabel(completeCycles[idx].startDate),
+        }));
+
+      const firstCycleIdx = Math.min(...Array.from(data.cyclesPresent));
+      const lastCycleIdx = Math.max(...Array.from(data.cyclesPresent));
+
+      return {
+        firstLoggedDate: completeCycles[firstCycleIdx].startDate,
+        lastLoggedDate: completeCycles[lastCycleIdx].endDate || completeCycles[lastCycleIdx].startDate,
+        cyclesAppearedIn,
+      };
+    };
+
+    // Occasional patterns (30-59%)
+    if (consistency >= 0.3 && consistency < 0.6) {
+      patterns.push({
+        id: `occasional-stool-${stoolType}`,
+        type: 'occasional',
+        name,
+        itemType: 'stool',
+        cyclesPresent,
+        totalCycles,
+        description: `has appeared in ${cyclesPresent} of ${totalCycles} cycles`,
+        metadata: buildStoolMetadata(),
+      });
+    }
+
+    // Recently appeared (first in last 2 cycles)
+    if (data.firstCycleIndex >= totalCycles - 2 && cyclesPresent <= 2) {
+      const monthLabel = getMonthLabel(completeCycles[data.firstCycleIndex].startDate);
+      patterns.push({
+        id: `new-stool-${stoolType}`,
+        type: 'new',
+        name,
+        itemType: 'stool',
+        cyclesPresent,
+        totalCycles,
+        firstAppeared: { cycleIndex: data.firstCycleIndex + 1, monthLabel },
+        description: `first logged in your ${ordinal(data.firstCycleIndex + 1)} cycle (${monthLabel})`,
+        metadata: buildStoolMetadata(),
+      });
+    }
+  });
+
+  // Sort: new first, then trends, then occasional by consistency
+  return patterns.sort((a, b) => {
+    const typeOrder = { new: 0, increasing: 1, decreasing: 1, occasional: 2 };
+    if (typeOrder[a.type] !== typeOrder[b.type]) {
+      return typeOrder[a.type] - typeOrder[b.type];
+    }
+    return b.cyclesPresent - a.cyclesPresent;
+  });
+}
+
+
+// ============================================
+// PHASE 3: CO-OCCURRENCE
+// ============================================
+
+/**
+ * Calculate symptom/medicine pairs that frequently appear on the same day
+ */
+export function calculateCoOccurrences(
+  entries: StoredEntry[]
+): CoOccurrence[] {
+  if (entries.length < 3) return [];
+
+  // Deduplicate entries by date
+  const dateMap = deduplicateEntriesByDate(entries);
+  
+  // Track item occurrences and co-occurrences
+  const itemCounts = new Map<string, { type: 'symptom' | 'medicine'; count: number }>();
+  const pairCounts = new Map<string, number>();
+  const pairDates = new Map<string, string[]>(); // Track dates for each pair
+
+  dateMap.forEach((entry, date) => {
+    const dayItems: { type: 'symptom' | 'medicine'; name: string }[] = [];
+
+    // Collect symptoms
+    for (const symptom of Object.keys(entry.symptomIntensities || {})) {
+      dayItems.push({ type: 'symptom', name: symptom });
+      const key = `symptom:${symptom}`;
+      itemCounts.set(key, {
+        type: 'symptom',
+        count: (itemCounts.get(key)?.count || 0) + 1,
+      });
+    }
+
+    for (const symptom of Object.keys(entry.periodSymptomIntensities || {})) {
+      // Avoid duplicates if symptom is in both
+      if (!dayItems.some(i => i.type === 'symptom' && i.name === symptom)) {
+        dayItems.push({ type: 'symptom', name: symptom });
+        const key = `symptom:${symptom}`;
+        itemCounts.set(key, {
+          type: 'symptom',
+          count: (itemCounts.get(key)?.count || 0) + 1,
+        });
+      }
+    }
+
+    // Collect medicines
+    const uniqueMeds = new Set<string>();
+    for (const med of entry.medicineLog || []) {
+      if (!uniqueMeds.has(med.medicineName)) {
+        uniqueMeds.add(med.medicineName);
+        dayItems.push({ type: 'medicine', name: med.medicineName });
+        const key = `medicine:${med.medicineName}`;
+        itemCounts.set(key, {
+          type: 'medicine',
+          count: (itemCounts.get(key)?.count || 0) + 1,
+        });
+      }
+    }
+
+    // Count co-occurrences (pairs on same day)
+    for (let i = 0; i < dayItems.length; i++) {
+      for (let j = i + 1; j < dayItems.length; j++) {
+        const item1 = dayItems[i];
+        const item2 = dayItems[j];
+        
+        // Create consistent pair key (alphabetically sorted)
+        const key1 = `${item1.type}:${item1.name}`;
+        const key2 = `${item2.type}:${item2.name}`;
+        const pairKey = [key1, key2].sort().join('|');
+        
+        pairCounts.set(pairKey, (pairCounts.get(pairKey) || 0) + 1);
+        
+        // Track the date for this co-occurrence
+        if (!pairDates.has(pairKey)) {
+          pairDates.set(pairKey, []);
+        }
+        pairDates.get(pairKey)!.push(entry.date);
+      }
+    }
+  });
+
+  // Build co-occurrence results
+  const coOccurrences: CoOccurrence[] = [];
+
+  pairCounts.forEach((count, pairKey) => {
+    if (count < 3) return; // Minimum 3 co-occurrences
+
+    const [key1, key2] = pairKey.split('|');
+    const [type1, name1] = key1.split(':') as ['symptom' | 'medicine', string];
+    const [type2, name2] = key2.split(':') as ['symptom' | 'medicine', string];
+
+    const item1Count = itemCounts.get(key1)?.count || 0;
+    const item2Count = itemCounts.get(key2)?.count || 0;
+
+    // Calculate co-occurrence rate based on the less frequent item
+    const minCount = Math.min(item1Count, item2Count);
+    const rate = count / minCount;
+
+    if (rate < 0.4) return; // Minimum 40% rate
+
+    // Build description based on types
+    let description: string;
+    if (type1 === 'symptom' && type2 === 'medicine') {
+      description = `When you log ${name1}, you often also take ${name2}`;
+    } else if (type1 === 'medicine' && type2 === 'symptom') {
+      description = `When you log ${name2}, you often also take ${name1}`;
+    } else if (type1 === 'symptom' && type2 === 'symptom') {
+      description = `${name1} and ${name2} often occur on the same day`;
+    } else {
+      description = `${name1} and ${name2} are often taken together`;
+    }
+
+    // Get dates for this pair and sort them
+    const dates = (pairDates.get(pairKey) || []).sort();
+    
+    coOccurrences.push({
+      id: `cooccur-${name1}-${name2}`.replace(/\s+/g, '-').toLowerCase(),
+      item1: { type: type1, name: name1 },
+      item2: { type: type2, name: name2 },
+      coOccurrenceCount: count,
+      item1TotalCount: item1Count,
+      item2TotalCount: item2Count,
+      coOccurrenceRate: Math.round(rate * 100) / 100,
+      description,
+      metadata: {
+        firstCoOccurrenceDate: dates[0],
+        lastCoOccurrenceDate: dates[dates.length - 1],
+        coOccurrenceDates: dates,
+      },
+    });
+  });
+
+  // Sort by co-occurrence rate, limit to 5
+  return coOccurrences
+    .sort((a, b) => b.coOccurrenceRate - a.coOccurrenceRate)
+    .slice(0, 5);
+}
+
+// ============================================
+// PHASE 3: NOTABLE CYCLES
+// ============================================
+
+/**
+ * Identify cycles that differ from the user's norm
+ */
+export function calculateNotableCycles(
+  cycles: DetectedCycle[],
+  entries: StoredEntry[],
+  consistentPatterns: ConsistentPattern[]
+): NotableCycle[] {
+  const completeCycles = cycles.filter((c) => !c.isOngoing && c.length !== null);
+  
+  if (completeCycles.length < 2) return [];
+
+  // Calculate average cycle length
+  const lengths = completeCycles.map((c) => c.length!);
+  const avgLength = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+  const stdDev = Math.sqrt(
+    lengths.reduce((sum, l) => sum + Math.pow(l - avgLength, 2), 0) / lengths.length
+  );
+
+  // Get consistent symptom names for comparison
+  const consistentSymptoms = new Set(
+    consistentPatterns
+      .filter((p) => p.type === 'symptom' && p.consistency >= 0.6)
+      .map((p) => p.name)
+  );
+
+  const notableCycles: NotableCycle[] = [];
+
+  completeCycles.forEach((cycle, index) => {
+    const reasons: NotableReason[] = [];
+
+    // Check cycle length deviation
+    if (cycle.length !== null) {
+      const deviation = cycle.length - avgLength;
+      
+      // Flag if more than 1.5 std deviations or more than 5 days different
+      if (Math.abs(deviation) > Math.max(stdDev * 1.5, 5)) {
+        if (deviation > 0) {
+          reasons.push({
+            type: 'length_long',
+            description: `${Math.round(deviation)} days longer than your average`,
+            detail: `${cycle.length} days vs. ~${Math.round(avgLength)} day average`,
+          });
+        } else {
+          reasons.push({
+            type: 'length_short',
+            description: `${Math.round(Math.abs(deviation))} days shorter than your average`,
+            detail: `${cycle.length} days vs. ~${Math.round(avgLength)} day average`,
+          });
+        }
+      }
+    }
+
+    // Get entries for this cycle
+    const cycleEntries = entries.filter(
+      (e) => e.date >= cycle.startDate && 
+             (cycle.endDate === null || e.date <= cycle.endDate)
+    );
+    const deduped = deduplicateEntriesByDate(cycleEntries);
+
+    // Collect symptoms logged this cycle
+    const cycleSymptoms = new Set<string>();
+    deduped.forEach((entry) => {
+      Object.keys(entry.symptomIntensities || {}).forEach((s) => cycleSymptoms.add(s));
+      Object.keys(entry.periodSymptomIntensities || {}).forEach((s) => cycleSymptoms.add(s));
+    });
+
+    // Check for missing consistent symptoms (only if we have enough history)
+    if (index >= 2) {
+      consistentSymptoms.forEach((symptom) => {
+        if (!cycleSymptoms.has(symptom)) {
+          reasons.push({
+            type: 'missing_symptom',
+            description: `${symptom} was not logged this cycle`,
+            // detail: `Usually appears in your cycles`,
+          });
+        }
+      });
+    }
+
+    // Check for new symptoms not seen before this cycle
+    if (index >= 2) {
+      const previousSymptoms = new Set<string>();
+      completeCycles.slice(0, index).forEach((prevCycle) => {
+        const prevEntries = entries.filter(
+          (e) => e.date >= prevCycle.startDate && 
+                 (prevCycle.endDate === null || e.date <= prevCycle.endDate)
+        );
+        prevEntries.forEach((e) => {
+          Object.keys(e.symptomIntensities || {}).forEach((s) => previousSymptoms.add(s));
+          Object.keys(e.periodSymptomIntensities || {}).forEach((s) => previousSymptoms.add(s));
+        });
+      });
+
+      cycleSymptoms.forEach((symptom) => {
+        if (!previousSymptoms.has(symptom)) {
+          reasons.push({
+            type: 'new_symptom',
+            description: `${symptom} appeared for the first time`,
+          });
+        }
+      });
+    }
+
+    // Only add if there are notable reasons
+    if (reasons.length > 0) {
+      notableCycles.push({
+        cycleIndex: index + 1,
+        monthLabel: getMonthLabel(cycle.startDate),
+        startDate: cycle.startDate,
+        reasons: reasons.slice(0, 3), // Max 3 reasons per cycle
+      });
+    }
+  });
+
+  // Return most recent 3 notable cycles
+  return notableCycles.reverse().slice(0, 3);
 }

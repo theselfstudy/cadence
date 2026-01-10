@@ -3,13 +3,9 @@
 import { useMemo, useCallback, useState, useEffect } from "react";
 import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
-import type { StoredEntry } from "@/types";
-import type { 
-  DetectedCycle, 
-  CycleComparison, 
-  CyclePhaseSymptomData 
-} from "@/lib/monthlyUtils";
+// import type { StoredEntry } from "@/types";
 import { 
+  DetectedCycle, 
   detectCycleBoundaries, 
   compareCycles, 
   buildCyclePhaseSymptomHeatMap 
@@ -18,10 +14,18 @@ import {
 import { TrustBanner } from "./sections/TrustBanner";
 import { ThisCycleSection } from "./sections/ThisCycleSection";
 import { ConsistentPatternsSection } from "./sections/ConsistentPatternsSection";
+import { EmergingPatternsSection } from "./sections/EmergingPatternsSection";
+import { CoOccurrenceSection } from "./sections/CoOccurrenceSection";
+import { NotableCyclesSection } from "./sections/NotableCyclesSection";
 import { DetailedViewsSection } from "./sections/DetailedViewsSection";
 import { CollapsibleSection, DismissibleSection } from "./shared/CollapsibleSection";
 import { CycleProgressRing } from "./shared/RingIndicator";
-import { calculateConsistentPatterns } from "@/lib/insightUtils";
+import { 
+  calculateConsistentPatterns,
+  calculateEmergingPatterns,
+  calculateCoOccurrences,
+  calculateNotableCycles,
+} from "@/lib/insightUtils";
 // ============================================
 // TYPES
 // ============================================
@@ -109,9 +113,9 @@ export function CycleInsightsPage() {
   // CYCLE DETECTION & CALCULATIONS
   // ============================================
 
-  const detectedCycles = useMemo(() => {
-    return detectCycleBoundaries(entries);
-  }, [entries]);
+const detectedCycles = useMemo(() => {
+  return detectCycleBoundaries(entries);
+}, [entries]);
 
   const cycleComparison = useMemo(() => {
     return compareCycles(entries, detectedCycles);
@@ -139,6 +143,36 @@ export function CycleInsightsPage() {
   const consistentPatterns = useMemo(() => {
     return calculateConsistentPatterns(entries, detectedCycles);
   }, [entries, detectedCycles]);
+
+  // Calculate emerging patterns for badge count      {/* Section 3: Occasional & Emerging */}
+      <CollapsibleSection
+        title="Occasional & Emerging"
+        icon={<SparkleIcon className="w-5 h-5" />}
+        helpText="Patterns that appear less frequently, have recently started, or are changing over time."
+        defaultExpanded={!isSectionCollapsed("emerging-patterns")}
+        onToggle={(expanded) => handleSectionToggle("emerging-patterns", expanded)}
+      >
+        <PlaceholderContent
+          title="Occasional & Emerging Patterns"
+          description="Less frequent patterns and new trends will appear here as you log more data."
+          minCycles={2}
+          currentCycles={completeCycles.length}
+          icon="🌱"
+        />
+      </CollapsibleSection>
+  const emergingPatterns = useMemo(() => {
+    return calculateEmergingPatterns(entries, detectedCycles);
+  }, [entries, detectedCycles]);
+
+  // Calculate co-occurrences for badge count
+  const coOccurrences = useMemo(() => {
+    return calculateCoOccurrences(entries);
+  }, [entries]);
+
+  // Calculate notable cycles for badge count
+  const notableCycles = useMemo(() => {
+    return calculateNotableCycles(detectedCycles, entries, consistentPatterns);
+  }, [detectedCycles, entries, consistentPatterns]);
 
   // ============================================
   // RENDER: NO PERIOD TRACKING
@@ -238,16 +272,16 @@ export function CycleInsightsPage() {
       <CollapsibleSection
         title="Occasional & Emerging"
         icon={<SparkleIcon className="w-5 h-5" />}
+        badge={hasEnoughDataForDeepInsights && emergingPatterns.length > 0 
+          ? `${emergingPatterns.length} pattern${emergingPatterns.length !== 1 ? "s" : ""}` 
+          : undefined}
         helpText="Patterns that appear less frequently, have recently started, or are changing over time."
         defaultExpanded={!isSectionCollapsed("emerging-patterns")}
         onToggle={(expanded) => handleSectionToggle("emerging-patterns", expanded)}
       >
-        <PlaceholderContent
-          title="Occasional & Emerging Patterns"
-          description="Less frequent patterns and new trends will appear here as you log more data."
-          minCycles={2}
-          currentCycles={completeCycles.length}
-          icon="🌱"
+        <EmergingPatternsSection
+          entries={entries}
+          cycles={detectedCycles}
         />
       </CollapsibleSection>
 
@@ -255,16 +289,16 @@ export function CycleInsightsPage() {
       <CollapsibleSection
         title="What Happens Together"
         icon={<LinkIcon className="w-5 h-5" />}
+        badge={hasEnoughDataForDeepInsights && coOccurrences.length > 0 
+          ? `${coOccurrences.length} pair${coOccurrences.length !== 1 ? "s" : ""}` 
+          : undefined}
         helpText="Events that frequently appear on the same day in your logs."
         defaultExpanded={!isSectionCollapsed("co-occurrence")}
         onToggle={(expanded) => handleSectionToggle("co-occurrence", expanded)}
       >
-        <PlaceholderContent
-          title="Co-occurring Events"
-          description="Symptoms and events that tend to happen together will show here."
-          minCycles={2}
-          currentCycles={completeCycles.length}
-          icon="🔗"
+        <CoOccurrenceSection
+          entries={entries}
+          cycles={detectedCycles}
         />
       </CollapsibleSection>
 
@@ -272,17 +306,16 @@ export function CycleInsightsPage() {
       <CollapsibleSection
         title="Notable Cycles"
         icon={<FlagIcon className="w-5 h-5" />}
-        badge={hasEnoughDataForDeepInsights ? "0 noted" : undefined}
+        badge={hasEnoughDataForDeepInsights && notableCycles.length > 0 
+          ? `${notableCycles.length} noted` 
+          : undefined}
         helpText="Observations about cycles that differed from your usual pattern. Cycles naturally vary."
         defaultExpanded={!isSectionCollapsed("notable-cycles")}
         onToggle={(expanded) => handleSectionToggle("notable-cycles", expanded)}
       >
-        <PlaceholderContent
-          title="Notable Cycles"
-          description="Cycles that differ from your usual pattern will be noted here."
-          minCycles={2}
-          currentCycles={completeCycles.length}
-          icon="📌"
+        <NotableCyclesSection
+          entries={entries}
+          cycles={detectedCycles}
         />
       </CollapsibleSection>
 

@@ -264,7 +264,7 @@ function PrivacyFooter({ storageText, variant }: PrivacyFooterProps) {
       />
       <PrivacyPoint
         icon={<ShieldIcon className="w-4 h-4" />}
-        text="No data selling"
+        text="No data sharing"
       />
       <PrivacyPoint
         icon={<EyeOffIcon className="w-4 h-4" />}

@@ -355,5 +355,5 @@ export const MEDICINE_CATEGORIES: { value: MedicineCategory; label: string; icon
   { value: "bowel", label: "Bowel", icon: "🧻" },
   { value: "symptom", label: "Symptom", icon: "🏷️" },
   { value: "period", label: "Period", icon: "🌸" },
-  { value: "other", label: "Other", icon: "✨" },
+  { value: "other", label: "Other", icon: "🏷️" },
 ];

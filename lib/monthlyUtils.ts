@@ -1087,9 +1087,16 @@ export function buildCyclePhaseSymptomHeatMap(
  * Detect cycle boundaries from period flow data
  * A new cycle starts when periodFlow is logged after 5+ days without flow
  */
+// /lib/monthlyUtils.ts
+
+/**
+ * Detect cycle boundaries from period data
+ * A new cycle starts when:
+ * - periodFlow is logged after 5+ days without flow/menstrual phase, OR
+ * - cyclePhase === "menstrual" is logged after 5+ days without flow/menstrual phase
+ */
 export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
   // Phase priority for when multiple phases logged on same day
-  // Menstrual > Ovulation > Follicular > Luteal > Not Sure
   const phasePriority: Record<string, number> = {
     menstrual: 5,
     ovulation: 4,
@@ -1110,6 +1117,9 @@ export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
   const dateToFlow: Record<string, string> = {};
   const dateToPhase: Record<string, string> = {};
   
+  // NEW: Track ALL period days (either flow logged OR menstrual phase)
+  const periodDates = new Set<string>();
+  
   for (const entry of entries) {
     if (entry.periodFlow) {
       const existingFlow = dateToFlow[entry.date];
@@ -1118,6 +1128,8 @@ export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
       if (newPriority > existingPriority) {
         dateToFlow[entry.date] = entry.periodFlow;
       }
+      // Mark as period day
+      periodDates.add(entry.date);
     }
     if (entry.cyclePhase) {
       const existingPhase = dateToPhase[entry.date];
@@ -1126,25 +1138,29 @@ export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
       if (newPriority > existingPriority) {
         dateToPhase[entry.date] = entry.cyclePhase;
       }
+      // NEW: If phase is menstrual, also treat as period day for cycle detection
+      if (entry.cyclePhase === "menstrual") {
+        periodDates.add(entry.date);
+      }
     }
   }
 
-  // Get unique flow dates sorted
-  const flowDates = Object.keys(dateToFlow).sort();
+  // NEW: Get unique period dates sorted (includes both flow AND menstrual phase entries)
+  const sortedPeriodDates = Array.from(periodDates).sort();
   
-  if (flowDates.length === 0) return [];
+  if (sortedPeriodDates.length === 0) return [];
   
   const cycles: DetectedCycle[] = [];
   let currentCycleStart: string | null = null;
-  let lastFlowDate: string | null = null;
+  let lastPeriodDate: string | null = null;
   let currentFlowDays: { date: string; flow: string }[] = [];
   let currentPhasesLogged: Record<string, number> = {};
   
-  for (const entryDate of flowDates) {
+  for (const entryDate of sortedPeriodDates) {
     
-    // Check if this is a new cycle (5+ day gap from last flow)
-    if (lastFlowDate) {
-      const lastDate = new Date(lastFlowDate + "T12:00:00");
+    // Check if this is a new cycle (5+ day gap from last period day)
+    if (lastPeriodDate) {
+      const lastDate = new Date(lastPeriodDate + "T12:00:00");
       const currentDate = new Date(entryDate + "T12:00:00");
       const daysDiff = Math.floor((currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
       
@@ -1152,7 +1168,6 @@ export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
         // Close previous cycle and start new one
         if (currentCycleStart) {
           const startDate = new Date(currentCycleStart + "T12:00:00");
-          const endDate = new Date(lastFlowDate + "T12:00:00");
           // End date is the day before new cycle starts
           const cycleEndDate = new Date(entryDate + "T12:00:00");
           cycleEndDate.setDate(cycleEndDate.getDate() - 1);
@@ -1173,26 +1188,26 @@ export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
         currentPhasesLogged = {};
       }
     } else {
-      // First flow entry = start of first cycle
+      // First period entry = start of first cycle
       currentCycleStart = entryDate;
     }
     
-    // Track flow and phase data (already deduplicated)
-    currentFlowDays.push({ date: entryDate, flow: dateToFlow[entryDate] });
+    // Track flow data (if flow was logged for this date)
+    if (dateToFlow[entryDate]) {
+      currentFlowDays.push({ date: entryDate, flow: dateToFlow[entryDate] });
+    }
+    
+    // Track phase data (if phase was logged for this date)
     const phase = dateToPhase[entryDate];
     if (phase) {
       currentPhasesLogged[phase] = (currentPhasesLogged[phase] || 0) + 1;
     }
     
-    lastFlowDate = entryDate;
+    lastPeriodDate = entryDate;
   }
   
   // Close the last cycle (ongoing)
   if (currentCycleStart) {
-    const today = new Date();
-    const startDate = new Date(currentCycleStart + "T12:00:00");
-    const daysSinceStart = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    
     cycles.push({
       startDate: currentCycleStart,
       endDate: null,

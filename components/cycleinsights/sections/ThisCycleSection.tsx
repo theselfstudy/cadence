@@ -62,6 +62,20 @@ export function ThisCycleSection({
         )
       : 28;
 
+  // Calculate estimated period length from flow days in completed cycles
+  const estimatedPeriodLength = useMemo(() => {
+    if (completeCycles.length === 0) return 5; // Default to 5 days
+
+    const cyclesWithFlow = completeCycles.filter((c) => c.flowDays.length > 0);
+    if (cyclesWithFlow.length === 0) return 5;
+
+    const totalFlowDays = cyclesWithFlow.reduce(
+      (sum, c) => sum + c.flowDays.length,
+      0
+    );
+    return Math.round(totalFlowDays / cyclesWithFlow.length);
+  }, [completeCycles]);
+
   // Format cycle start date
   const formatDate = (dateStr: string): string => {
     const [year, month, day] = dateStr.split("-").map(Number);
@@ -88,35 +102,41 @@ export function ThisCycleSection({
         <CycleProgressRing
           currentDay={cycleDay}
           estimatedLength={estimatedLength}
+          estimatedPeriodLength={estimatedPeriodLength}
           size="lg"
         />
 
         {/* Cycle details */}
-        <div className="flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-lg font-semibold text-app-charcoal">
-              Day {cycleDay}
-            </h3>
-            {showPhase && phase && (
-              <PhasePill phase={phase} size="md" />
-            )}
+        <div className="flex-1 space-y-2">
+          {/* Cycle start date */}
+          <div>
+            <span className="text-xs text-app-gray">Cycle Started</span>
+            <p className="text-lg font-semibold text-app-charcoal">
+              {formatDate(cycleData.cycleStartDate)}
+            </p>
           </div>
 
-          <p className="text-sm text-app-gray mt-1">
-            Started {formatDate(cycleData.cycleStartDate)}
-          </p>
+          {/* Current phase - only for phase-aware users */}
+          {showPhase && phase && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-app-gray">Current Phase:</span>
+              <PhasePill phase={phase} size="sm" />
+            </div>
+          )}
 
           {/* Time-to-event estimate */}
           {periodTypicallyStarts && completeCycles.length >= 2 && (
-            <p className="text-sm text-app-charcoal mt-3">
-              Based on your {completeCycles.length} previous cycles, your period
-              has typically started between{" "}
+            <p className="text-sm text-app-charcoal mt-2">
+              {/* Based on your {completeCycles.length} previous cycle inputs, your period
+              has typically started between{" "} */}
+              Based on your {completeCycles.length} previous cycle inputs, 
+              the length of your cycle is between{" "}
               <span className="font-medium text-app-teal">
-                day {periodTypicallyStarts.dayRange[0]}
+                {periodTypicallyStarts.dayRange[0]}
               </span>{" "}
               and{" "}
               <span className="font-medium text-app-teal">
-                day {periodTypicallyStarts.dayRange[1]}
+                {periodTypicallyStarts.dayRange[1]} days
               </span>
               .
             </p>
@@ -124,7 +144,7 @@ export function ThisCycleSection({
 
           {/* Early data message */}
           {completeCycles.length < 2 && (
-            <p className="text-sm text-app-gray mt-3">
+            <p className="text-sm text-app-gray mt-2">
               After 2+ complete cycles, you&apos;ll see when your period
               typically starts.
             </p>

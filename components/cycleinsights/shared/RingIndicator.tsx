@@ -343,6 +343,8 @@ export function ConsistencyRing({
 // ============================================
 // CYCLE PROGRESS RING
 // Shows progress through current cycle
+// Two-color ring: red for period, teal for rest
+// Both portions show filled progress as days complete
 // Used in "This Cycle" section
 // ============================================
 
@@ -352,6 +354,9 @@ interface CycleProgressRingProps {
   
   /** Estimated cycle length (or average) */
   estimatedLength: number;
+  
+  /** Estimated period length in days */
+  estimatedPeriodLength: number;
   
   /** Size variant */
   size?: "sm" | "md" | "lg";
@@ -363,44 +368,158 @@ interface CycleProgressRingProps {
 export function CycleProgressRing({
   currentDay,
   estimatedLength,
+  estimatedPeriodLength,
   size = "lg",
   className = "",
 }: CycleProgressRingProps) {
-  // Calculate progress, capping at 100%
-  const progress = Math.min(currentDay, estimatedLength);
-  
-  // Determine color based on where in cycle
-  // Red when likely in menstrual phase (first ~5 days)
-  // Teal otherwise
-  const color = currentDay <= 5 ? "red" : "teal";
-  
+  const sizeConfig = useMemo(() => {
+    switch (size) {
+      case "sm":
+        return { dimension: 36, strokeWidth: 4, fontSize: "text-base", labelSize: "text-[10px]" };
+      case "md":
+        return { dimension: 48, strokeWidth: 5, fontSize: "text-lg", labelSize: "text-xs" };
+      case "lg":
+        return { dimension: 80, strokeWidth: 6, fontSize: "text-xl", labelSize: "text-xs" };
+    }
+  }, [size]);
+
+  const ringCalcs = useMemo(() => {
+    const { dimension, strokeWidth } = sizeConfig;
+    const center = dimension / 2;
+    const radius = (dimension - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+
+    // Period portion of the ring
+    const periodRatio = estimatedPeriodLength / estimatedLength;
+    const periodArcLength = circumference * periodRatio;
+
+    // Rest portion of the ring
+    const restArcLength = circumference - periodArcLength;
+
+    // Period filled: how many period days are complete
+    const periodFilledDays = Math.min(currentDay, estimatedPeriodLength);
+    const periodFilledRatio = periodFilledDays / estimatedLength;
+    const periodFilledArcLength = circumference * periodFilledRatio;
+
+    // Rest filled: how many days past period are complete
+    const restFilledDays = Math.max(0, Math.min(currentDay, estimatedLength) - estimatedPeriodLength);
+    const restFilledRatio = restFilledDays / estimatedLength;
+    const restFilledArcLength = circumference * restFilledRatio;
+
+    return {
+      center,
+      radius,
+      circumference,
+      periodArcLength,
+      restArcLength,
+      periodFilledArcLength,
+      restFilledArcLength,
+    };
+  }, [currentDay, estimatedLength, estimatedPeriodLength, sizeConfig]);
+
+  // Determine if currently in period phase
+  const isInPeriod = currentDay <= estimatedPeriodLength;
+
+  // Colors
+  const periodColor = "#791D1E"; // app-red
+  const periodColorLight = "#791D1E25";
+  const restColor = "#104B55"; // app-teal
+  const restColorLight = "#104B5525";
+
   return (
     <div className={`inline-flex flex-col items-center gap-1 ${className}`}>
       <div className="relative">
-        <RingIndicator
-          value={progress}
-          max={estimatedLength}
-          size={size}
-          color={color}
-          showLabel={false}
-          className=""
-        />
-        
+        <svg
+          width={sizeConfig.dimension}
+          height={sizeConfig.dimension}
+          viewBox={`0 0 ${sizeConfig.dimension} ${sizeConfig.dimension}`}
+          className="transform -rotate-90"
+          aria-hidden="true"
+        >
+          {/* Layer 1: Background - Period portion (light red) */}
+          <circle
+            cx={ringCalcs.center}
+            cy={ringCalcs.center}
+            r={ringCalcs.radius}
+            fill="none"
+            stroke={periodColorLight}
+            strokeWidth={sizeConfig.strokeWidth}
+            strokeDasharray={`${ringCalcs.periodArcLength} ${ringCalcs.circumference - ringCalcs.periodArcLength}`}
+            strokeDashoffset={0}
+          />
+
+          {/* Layer 2: Background - Rest portion (light teal) */}
+          <circle
+            cx={ringCalcs.center}
+            cy={ringCalcs.center}
+            r={ringCalcs.radius}
+            fill="none"
+            stroke={restColorLight}
+            strokeWidth={sizeConfig.strokeWidth}
+            strokeDasharray={`${ringCalcs.restArcLength} ${ringCalcs.circumference - ringCalcs.restArcLength}`}
+            strokeDashoffset={-ringCalcs.periodArcLength}
+          />
+
+          {/* Layer 3: Filled - Period progress (solid red) */}
+          {ringCalcs.periodFilledArcLength > 0 && (
+            <circle
+              cx={ringCalcs.center}
+              cy={ringCalcs.center}
+              r={ringCalcs.radius}
+              fill="none"
+              stroke={periodColor}
+              strokeWidth={sizeConfig.strokeWidth}
+              strokeDasharray={`${ringCalcs.periodFilledArcLength} ${ringCalcs.circumference - ringCalcs.periodFilledArcLength}`}
+              strokeDashoffset={0}
+              strokeLinecap="round"
+              className="transition-all duration-500 ease-out"
+            />
+          )}
+
+          {/* Layer 4: Filled - Rest progress (solid teal) */}
+          {ringCalcs.restFilledArcLength > 0 && (
+            <circle
+              cx={ringCalcs.center}
+              cy={ringCalcs.center}
+              r={ringCalcs.radius}
+              fill="none"
+              stroke={restColor}
+              strokeWidth={sizeConfig.strokeWidth}
+              strokeDasharray={`${ringCalcs.restFilledArcLength} ${ringCalcs.circumference - ringCalcs.restFilledArcLength}`}
+              strokeDashoffset={-ringCalcs.periodArcLength}
+              strokeLinecap="round"
+              className="transition-all duration-500 ease-out"
+            />
+          )}
+        </svg>
+
         {/* Day number in center */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`text-xl font-bold ${color === "red" ? "text-app-red" : "text-app-teal"}`}>
+          <span className={`${sizeConfig.fontSize} font-bold ${isInPeriod ? "text-app-red" : "text-app-teal"}`}>
             {currentDay}
           </span>
-          <span className="text-xs text-app-gray">
+          <span className={`${sizeConfig.labelSize} text-app-gray`}>
             day
           </span>
         </div>
       </div>
-      
+
       {/* Estimated length note */}
       <span className="text-xs text-app-gray">
         of ~{estimatedLength} days
       </span>
+
+      {/* Legend */}
+      <div className="flex items-center gap-3 mt-1">
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-app-red" />
+          <span className="text-xs text-app-gray">Period</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-app-teal" />
+          <span className="text-xs text-app-gray">Rest</span>
+        </div>
+      </div>
     </div>
   );
 }

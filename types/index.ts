@@ -379,7 +379,11 @@ export interface GoogleSettings {
   isSyncing: boolean;
   disconnectGoogleSheet: () => void;
   saveSettingsToSheet: (accessToken: string) => Promise<boolean>;
-  loadSettingsFromSheet: (spreadsheetId: string, accessToken: string) => Promise<boolean>;
+  loadSettingsFromSheet: (
+    spreadsheetId: string, 
+    accessToken: string,
+    sheetName?: string
+  ) => Promise<boolean>;
 }
 
 // ============================================

@@ -123,7 +123,7 @@ export function ConsistentPatternsSection({
           More data needed
         </p>
         <p className="text-xs text-app-gray">
-          Keep logging — consistent patterns will appear after 2+ complete cycles
+          Keep logging! Consistent patterns will appear after 2+ complete cycles
         </p>
 
         {/* Progress dots */}
@@ -659,11 +659,17 @@ function SymptomInsights({ data }: SymptomInsightsProps) {
             <span className={`font-medium ${
               insight.phase === "menstrual" ? "text-app-red" : "text-app-teal"
             }`}>
-              {phaseConfig[insight.phase]?.description.toLowerCase()}
+              {insight.phase === "menstrual" 
+                ? "during your period" 
+                : insight.phase === "other"
+                  ? "outside of your period"
+                  : `during the ${phaseConfig[insight.phase]?.label.toLowerCase()} phase`}
             </span>
-            <span className="text-xs text-app-gray">
-              ({phaseConfig[insight.phase]?.dayRange})
-            </span>
+            {insight.phase !== "menstrual" && insight.phase !== "other" && (
+              <span className="text-xs text-app-gray">
+                ({phaseConfig[insight.phase]?.description.toLowerCase()})
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -975,16 +981,21 @@ function StoolInsights({ phaseStoolData, bristolTypes, isPhaseAware }: StoolInsi
             <span className="text-app-plumb font-medium">
               {bristolLabels[insight.type]}
             </span>
-            <span className="text-xs text-app-gray">({bristolDescriptions[insight.type]})</span>
-            <span className="text-app-gray">mostly occurs</span>
+            <span className="text-app-gray">seems to peak</span>
             <span className={`font-medium ${
               insight.phase === "menstrual" ? "text-app-red" : "text-app-plumb"
             }`}>
-              {phaseConfig[insight.phase]?.description.toLowerCase()}
+              {insight.phase === "menstrual" 
+                ? "during your period" 
+                : insight.phase === "other"
+                  ? "outside of your period"
+                  : `during the ${phaseConfig[insight.phase]?.label.toLowerCase()} phase`}
             </span>
-            <span className="text-xs text-app-gray">
-              ({insight.percentage}% of occurrences)
-            </span>
+            {insight.phase !== "menstrual" && insight.phase !== "other" && (
+              <span className="text-xs text-app-gray">
+                ({phaseConfig[insight.phase]?.description.toLowerCase()})
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -1333,11 +1344,17 @@ function MedicineInsights({ phaseMedicineData, allMedicines, isPhaseAware }: Med
             <span className={`font-medium ${
               insight.phase === "menstrual" ? "text-app-red" : "text-app-green"
             }`}>
-              {phaseConfig[insight.phase]?.description.toLowerCase()}
+              {insight.phase === "menstrual" 
+                ? "during your period" 
+                : insight.phase === "other"
+                  ? "outside of your period"
+                  : `during the ${phaseConfig[insight.phase]?.label.toLowerCase()} phase`}
             </span>
-            <span className="text-xs text-app-gray">
-              ({insight.percentage}% of usage)
-            </span>
+            {insight.phase !== "menstrual" && insight.phase !== "other" && (
+              <span className="text-xs text-app-gray">
+                ({phaseConfig[insight.phase]?.description.toLowerCase()})
+              </span>
+            )}
           </div>
         ))}
       </div>

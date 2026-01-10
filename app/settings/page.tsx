@@ -534,7 +534,7 @@ function SettingsPageContent() {
     const spreadsheetId = getSpreadsheetIdFromUrl(pendingSheetUrl);
     if (!spreadsheetId) return;
 
-    const success = await loadSettingsFromSheet(spreadsheetId, pendingAccessToken);
+    const success = await loadSettingsFromSheet(spreadsheetId, pendingAccessToken, pendingSheetName || undefined );
 
     if (success) {
       // Also restore saved filters from the sheet

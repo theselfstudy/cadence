@@ -40,9 +40,9 @@ export function PatternCard({
   
   // Determine icon based on type
   const typeIcon = {
-    symptom: "💫",
+    symptom: "🏷️",
     medicine: "💊",
-    stool: "🚽",
+    stool: "🧻",
   }[type];
   
   // Show phase pill if we have an estimated phase

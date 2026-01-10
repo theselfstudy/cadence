@@ -100,7 +100,7 @@ const PRIVACY_POINTS: PrivacyInfo[] = [
   },
   {
     icon: "🚫",
-    label: "No Data Selling",
+    label: "No Data Sharing",
     description: "Your health information is never sold or shared.",
   },
   {
