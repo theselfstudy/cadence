@@ -66,6 +66,8 @@ export default function WeeklyPage() {
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [showStats, setShowStats] = useState(true);
+  const [showCharts, setShowCharts] = useState(true);
+  const [showComparison, setShowComparison] = useState(true);
   const [showEntries, setShowEntries] = useState(true);
 
   // Initialize client-side
@@ -470,7 +472,7 @@ export default function WeeklyPage() {
         </p>
       )}
 
-      {/* Stats Section - Shown by default, collapsible */}
+      {/* Week at a Glance Section */}
       <div className="card">
         <button
           onClick={() => setShowStats(!showStats)}
@@ -481,8 +483,7 @@ export default function WeeklyPage() {
         </button>
 
         {showStats && (
-          <div className="mt-4 space-y-6">
-            {/* Stats Cards */}
+          <div className="mt-4">
             <WeeklyStatsCards
               stats={stats}
               comparison={comparison}
@@ -495,8 +496,22 @@ export default function WeeklyPage() {
               phaseDistribution={cycleData.phaseDistribution}
               phaseRanges={cycleData.phaseRanges}
             />
+          </div>
+        )}
+      </div>
 
-            {/* Charts */}
+      {/* Weekly Charts Section */}
+      <div className="card">
+        <button
+          onClick={() => setShowCharts(!showCharts)}
+          className="w-full flex items-center justify-between"
+        >
+          <h2 className="text-lg font-semibold text-app-charcoal">Weekly Charts</h2>
+          <span className="text-app-gray text-xl">{showCharts ? "−" : "+"}</span>
+        </button>
+
+        {showCharts && (
+          <div className="mt-4">
             <WeeklyCharts
               entries={weekEntries}
               orderedDays={orderedDays}
@@ -506,7 +521,22 @@ export default function WeeklyPage() {
               customProducts={settings.periodTracking.productTracking?.customProducts}
               medicines={settings.medicineTracking.medicines}
             />
-            {/* Week Comparison */}
+          </div>
+        )}
+      </div>
+
+      {/* Week over Week Section */}
+      <div className="card">
+        <button
+          onClick={() => setShowComparison(!showComparison)}
+          className="w-full flex items-center justify-between"
+        >
+          <h2 className="text-lg font-semibold text-app-charcoal">Week over Week</h2>
+          <span className="text-app-gray text-xl">{showComparison ? "−" : "+"}</span>
+        </button>
+
+        {showComparison && (
+          <div className="mt-4">
             <WeeklyComparison
               comparison={comparison}
               hasPreviousWeekData={prevWeekEntries.length > 0}

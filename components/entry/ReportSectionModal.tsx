@@ -12,9 +12,17 @@ interface ReportSectionModalProps {
     medicine: boolean;
   };
   /** Callback when user confirms selection */
-  onConfirm: (sections: LogSection[]) => void;
+  onConfirm: (config: ReportConfig) => void;
   /** Callback when user cancels */
   onCancel: () => void;
+}
+
+export interface ReportConfig {
+  sections: LogSection[];
+  dateRange: {
+    start: string; // YYYY-MM-DD
+    end: string;   // YYYY-MM-DD
+  };
 }
 
 interface SectionOption {
@@ -27,34 +35,36 @@ interface SectionOption {
 
 const SECTION_OPTIONS: SectionOption[] = [
   {
-    id: "symptoms",
-    label: "General Symptoms",
-    icon: "🏷️",
-    description: "Include symptom tracking and intensity levels",
-    settingsKey: "symptoms",
-  },
-  {
-    id: "bowel",
-    label: "Bowel Movement",
-    icon: "🧻",
-    description: "Include Bristol Stool Scale data",
-    settingsKey: "bowel",
-  },
-  {
     id: "period",
-    label: "Period / Cycle",
+    label: "Cycle data",
     icon: "🌸",
-    description: "Include cycle phase, flow, and products",
+    description: "Cycle phases, flow levels, and period tracking",
     settingsKey: "period",
   },
   {
+    id: "bowel",
+    label: "Stool logs",
+    icon: "🧻",
+    description: "Bristol Stool Scale types and bowel movements",
+    settingsKey: "bowel",
+  },
+  {
+    id: "symptoms",
+    label: "Symptoms",
+    icon: "🏷️",
+    description: "General and period-related symptoms with intensity",
+    settingsKey: "symptoms",
+  },
+  {
     id: "medicine",
-    label: "Medicine",
+    label: "Medications",
     icon: "💊",
-    description: "Include medication logs",
+    description: "Medicine logs with dosage and timing",
     settingsKey: "medicine",
   },
 ];
+
+type QuickSelectOption = "last30" | "last90" | "custom";
 
 export function ReportSectionModal({
   availableSections,
@@ -66,16 +76,50 @@ export function ReportSectionModal({
     (section) => availableSections[section.settingsKey]
   );
 
-  // Track selected sections
-  const [selected, setSelected] = useState<LogSection[]>([]);
+  // Track selected sections - default to all checked
+  const [selected, setSelected] = useState<LogSection[]>(
+    enabledSections.map((s) => s.id)
+  );
 
-  // Check if "Include Everything" should be shown (more than one section available)
-  const showIncludeEverything = enabledSections.length > 1;
+  // Date range state
+  const [quickSelect, setQuickSelect] = useState<QuickSelectOption>("last30");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
-  // Check if all available sections are selected
-  const allSelected =
-    enabledSections.length > 0 &&
-    enabledSections.every((section) => selected.includes(section.id));
+  // Calculate date range based on quick select
+  const getDateRange = (): { start: string; end: string } | null => {
+    const today = new Date();
+    const endDate = today.toISOString().split("T")[0];
+
+    if (quickSelect === "last30") {
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 30);
+      return {
+        start: startDate.toISOString().split("T")[0],
+        end: endDate,
+      };
+    } else if (quickSelect === "last90") {
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 90);
+      return {
+        start: startDate.toISOString().split("T")[0],
+        end: endDate,
+      };
+    } else if (quickSelect === "custom") {
+      if (!customStartDate || !customEndDate) {
+        return null;
+      }
+      // Validate that start is before end
+      if (new Date(customStartDate) > new Date(customEndDate)) {
+        return null;
+      }
+      return {
+        start: customStartDate,
+        end: customEndDate,
+      };
+    }
+    return null;
+  };
 
   // Toggle individual section
   const toggleSection = (sectionId: LogSection) => {
@@ -86,21 +130,19 @@ export function ReportSectionModal({
     );
   };
 
-  // Toggle all sections
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelected([]);
-    } else {
-      setSelected(enabledSections.map((s) => s.id));
+  // Handle confirm - must have at least one selection and valid date range
+  const handleConfirm = () => {
+    const dateRange = getDateRange();
+    if (selected.length > 0 && dateRange) {
+      onConfirm({
+        sections: selected,
+        dateRange,
+      });
     }
   };
 
-  // Handle confirm - must have at least one selection
-  const handleConfirm = () => {
-    if (selected.length > 0) {
-      onConfirm(selected);
-    }
-  };
+  const dateRange = getDateRange();
+  const isValid = selected.length > 0 && dateRange !== null;
 
   // If no sections are enabled, show a message
   if (enabledSections.length === 0) {
@@ -133,157 +175,212 @@ export function ReportSectionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop - slightly blurred to show form behind */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      {/* Backdrop */}
       <div className="absolute inset-0 bg-app-charcoal/40 backdrop-blur-[2px]" />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-app-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-lg bg-app-white rounded-2xl shadow-xl my-8">
         {/* Header */}
-        <div className="p-6 pb-4">
-          <h2 className="text-xl font-bold text-app-charcoal text-center">
-            What would you like to include in your report?
+        <div className="p-6 pb-4 border-b border-app-border">
+          <h2 className="text-xl font-bold text-app-charcoal">
+            Generate Health Report
           </h2>
-          <p className="text-sm text-app-gray text-center mt-1">
-            Select the sections to include in your PDF report
+          <p className="text-sm text-app-gray mt-1">
+            Configure your report for clinical review
           </p>
         </div>
 
-        {/* Section Options */}
-        <div className="px-6 space-y-2">
-          {enabledSections.map((section) => {
-            const isSelected = selected.includes(section.id);
-            return (
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Date Range Picker */}
+          <div>
+            <h3 className="text-sm font-semibold text-app-charcoal mb-3">
+              Report Period
+            </h3>
+
+            {/* Quick Select Buttons */}
+            <div className="flex gap-2 mb-3">
               <button
-                key={section.id}
                 type="button"
-                onClick={() => toggleSection(section.id)}
-                className={`w-full p-4 rounded-xl text-left transition-all flex items-start gap-4 ${
-                  isSelected
-                    ? "bg-app-green/10 border-2 border-app-green"
-                    : "bg-app-cream border-2 border-transparent hover:border-app-border"
+                onClick={() => setQuickSelect("last30")}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  quickSelect === "last30"
+                    ? "bg-app-teal text-white"
+                    : "bg-app-cream text-app-charcoal hover:bg-app-border"
                 }`}
               >
-                {/* Checkbox */}
-                <div
-                  className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                    isSelected
-                      ? "bg-app-green text-white"
-                      : "bg-app-white border-2 border-app-border"
-                  }`}
-                >
-                  {isSelected && (
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={3}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{section.icon}</span>
-                    <span className="font-semibold text-app-charcoal">
-                      {section.label}
-                    </span>
-                  </div>
-                  <p className="text-sm text-app-gray mt-0.5">
-                    {section.description}
-                  </p>
-                </div>
+                Last 30 days
               </button>
-            );
-          })}
+              <button
+                type="button"
+                onClick={() => setQuickSelect("last90")}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  quickSelect === "last90"
+                    ? "bg-app-teal text-white"
+                    : "bg-app-cream text-app-charcoal hover:bg-app-border"
+                }`}
+              >
+                Last 3 months
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickSelect("custom")}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  quickSelect === "custom"
+                    ? "bg-app-teal text-white"
+                    : "bg-app-cream text-app-charcoal hover:bg-app-border"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+
+            {/* Custom Date Inputs */}
+            {quickSelect === "custom" && (
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className="block text-xs text-app-gray mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white text-app-charcoal text-sm focus:outline-none focus:ring-2 focus:ring-app-teal"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-app-gray mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white text-app-charcoal text-sm focus:outline-none focus:ring-2 focus:ring-app-teal"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Date Range Display */}
+            {dateRange && (
+              <div className="mt-3 p-3 bg-app-cream/50 rounded-lg">
+                <p className="text-xs text-app-gray">
+                  Report will include data from{" "}
+                  <span className="font-medium text-app-charcoal">
+                    {new Date(dateRange.start).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-app-charcoal">
+                    {new Date(dateRange.end).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Data Categories */}
+          <div>
+            <h3 className="text-sm font-semibold text-app-charcoal mb-3">
+              Data Categories
+            </h3>
+
+            <div className="space-y-2">
+              {enabledSections.map((section) => {
+                const isSelected = selected.includes(section.id);
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => toggleSection(section.id)}
+                    className={`w-full p-3 rounded-lg text-left transition-all flex items-start gap-3 ${
+                      isSelected
+                        ? "bg-app-teal/10 border-2 border-app-teal"
+                        : "bg-app-cream/50 border-2 border-transparent hover:border-app-border"
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <div
+                      className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                        isSelected
+                          ? "bg-app-teal text-white"
+                          : "bg-app-white border-2 border-app-border"
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{section.icon}</span>
+                        <span className="font-medium text-app-charcoal text-sm">
+                          {section.label}
+                        </span>
+                      </div>
+                      <p className="text-xs text-app-gray mt-0.5">
+                        {section.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Include Everything Toggle */}
-        {showIncludeEverything && (
-          <div className="px-6 pt-4">
-            <button
-              type="button"
-              onClick={toggleAll}
-              className={`w-full p-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-                allSelected
-                  ? "bg-app-green text-white"
-                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-green"
-              }`}
-            >
-              {allSelected ? (
-                <>
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Including Everything
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 6h16M4 12h16M4 18h16"
-                    />
-                  </svg>
-                  Include Everything
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
         {/* Footer */}
-        <div className="p-6 pt-4 space-y-3">
+        <div className="p-6 pt-4 border-t border-app-border space-y-3">
           {/* Validation message */}
-          {selected.length === 0 && (
-            <p className="text-xs text-app-gray text-center">
-              Select at least one section to continue
+          {!isValid && (
+            <p className="text-xs text-app-red text-center">
+              {selected.length === 0
+                ? "Select at least one category"
+                : "Please select a valid date range"}
             </p>
           )}
 
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={selected.length === 0}
-            className={`w-full py-4 rounded-xl font-semibold text-white transition-all ${
-              selected.length === 0
+            disabled={!isValid}
+            className={`w-full py-3 rounded-xl font-semibold text-white transition-all ${
+              !isValid
                 ? "bg-app-gray/50 cursor-not-allowed"
                 : "bg-app-teal hover:opacity-90"
             }`}
           >
-            Generate PDF Report
+            Generate PDF
           </button>
 
-          {/* Cancel / Back */}
           <button
             type="button"
             onClick={onCancel}
-            className="block w-full py-3 rounded-xl text-center font-medium text-app-gray hover:text-app-charcoal hover:bg-app-cream transition-colors"
+            className="block w-full py-2 rounded-xl text-center font-medium text-app-gray hover:text-app-charcoal hover:bg-app-cream transition-colors"
           >
             Cancel
           </button>

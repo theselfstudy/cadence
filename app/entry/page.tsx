@@ -218,7 +218,7 @@ function ConsolidatedMedicineLog({
               key={medicine.id}
               type="button"
               onClick={() => toggleMedicine(medicine)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
                 isSelected
                   ? "bg-app-taupe text-white"
                   : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-taupe"
@@ -354,7 +354,7 @@ function ConsolidatedMedicineLog({
                 {medicine.timeSensitive && (
                   <div>
                     <label className="block text-xs text-app-gray mb-1">Time taken: *</label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <input
                         type="number"
                         min={is24Hour ? 0 : 1}
@@ -365,7 +365,7 @@ function ConsolidatedMedicineLog({
                             time: { ...entry.time!, hour: Number(e.target.value) },
                           })
                         }
-                        className="w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
+                        className="w-14 sm:w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
                       />
                       <span className="text-app-gray font-bold">:</span>
                       <input
@@ -378,7 +378,7 @@ function ConsolidatedMedicineLog({
                             time: { ...entry.time!, minute: Number(e.target.value) },
                           })
                         }
-                        className="w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
+                        className="w-14 sm:w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
                       />
                       {!is24Hour && (
                         <select
@@ -741,12 +741,12 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           onConfirm={handleLogSelectionConfirm}
         />
       )}
-      <div className="space-y-6 pb-8">
+      <div className="space-y-4 sm:space-y-6 pb-6 sm:pb-8 px-4 sm:px-0">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-app-charcoal">New Entry</h1>
-          <p className="text-app-gray">
+          <h1 className="text-xl sm:text-2xl font-bold text-app-charcoal">New Entry</h1>
+          <p className="text-sm sm:text-base text-app-gray">
             {selectedDateOption === "today"
               ? formatDate(new Date())
               : formatDate(new Date(new Date().setDate(new Date().getDate() - 1)))}
@@ -757,7 +757,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           <button
             type="button"
             onClick={() => setSelectedDateOption("today")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`flex-1 sm:flex-none px-4 sm:px-3 py-2 sm:py-1.5 rounded-lg text-sm sm:text-xs font-medium transition-all ${
               selectedDateOption === "today"
                 ? "bg-app-teal text-white"
                 : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-teal"
@@ -768,7 +768,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           <button
             type="button"
             onClick={() => setSelectedDateOption("yesterday")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`flex-1 sm:flex-none px-4 sm:px-3 py-2 sm:py-1.5 rounded-lg text-sm sm:text-xs font-medium transition-all ${
               selectedDateOption === "yesterday"
                 ? "bg-app-teal text-white"
                 : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-teal"
@@ -801,13 +801,13 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
             <label className="block text-sm font-medium text-app-charcoal mb-3">
               What does it look like?
             </label>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-2 sm:gap-2 justify-center">
               {BRISTOL_TYPES.map((type) => (
                 <button
                   key={type.type}
                   type="button"
                   onClick={() => setBristolType(type.type as BristolScaleType)}
-                  className={`w-12 h-12 rounded-full text-lg font-semibold transition-all ${
+                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full text-base sm:text-lg font-semibold transition-all ${
                     bristolType === type.type
                       ? "bg-app-plumb text-white scale-110"
                       : "bg-app-cream text-app-charcoal border-2 border-app-border hover:border-app-plumb"
@@ -840,7 +840,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                   key={feeling.value}
                   type="button"
                   onClick={() => setPostFeeling(feeling.value)}
-                  className={`mb-4 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  className={`mb-2 sm:mb-4 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                     postFeeling === feeling.value
                       ? "bg-app-plumb text-white"
                       : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-plumb"
@@ -889,7 +889,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                     key={phase.value}
                     type="button"
                     onClick={() => setCyclePhase(phase.value)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`px-3 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${
                       isSelected
                         ? "text-white"
                         : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-green"
@@ -920,7 +920,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                     key={level.value}
                     type="button"
                     onClick={() => setFlowLevel(level.value)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${
                       flowLevel === level.value
                         ? "bg-app-red text-white"
                         : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-red"
@@ -975,7 +975,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
               const selected = selectedSymptoms.find((s) => s.name === symptom);
               const isPeriodRelated = periodSymptomsList.includes(symptom);
               const accentColor = isMenstrualPhase && isPeriodRelated ? "red" : "teal";
-              
+
               const colorClasses = {
                 red: {
                   selected: "bg-app-red text-white",
@@ -992,7 +992,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                   key={symptom}
                   type="button"
                   onClick={() => toggleSymptom(symptom)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                     selected
                       ? colorClasses[accentColor].selected
                       : colorClasses[accentColor].unselected
@@ -1136,12 +1136,12 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       </section>
 
       {/* Submit Button */}
-      <div className="pt-4">
+      <div className="pt-2 sm:pt-4">
         <button
           type="button"
           onClick={handleSubmit}
           disabled={isSubmitting || !!notesWarning}
-          className={`w-full py-4 rounded-lg font-semibold text-white transition-all ${
+          className={`w-full py-3 sm:py-4 rounded-lg font-semibold text-white transition-all text-sm sm:text-base ${
             isSubmitting
               ? "bg-app-teal/70 cursor-wait"
               : notesWarning
@@ -1151,7 +1151,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">
-              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <svg className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -1171,7 +1171,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           ) : (
             <span className="flex items-center justify-center gap-2">
               <svg
-                className="w-5 h-5"
+                className="w-4 sm:w-5 h-4 sm:h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1252,45 +1252,45 @@ function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSection
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-app-charcoal">{label}</h2>
+        <h2 className="text-base sm:text-lg font-semibold text-app-charcoal">{label}</h2>
         <button
           type="button"
           onClick={setNow}
-          className="px-4 py-2 rounded-lg bg-app-green text-white text-sm font-medium hover:opacity-90 transition-opacity"
+          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-app-green text-white text-xs sm:text-sm font-medium hover:opacity-90 transition-opacity"
         >
           Now
         </button>
       </div>
       <div className="flex items-center justify-center gap-2">
-        <div className="w-20">
+        <div className="w-16 sm:w-20">
           <input
             type="number"
             min={is24Hour ? 0 : 1}
             max={is24Hour ? 23 : 12}
             value={value.hour}
             onChange={(e) => onChange({ ...value, hour: Number(e.target.value) })}
-            className="w-full px-3 py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-lg font-medium text-app-charcoal"
+            className="w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-base sm:text-lg font-medium text-app-charcoal"
           />
           <p className="text-xs text-app-gray text-center mt-1">Hour</p>
         </div>
-        <span className="text-2xl text-app-gray font-bold pb-5">:</span>
-        <div className="w-20">
+        <span className="text-xl sm:text-2xl text-app-gray font-bold pb-5">:</span>
+        <div className="w-16 sm:w-20">
           <input
             type="number"
             min={0}
             max={59}
             value={value.minute.toString().padStart(2, "0")}
             onChange={(e) => onChange({ ...value, minute: Number(e.target.value) })}
-            className="w-full px-3 py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-lg font-medium text-app-charcoal"
+            className="w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-base sm:text-lg font-medium text-app-charcoal"
           />
           <p className="text-xs text-app-gray text-center mt-1">Min</p>
         </div>
         {!is24Hour && (
-          <div className="w-20">
+          <div className="w-16 sm:w-20">
             <select
               value={value.period}
               onChange={(e) => onChange({ ...value, period: e.target.value as "AM" | "PM" })}
-              className="w-full px-2 py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-lg font-medium text-app-charcoal"
+              className="w-full px-2 py-2 sm:py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-base sm:text-lg font-medium text-app-charcoal"
             >
               <option value="AM">AM</option>
               <option value="PM">PM</option>
@@ -1369,15 +1369,15 @@ function ProductUsageEntrySection({
         {selectedProducts.map((productType) => {
           const product = PRODUCT_OPTIONS.find((p) => p.type === productType);
           const isSelected = selectedProductUsage.some((p) => p.productType === productType);
-          
+
           if (!product) return null;
-          
+
           return (
             <button
               key={productType}
               type="button"
               onClick={() => toggleProduct(productType)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                 isSelected
                   ? "bg-app-red text-white"
                   : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-red"
