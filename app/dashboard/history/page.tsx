@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 
 import type { StoredEntry, TimeFormat } from "@/types";
-import { useEffect, useState, useMemo } from "react";
 import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 import { useSavedFilters } from "@/stores/useSavedFilters";
@@ -43,6 +44,9 @@ export default function HistoryPage() {
   // Client-side rendering guard
   const [isClient, setIsClient] = useState(false);
   
+  // URL search params for pre-filtering (e.g., from Cycle Insights)
+  const searchParams = useSearchParams();
+  
   // Store data
   const entries = useEntries((state) => state.entries);
   const { isGoogleSheetConnected, timeFormat, periodTracking } = useSettings();
@@ -53,12 +57,18 @@ export default function HistoryPage() {
   // Saved filters store
   const loadSavedFiltersFromSheet = useSavedFilters((state) => state.loadFromSheet);
   
-  // Filter state
-  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>("all");
+  // Filter state - initialize from URL params if present
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>(() => {
+    // Will be properly initialized in useEffect after client-side hydration
+    return "all";
+  });
   const [customRange, setCustomRange] = useState<DateRange>({
     start: "",
     end: "",
   });
+  
+  // Track if we've initialized from URL params
+  const [initializedFromUrl, setInitializedFromUrl] = useState(false);
   
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
@@ -150,6 +160,20 @@ export default function HistoryPage() {
     clearAllFilters,
   } = useHistoryFilters(dateFilteredEntries);
   
+  // Initialize filters from URL search params (e.g., from Cycle Insights "Explore in History")
+  useEffect(() => {
+    if (initializedFromUrl) return;
+    
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    
+    if (startDate && endDate) {
+      setCustomRange({ start: startDate, end: endDate });
+      setDateRangeFilter("custom");
+      setInitializedFromUrl(true);
+    }
+  }, [searchParams, initializedFromUrl]);
+
   // Check if user should see backup prompt (anonymous mode, has entries, hasn't dismissed recently)
   useEffect(() => {
     setIsClient(true);

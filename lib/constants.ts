@@ -235,6 +235,16 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
     enabled: false,
     medicines: [],
   },
+  monthlyNavigationContext: {
+    startDate: null,
+    endDate: null,
+    fromCycleInsights: false,
+  },
+  historyNavigationContext: {
+    startDate: null,
+    endDate: null,
+    fromCycleInsights: false,
+  },
   setupComplete: false,
   tutorialComplete: false,
   hasUnsavedChanges: false,

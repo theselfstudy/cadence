@@ -9,13 +9,13 @@ import type { MonthlyStats, MonthComparison } from "@/lib/monthlyUtils";
 // ============================================
 
 interface MonthlyStatsCardsProps {
-  /** Stats for the current month */
+  /** Stats for the current month or selected date range */
   stats: MonthlyStats;
   /** Comparison with previous month */
   comparison: MonthComparison | null;
   /** Whether there's data from the previous month */
   hasPreviousMonthData: boolean;
-  /** Top symptoms with intensities for this month */
+  /** Top symptoms with intensities for this month or selected range */
   topSymptoms?: { name: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
   /** Top symptoms from last month for comparison */
   lastMonthTopSymptoms?: { name: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
@@ -29,8 +29,10 @@ interface MonthlyStatsCardsProps {
   daysInMonth?: number;
   /** Getting phase ranges per month from entries */  
   phaseRanges?: { phase: string; startDate: string; endDate: string | null; days: number }[];
-  /** Currently selected days for filtering */
-  selectedDays?: number[];
+  /** Currently selected dates (full YYYY-MM-DD strings, can span months) */
+  selectedDates?: string[];
+  /** Currently selected days in current month only (for UI highlighting) */
+  selectedDaysInCurrentMonth?: number[];
   /** Current month range for date formatting */
   monthRange?: { year: number; month: number; label: string };
 }
@@ -46,36 +48,60 @@ export function MonthlyStatsCards({
   cycleDaysLogged = 0,
   daysInMonth = 30,
   phaseRanges = [],
-  selectedDays = [],
+  selectedDates = [],
+  selectedDaysInCurrentMonth = [],
   monthRange,
 }: MonthlyStatsCardsProps) {
-  // Helper to format date range for display
+// Helper to format date range for display (supports cross-month)
   const formatDateRangeLabel = (): string | null => {
-    if (selectedDays.length === 0 || !monthRange) return null;
+    if (selectedDates.length === 0) return null;
     
-    const sortedDays = [...selectedDays].sort((a, b) => a - b);
+    const sortedDates = [...selectedDates].sort();
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const monthName = monthNames[monthRange.month];
     
-    if (sortedDays.length === 1) {
-      return `${monthName} ${sortedDays[0]}, ${monthRange.year}`;
+    const formatDate = (dateStr: string): string => {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      return `${monthNames[month - 1]} ${day}`;
+    };
+    
+    const formatDateWithYear = (dateStr: string): string => {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      return `${monthNames[month - 1]} ${day}, ${year}`;
+    };
+    
+    if (sortedDates.length === 1) {
+      return formatDateWithYear(sortedDates[0]);
     }
     
-    // Check if consecutive
-    const isConsecutive = sortedDays.every((day, i) => 
-      i === 0 || day === sortedDays[i - 1] + 1
-    );
+    const firstDate = sortedDates[0];
+    const lastDate = sortedDates[sortedDates.length - 1];
     
-    if (isConsecutive) {
-      return `${monthName} ${sortedDays[0]}-${sortedDays[sortedDays.length - 1]}, ${monthRange.year}`;
+    // Check if same month
+    const firstMonth = firstDate.substring(0, 7); // YYYY-MM
+    const lastMonth = lastDate.substring(0, 7);
+    
+    if (firstMonth === lastMonth) {
+      // Same month - show compact range
+      const [year, month] = firstDate.split("-").map(Number);
+      const firstDay = parseInt(firstDate.split("-")[2], 10);
+      const lastDay = parseInt(lastDate.split("-")[2], 10);
+      return `${monthNames[month - 1]} ${firstDay}-${lastDay}, ${year}`;
     }
     
-    // Non-consecutive: show first-last with indicator
-    return `${monthName} ${sortedDays[0]}-${sortedDays[sortedDays.length - 1]} (${sortedDays.length} days)`;
+    // Cross-month - show full range
+    const [firstYear] = firstDate.split("-").map(Number);
+    const [lastYear] = lastDate.split("-").map(Number);
+    
+    if (firstYear === lastYear) {
+      return `${formatDate(firstDate)} - ${formatDate(lastDate)}, ${firstYear}`;
+    }
+    
+    return `${formatDateWithYear(firstDate)} - ${formatDateWithYear(lastDate)}`;
   };
 
   const dateRangeLabel = formatDateRangeLabel();
-  const hasDateFilter = selectedDays.length > 0;
+  const hasDateFilter = selectedDates.length > 0;
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {/* Top Symptom Card */}
@@ -198,7 +224,8 @@ export function MonthlyStatsCards({
           dateRangeLabel={dateRangeLabel}
           phaseDistribution={comparison?.cycle.thisMonth.phaseDistribution}
           monthRange={monthRange}
-          selectedDays={selectedDays}
+          selectedDates={selectedDates}
+          selectedDaysInCurrentMonth={selectedDaysInCurrentMonth}
         />
       )}
 
@@ -335,7 +362,8 @@ interface CyclePhaseCardProps {
   dateRangeLabel?: string | null;
   phaseDistribution?: Record<string, number>;
   monthRange?: { year: number; month: number; label: string };
-  selectedDays?: number[];
+  selectedDates?: string[];
+  selectedDaysInCurrentMonth?: number[];
 }
 
 function CyclePhaseCard({ 
@@ -347,7 +375,8 @@ function CyclePhaseCard({
   dateRangeLabel,
   phaseDistribution = {},
   monthRange,
-  selectedDays = [],
+  selectedDates = [],
+  selectedDaysInCurrentMonth = [],
 }: CyclePhaseCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -378,23 +407,16 @@ function CyclePhaseCard({
     not_sure: 1,
   };
 
-  // Calculate phase distribution for selected days only (when filtered)
-  // This handles the case where phaseDistribution from props contains whole month data
+  // Calculate phase distribution for selected dates (supports cross-month)
   // Applies priority-based selection: Menstrual > Ovulation > Follicular > Luteal > Not Sure
   const getFilteredPhaseDistribution = (): Record<string, number> => {
-    if (!hasDateFilter || selectedDays.length === 0 || !monthRange) {
+    if (!hasDateFilter || selectedDates.length === 0) {
       // No filter - use the full month distribution
       return phaseDistribution;
     }
 
     // Build a set of selected date strings for quick lookup
-    const selectedDateStrings = new Set(
-      selectedDays.map(day => {
-        const month = String(monthRange.month + 1).padStart(2, '0');
-        const dayStr = String(day).padStart(2, '0');
-        return `${monthRange.year}-${month}-${dayStr}`;
-      })
-    );
+    const selectedDateStrings = new Set(selectedDates);
 
     // For each selected date, find the highest priority phase from phaseRanges
     const dateToPhase: Record<string, string> = {};

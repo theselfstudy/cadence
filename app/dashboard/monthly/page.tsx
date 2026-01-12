@@ -504,7 +504,7 @@ export default function MonthlyPage() {
             cycleDaysLogged={cycleData.cycleDaysLogged}
             daysInMonth={daysInMonth}
             phaseRanges={phaseRanges}
-            selectedDays={selectedDays}
+            // selectedDays={selectedDays}
             monthRange={monthRange}
           />
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback } from "react";
 import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 // import type { StoredEntry } from "@/types";
@@ -18,8 +18,10 @@ import { EmergingPatternsSection } from "./sections/EmergingPatternsSection";
 import { CoOccurrenceSection } from "./sections/CoOccurrenceSection";
 import { NotableCyclesSection } from "./sections/NotableCyclesSection";
 import { DetailedViewsSection } from "./sections/DetailedViewsSection";
-import { CollapsibleSection, DismissibleSection } from "./shared/CollapsibleSection";
-import { CycleProgressRing } from "./shared/RingIndicator";
+import { EntriesSection } from "./sections/EntriesSection";
+import { CollapsibleSection } from "./shared/CollapsibleSection";
+import { useSectionPreferences } from "./hooks/useSectionPreferences";
+
 import { 
   calculateConsistentPatterns,
   calculateEmergingPatterns,
@@ -30,10 +32,7 @@ import {
 // TYPES
 // ============================================
 
-interface SectionPreferences {
-  collapsedSections: string[];
-  reflectSectionHidden: boolean;
-}
+// SectionPreferences moved to hooks/useSectionPreferences.ts
 
 // ============================================
 // CYCLE INSIGHTS PAGE
@@ -51,63 +50,23 @@ export function CycleInsightsPage() {
   const periodTracking = useSettings((state) => state.periodTracking);
   
   // ============================================
-  // SECTION PREFERENCES (LOCAL STATE FOR NOW)
-  // Will be moved to settings store in Phase 4
+  // SECTION PREFERENCES (via hook)
   // ============================================
   
-  const [sectionPreferences, setSectionPreferences] = useState<SectionPreferences>({
-    collapsedSections: [],
-    reflectSectionHidden: false,
-  });
-
-  // Load preferences from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("cadence-cycle-insights-prefs");
-    if (saved) {
-      try {
-        setSectionPreferences(JSON.parse(saved));
-      } catch (e) {
-        console.warn("Failed to parse cycle insights preferences", e);
-      }
-    }
-  }, []);
-
-  // Save preferences to localStorage when they change
-  useEffect(() => {
-    localStorage.setItem("cadence-cycle-insights-prefs", JSON.stringify(sectionPreferences));
-  }, [sectionPreferences]);
+  const {
+    preferences: sectionPreferences,
+    isSectionCollapsed,
+    setSectionCollapsed,
+    hideReflectSection,
+  } = useSectionPreferences();
 
   // ============================================
   // SECTION TOGGLE HANDLERS
   // ============================================
   
-  const isSectionCollapsed = useCallback((sectionId: string): boolean => {
-    return sectionPreferences.collapsedSections.includes(sectionId);
-  }, [sectionPreferences.collapsedSections]);
-
   const handleSectionToggle = useCallback((sectionId: string, isExpanded: boolean) => {
-    setSectionPreferences((prev: SectionPreferences) => {
-      const collapsed = prev.collapsedSections.filter((id: string) => id !== sectionId);
-      if (!isExpanded) {
-        collapsed.push(sectionId);
-      }
-      return { ...prev, collapsedSections: collapsed };
-    });
-  }, []);
-
-  const handleReflectDismiss = useCallback(() => {
-    setSectionPreferences((prev: SectionPreferences) => ({
-      ...prev,
-      reflectSectionHidden: true,
-    }));
-  }, []);
-
-  const handleReflectRestore = useCallback(() => {
-    setSectionPreferences((prev: SectionPreferences) => ({
-      ...prev,
-      reflectSectionHidden: false,
-    }));
-  }, []);
+    setSectionCollapsed(sectionId, !isExpanded);
+  }, [setSectionCollapsed]);
 
   // ============================================
   // CYCLE DETECTION & CALCULATIONS
@@ -144,22 +103,6 @@ const detectedCycles = useMemo(() => {
     return calculateConsistentPatterns(entries, detectedCycles);
   }, [entries, detectedCycles]);
 
-  // Calculate emerging patterns for badge count      {/* Section 3: Occasional & Emerging */}
-      <CollapsibleSection
-        title="Occasional & Emerging"
-        icon={<SparkleIcon className="w-5 h-5" />}
-        helpText="Patterns that appear less frequently, have recently started, or are changing over time."
-        defaultExpanded={!isSectionCollapsed("emerging-patterns")}
-        onToggle={(expanded) => handleSectionToggle("emerging-patterns", expanded)}
-      >
-        <PlaceholderContent
-          title="Occasional & Emerging Patterns"
-          description="Less frequent patterns and new trends will appear here as you log more data."
-          minCycles={2}
-          currentCycles={completeCycles.length}
-          icon="🌱"
-        />
-      </CollapsibleSection>
   const emergingPatterns = useMemo(() => {
     return calculateEmergingPatterns(entries, detectedCycles);
   }, [entries, detectedCycles]);
@@ -319,32 +262,12 @@ const detectedCycles = useMemo(() => {
         />
       </CollapsibleSection>
 
-      {/* Section 6: Reflect */}
-      <DismissibleSection
-        title="Reflect"
-        icon={<ThoughtBubbleIcon className="w-5 h-5" />}
-        helpText="Questions to help you notice patterns. Your answers aren't stored, they're just for you."
-        defaultExpanded={!isSectionCollapsed("reflect")}
-        onToggle={(expanded) => handleSectionToggle("reflect", expanded)}
-        isDismissed={sectionPreferences.reflectSectionHidden}
-        onDismiss={handleReflectDismiss}
-        onRestore={handleReflectRestore}
-      >
-        <PlaceholderContent
-          title="Reflection Prompts"
-          description="Gentle questions to help you notice patterns in your data will appear here."
-          minCycles={2}
-          currentCycles={completeCycles.length}
-          icon="💭"
-        />
-      </DismissibleSection>
-
-      {/* Section 7: Detailed Views */}
+      {/* Section 6: Detailed Views */}
       <CollapsibleSection
         title="Detailed Views"
         icon={<ChartDetailIcon className="w-5 h-5" />}
         badge="Full details"
-        helpText="Detailed breakdowns of your cycle data including heat maps and cycle-by-cycle comparisons."
+        helpText="Detailed breakdowns of your cycle data including cycle history."
         defaultExpanded={false}
         onToggle={(expanded) => handleSectionToggle("detailed-views", expanded)}
       >
@@ -352,8 +275,19 @@ const detectedCycles = useMemo(() => {
           cycles={detectedCycles}
           entries={entries}
           cycleComparison={cycleComparison}
-          cyclePhaseHeatMapData={cyclePhaseHeatMapData}
         />
+      </CollapsibleSection>
+
+      {/* Section 7: Entries */}
+      <CollapsibleSection
+        title="Entries"
+        icon={<EntryLogIcon className="w-5 h-5" />}
+        badge={`${entries.length} entr${entries.length !== 1 ? "ies" : "y"}`}
+        helpText="All your logged entries with full details."
+        defaultExpanded={false}
+        onToggle={(expanded) => handleSectionToggle("entries", expanded)}
+      >
+        <EntriesSection entries={entries} />
       </CollapsibleSection>
     </div>
   );
@@ -557,6 +491,25 @@ function ChartDetailIcon({ className }: { className?: string }) {
         strokeLinejoin="round" 
         strokeWidth={2} 
         d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+      />
+    </svg>
+  );
+}
+
+function EntryLogIcon({ className }: { className?: string }) {
+  return (
+    <svg 
+      className={className} 
+      fill="none" 
+      stroke="currentColor" 
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        strokeWidth={2} 
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" 
       />
     </svg>
   );

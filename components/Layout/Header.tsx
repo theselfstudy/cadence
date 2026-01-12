@@ -3,6 +3,7 @@
 import { SafeLink } from "@/components/ui/SafeLink";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useSettings } from "@/stores/useSettings";
 import { APP_CONFIG } from "@/lib/constants";
 
 /**
@@ -101,6 +102,10 @@ interface SidebarProps {
 
 function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { periodTracking } = useSettings();
+  
+  // Check if period tracking is enabled
+  const isPeriodTrackingEnabled = periodTracking?.enabled ?? false;
 
   // Navigation groups
   const primaryItems = [
@@ -111,7 +116,9 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
   const viewItems = [
     { href: "/dashboard/weekly", label: "Weekly View" },
     { href: "/dashboard/monthly", label: "Monthly View" },
-    { href: "/dashboard/cycleinsights", label: "Cycle Insights" },
+    { href: "/dashboard/history", label: "History View" },
+    ...(isPeriodTrackingEnabled ? [{ href: "/dashboard/cycleinsights", label: "Cycle Insights" }] : []),
+    { href: "/dashboard/reports", label: "Reports" },
   ];
 
   const settingsItems = [
@@ -255,10 +262,22 @@ function NavIcon({ label }: { label: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM9 15h.01M12 15h.01M15 15h.01M9 18h.01M12 18h.01" />
         </svg>
       );
+    case "History View":
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+      );
     case "Cycle Insights":
       return (
         <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+      );
+    case "Reports":
+      return (
+        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       );
     case "Settings Overview":

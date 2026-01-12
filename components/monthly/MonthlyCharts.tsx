@@ -113,7 +113,7 @@ export function MonthlyCharts({
         </h3>
         <p className="text-xs text-app-gray mt-0.5">
           {selectedDays.length > 0 
-            ? "Showing data for selected days only"
+            ? "Showing data for selected date range"
             : "Click on the tabs to view each section's data"}
         </p>
       </div>

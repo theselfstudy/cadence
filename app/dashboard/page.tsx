@@ -12,8 +12,11 @@ import { ThisWeekGlance } from "@/components/dashboard";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { setupComplete, tutorialComplete } = useSettings();
+  const { setupComplete, tutorialComplete, periodTracking } = useSettings();
   const [isClient, setIsClient] = useState(false);
+  
+  // Check if period tracking is enabled
+  const isPeriodTrackingEnabled = periodTracking?.enabled ?? false;
 
   useEffect(() => {
     setIsClient(true);
@@ -99,15 +102,17 @@ export default function DashboardPage() {
             description="Monthly patterns & insights"
             color="plumb"
             // comingSoon
-          />          
-          <DashboardCard
-            href="/dashboard/cycleinsights"
-            icon="🌸"
-            title="Cycle Insights"
-            description="Menstrual cycle patterns & insights"
-            color="red"
-            // comingSoon
           />
+          {isPeriodTrackingEnabled && (
+            <DashboardCard
+              href="/dashboard/cycleinsights"
+              icon="🌸"
+              title="Cycle Insights"
+              description="Menstrual cycle patterns & insights"
+              color="red"
+              // comingSoon
+            />
+          )}
           <DashboardCard
             href="/dashboard/history"
             icon="📋"
