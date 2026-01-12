@@ -49,8 +49,9 @@ export default function HistoryPage() {
   
   // Store data
   const entries = useEntries((state) => state.entries);
-  const { isGoogleSheetConnected, timeFormat, periodTracking } = useSettings();
-  const customProducts = periodTracking.productTracking?.customProducts || {};
+  const { isGoogleSheetConnected, timeFormat } = useSettings();
+
+  const settings = useSettings();
 
   const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
 
@@ -73,6 +74,7 @@ export default function HistoryPage() {
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [showStats, setShowStats] = useState(true);
+  const [showEntries, setShowEntries] = useState(true);
   const [showBackupPrompt, setShowBackupPrompt] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
@@ -420,41 +422,9 @@ export default function HistoryPage() {
               </button>
             ))}
           </div>
-          
-          {/* View Toggle */}
+
+          {/* Stats Toggle */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-app-gray">View:</span>
-            <div className="flex rounded-lg overflow-hidden border border-app-border">
-              <button
-                onClick={() => setViewMode("cards")}
-                className={`px-3 py-1.5 text-sm transition-colors ${
-                  viewMode === "cards"
-                    ? "bg-app-teal text-white"
-                    : "bg-white text-app-charcoal hover:bg-app-cream"
-                }`}
-                title="Card View"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setViewMode("table")}
-                className={`px-3 py-1.5 text-sm transition-colors ${
-                  viewMode === "table"
-                    ? "bg-app-teal text-white"
-                    : "bg-white text-app-charcoal hover:bg-app-cream"
-                }`}
-                title="Table View"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                        d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-            </div>
-            {/* Stats Toggle */}
             <button
               onClick={() => setShowStats(!showStats)}
               className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
@@ -465,7 +435,7 @@ export default function HistoryPage() {
               title={showStats ? "Hide Statistics" : "Show Statistics"}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </button>
@@ -550,52 +520,115 @@ export default function HistoryPage() {
         <SummaryStatsPanel stats={stats} timeFormat={timeFormat} />
       )}
 
-      {/* Entries Display */}
-      {filteredEntries.length === 0 ? (
-        <EmptyState 
-          hasAnyEntries={entries.length > 0} 
-          hasDateFilteredEntries={dateFilteredEntries.length > 0}
-          hasActiveFilters={hasFilters}
-          onClearFilters={clearAllFilters}
-        />
-      ) : viewMode === "cards" ? (
-        <div className="space-y-4">
-          {/* Card List */}
-          {visibleEntries.map((entry) => (
-            <EntryCard 
-              key={entry.id} 
-              entry={entry} 
-              timeFormat={timeFormat}
-              customProducts={customProducts}
-            />
-          ))}
-          
-          {/* Load More Button */}
-          {hasMoreEntries && (
-            <div className="flex justify-center pt-4">
-              <button
-                onClick={handleLoadMore}
-                className="flex items-center gap-2 px-6 py-3 bg-app-cream text-app-charcoal 
-                           rounded-lg hover:bg-app-border transition-colors font-medium"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-                Show More ({remainingCount} remaining)
-              </button>
-            </div>
-          )}
-          
-          {/* Showing count indicator */}
-          {filteredEntries.length > ENTRIES_PER_PAGE && (
-            <p className="text-center text-sm text-app-gray">
-              Showing {visibleEntries.length} of {filteredEntries.length} entries
-            </p>
-          )}
-        </div>
-      ) : (
-        <SummaryTable entries={filteredEntries} timeFormat={timeFormat} />
-      )}
+      {/* Entry List Section - Shown by default */}
+      <div className="card">
+        <button
+          onClick={() => setShowEntries(!showEntries)}
+          className="w-full flex items-center justify-between"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-app-charcoal">
+              Entries ({filteredEntries.length})
+            </h2>
+            {filteredEntries.length !== entries.length && (
+              <p className="text-xs text-app-gray">
+                Filtered from {entries.length} total
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {/* View Toggle (only when expanded) */}
+            {showEntries && (
+              <div className="flex rounded-lg overflow-hidden border border-app-border">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewMode("cards");
+                  }}
+                  className={`px-2 py-1 text-xs transition-colors ${
+                    viewMode === "cards"
+                      ? "bg-app-teal text-white"
+                      : "bg-white text-app-charcoal hover:bg-app-cream"
+                  }`}
+                  title="Card View"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewMode("table");
+                  }}
+                  className={`px-2 py-1 text-xs transition-colors ${
+                    viewMode === "table"
+                      ? "bg-app-teal text-white"
+                      : "bg-white text-app-charcoal hover:bg-app-cream"
+                  }`}
+                  title="Table View"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <span className="text-app-gray text-xl">{showEntries ? "−" : "+"}</span>
+          </div>
+        </button>
+
+        {showEntries && (
+          <div className="mt-4">
+            {filteredEntries.length === 0 ? (
+              <EmptyState
+                hasAnyEntries={entries.length > 0}
+                hasDateFilteredEntries={dateFilteredEntries.length > 0}
+                hasActiveFilters={hasFilters}
+                onClearFilters={clearAllFilters}
+              />
+            ) : viewMode === "cards" ? (
+              <div className="space-y-3">
+                {visibleEntries.map((entry) => (
+                  <EntryCard
+                    key={entry.id}
+                    entry={entry}
+                    timeFormat={timeFormat}
+                    customProducts={settings.periodTracking.productTracking?.customProducts}
+                  />
+                ))}
+
+                {/* Load More Button */}
+                {hasMoreEntries && (
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    <button
+                      onClick={handleLoadMore}
+                      className="px-4 py-2 text-sm bg-app-teal text-white rounded-lg hover:bg-app-teal/90 transition-colors"
+                    >
+                      Show More ({remainingCount} remaining)
+                    </button>
+                    <p className="text-xs text-app-gray">
+                      Showing {visibleEntries.length} of {filteredEntries.length} entries
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <SummaryTable entries={filteredEntries} timeFormat={timeFormat} />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Debug JSON View */}
       {filteredEntries.length > 0 && (
@@ -699,7 +732,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
     : "—";
 
   return (
-    <div className="card bg-gradient-to-br from-app-cream to-white">
+    <div className="card">
       {/* Collapsible Header */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -707,7 +740,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
       >
         <h3 className="text-lg font-semibold text-app-charcoal flex items-center gap-2">
           <svg className="w-5 h-5 text-app-plumb" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           Summary Statistics
@@ -716,7 +749,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
           {isCollapsed ? "+" : "−"}
         </span>
       </button>
-      
+
       {/* Collapsible Content */}
       {!isCollapsed && (
         <div className="mt-4">
@@ -724,7 +757,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
             <StatCard label="Total Entries" value={stats.totalEntries} icon="📊" />
             <StatCard
               label="Date Range"
-              value={stats.dateRange 
+              value={stats.dateRange
                 ? `${formatDateShort(stats.dateRange.start)} - ${formatDateShort(stats.dateRange.end)}`
                 : "—"
               }
@@ -734,12 +767,12 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
             <StatCard label="Avg Duration" value={avgDuration} icon="⏱️" />
             <StatCard label="Most Active Day" value={getMostCommon(stats.entriesByDayOfWeek) || "—"} icon="📆" />
           </div>
-          
+
           {/* Detailed Breakdowns */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Top Symptoms */}
             {topSymptoms.length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Top Symptoms</span>
                   <span className="text-xs">Count</span>
@@ -754,10 +787,10 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Bristol Distribution */}
             {Object.keys(stats.bristolTypeCounts).length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Bristol Types</span>
                   <span className="text-xs">Count</span>
@@ -774,10 +807,10 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Cycle Phase Distribution */}
             {Object.keys(stats.cyclePhaseDistribution).length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Cycle Phases</span>
                   <span className="text-xs">Count</span>
@@ -795,10 +828,10 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Top Medicines */}
             {topMedicines.length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Medicines Taken</span>
                   <span className="text-xs">Count</span>
@@ -813,10 +846,10 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Time of Day */}
             {Object.keys(stats.entriesByTimeOfDay).length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Time of Day</span>
                   <span className="text-xs">Count</span>
@@ -842,19 +875,19 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
   );
 }
 
-function StatCard({ 
-  label, 
-  value, 
+function StatCard({
+  label,
+  value,
   icon,
-  small = false 
-}: { 
-  label: string; 
-  value: string | number; 
+  small = false
+}: {
+  label: string;
+  value: string | number;
   icon: string;
   small?: boolean;
 }) {
   return (
-    <div className="p-3 bg-white rounded-lg border border-app-border">
+    <div className="p-3 bg-app-cream/50 rounded-lg border border-app-border">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-lg">{icon}</span>
         <span className="text-xs text-app-gray">{label}</span>

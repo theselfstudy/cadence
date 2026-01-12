@@ -26,7 +26,6 @@ import {
 
 import { FilterBar } from "@/components/history";
 
-import { BRISTOL_TYPES, POST_BOWEL_FEELINGS, CYCLE_PHASES } from "@/lib/constants";
 import type { StoredEntry, TimeFormat } from "@/types";
 import { EntryCard } from "@/components/ui/EntryCard";
 
