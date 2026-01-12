@@ -1587,3 +1587,171 @@ export function calculateNotableCycles(
   // Return most recent 3 notable cycles
   return notableCycles.reverse().slice(0, 3);
 }
+
+// ============================================
+// PHASE 4: REFLECTION PROMPTS
+// ============================================
+
+export interface ReflectionPrompt {
+  id: string;
+  category: 'pattern_check' | 'recent_change' | 'co_occurrence' | 'general_awareness';
+  prompt: string;
+  basedOn: string;
+  answerType: 'yes_no' | 'accuracy' | 'choice' | 'acknowledge';
+  choices?: string[];
+}
+
+/**
+ * Generate reflection prompts based on user's data
+ * Returns 1-2 prompts, excluding dismissed ones
+ * 
+ * Rules:
+ * - NEVER use "in your body" phrasing
+ * - Questions must logically match answer options
+ * - Maximum 2 prompts returned
+ */
+export function generateReflectionPrompts(
+  consistentPatterns: ConsistentPattern[],
+  emergingPatterns: EmergingPattern[],
+  coOccurrences: CoOccurrence[],
+  dismissedPromptIds: string[],
+  cycleCount: number
+): ReflectionPrompt[] {
+  const prompts: ReflectionPrompt[] = [];
+  
+  // Early data - show encouraging message
+  if (cycleCount < 2) {
+    const earlyPromptId = 'early-data-encouragement';
+    if (!dismissedPromptIds.includes(earlyPromptId)) {
+      prompts.push({
+        id: earlyPromptId,
+        category: 'general_awareness',
+        prompt: "You're building your personal pattern library. After 2+ complete cycles, you'll start seeing deeper insights here.",
+        basedOn: 'Early tracking stage',
+        answerType: 'acknowledge',
+      });
+    }
+    return prompts.slice(0, 2);
+  }
+
+  // ==========================================
+  // PATTERN CHECK PROMPTS
+  // Based on consistent patterns (60%+ cycles)
+  // ==========================================
+  
+  // Find a high-consistency symptom pattern
+  const highConsistencySymptom = consistentPatterns.find(
+    (p) => p.type === 'symptom' && p.consistency >= 0.7 && !dismissedPromptIds.includes(`pattern-${p.id}`)
+  );
+  
+  if (highConsistencySymptom) {
+    const cyclesText = `${highConsistencySymptom.cyclesPresent} of ${highConsistencySymptom.totalCycles}`;
+    prompts.push({
+      id: `pattern-${highConsistencySymptom.id}`,
+      category: 'pattern_check',
+      prompt: `You've logged ${highConsistencySymptom.name} in ${cyclesText} cycles. Have you noticed this pattern yourself?`,
+      basedOn: `${highConsistencySymptom.name} appears in ${Math.round(highConsistencySymptom.consistency * 100)}% of cycles`,
+      answerType: 'yes_no',
+    });
+  }
+
+  // ==========================================
+  // RECENT CHANGE PROMPTS
+  // Based on new/emerging patterns
+  // ==========================================
+  
+  const newPattern = emergingPatterns.find(
+    (p) => p.type === 'new' && !dismissedPromptIds.includes(`new-${p.id}`)
+  );
+  
+  if (newPattern && prompts.length < 2) {
+    prompts.push({
+      id: `new-${newPattern.id}`,
+      category: 'recent_change',
+      prompt: `${newPattern.name} is something you started logging recently. Is this new for you, or just new to tracking?`,
+      basedOn: newPattern.description,
+      answerType: 'choice',
+      choices: ['New for me', 'Just started tracking it', 'Not sure'],
+    });
+  }
+
+  // ==========================================
+  // TREND PROMPTS
+  // Based on increasing/decreasing patterns
+  // ==========================================
+  
+  const trendPattern = emergingPatterns.find(
+    (p) => (p.type === 'increasing' || p.type === 'decreasing') && 
+           !dismissedPromptIds.includes(`trend-${p.id}`)
+  );
+  
+  if (trendPattern && trendPattern.trend && prompts.length < 2) {
+    const direction = trendPattern.trend.direction === 'up' ? 'increasing' : 'decreasing';
+    prompts.push({
+      id: `trend-${trendPattern.id}`,
+      category: 'pattern_check',
+      prompt: `Your ${trendPattern.name} intensity has been ${direction} over recent cycles. Does this feel accurate to you?`,
+      basedOn: `Trend from ${trendPattern.trend.startValue.toFixed(1)} to ${trendPattern.trend.endValue.toFixed(1)}`,
+      answerType: 'accuracy',
+    });
+  }
+
+  // ==========================================
+  // CO-OCCURRENCE PROMPTS
+  // Based on things that happen together
+  // ==========================================
+  
+  const coOccurrence = coOccurrences.find(
+    (co) => co.coOccurrenceRate >= 0.6 && !dismissedPromptIds.includes(`cooccur-${co.id}`)
+  );
+  
+  if (coOccurrence && prompts.length < 2) {
+    const item1 = coOccurrence.item1.name;
+    const item2 = coOccurrence.item2.name;
+    const isMedicinePair = coOccurrence.item1.type === 'medicine' || coOccurrence.item2.type === 'medicine';
+    
+    if (isMedicinePair) {
+      // One is medicine, one is symptom
+      const medicine = coOccurrence.item1.type === 'medicine' ? item1 : item2;
+      const symptom = coOccurrence.item1.type === 'symptom' ? item1 : item2;
+      
+      prompts.push({
+        id: `cooccur-${coOccurrence.id}`,
+        category: 'co_occurrence',
+        prompt: `${symptom} and ${medicine} often appear together in your logs. Do you typically take ${medicine} when you notice ${symptom}?`,
+        basedOn: `${coOccurrence.coOccurrenceCount} co-occurrences`,
+        answerType: 'choice',
+        choices: ['Yes, usually', 'Sometimes', 'It varies'],
+      });
+    } else {
+      // Both are symptoms
+      prompts.push({
+        id: `cooccur-${coOccurrence.id}`,
+        category: 'co_occurrence',
+        prompt: `${item1} and ${item2} often show up on the same day. Have you noticed a connection between them?`,
+        basedOn: `${coOccurrence.coOccurrenceCount} co-occurrences`,
+        answerType: 'yes_no',
+      });
+    }
+  }
+
+  // ==========================================
+  // GENERAL AWARENESS (fallback)
+  // ==========================================
+  
+  if (prompts.length === 0) {
+    const generalPromptId = 'general-tracking-reflection';
+    if (!dismissedPromptIds.includes(generalPromptId)) {
+      prompts.push({
+        id: generalPromptId,
+        category: 'general_awareness',
+        prompt: `You've tracked ${cycleCount} complete cycles. Is there anything you've started noticing about your patterns?`,
+        basedOn: `${cycleCount} cycles of data`,
+        answerType: 'acknowledge',
+      });
+    }
+  }
+
+  // Return max 2 prompts
+  return prompts.slice(0, 2);
+}

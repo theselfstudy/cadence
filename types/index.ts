@@ -126,6 +126,16 @@ export interface GoogleSheetConfig {
   addedAt: string | null;
 }
 
+export interface CycleInsightsPreferences {
+  collapsedSections: string[];
+}
+
+export interface MonthlyNavigationContext {
+  startDate: string | null;
+  endDate: string | null;
+  fromCycleInsights: boolean;
+}
+
 export interface MedicineSection {
   category: MedicineCategory;
   medicines: Medicine[];
@@ -169,6 +179,10 @@ export interface UserSettings {
   hasUnsavedChanges: boolean;
 
   lastSavedSnapshot: string | null;
+
+  cycleInsightsPreferences: CycleInsightsPreferences;
+
+  monthlyNavigationContext: MonthlyNavigationContext;
 }
 
 /**
