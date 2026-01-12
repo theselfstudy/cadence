@@ -118,7 +118,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/dashboard/monthly", label: "Monthly View" },
     { href: "/dashboard/history", label: "History View" },
     ...(isPeriodTrackingEnabled ? [{ href: "/dashboard/cycleinsights", label: "Cycle Insights" }] : []),
-    { href: "/dashboard/reports", label: "Reports" },
+    // { href: "/dashboard/reports", label: "Reports" }, // RE-ENABLE REPORTS HAMBURGER HERE
   ];
 
   const settingsItems = [
