@@ -17,10 +17,9 @@ import { ConsistentPatternsSection } from "./sections/ConsistentPatternsSection"
 import { EmergingPatternsSection } from "./sections/EmergingPatternsSection";
 import { CoOccurrenceSection } from "./sections/CoOccurrenceSection";
 import { NotableCyclesSection } from "./sections/NotableCyclesSection";
-import { ReflectSection } from "./sections/ReflectSection";
 import { DetailedViewsSection } from "./sections/DetailedViewsSection";
 import { EntriesSection } from "./sections/EntriesSection";
-import { CollapsibleSection, DismissibleSection } from "./shared/CollapsibleSection";
+import { CollapsibleSection } from "./shared/CollapsibleSection";
 import { useSectionPreferences } from "./hooks/useSectionPreferences";
 
 import { 
@@ -59,8 +58,6 @@ export function CycleInsightsPage() {
     isSectionCollapsed,
     setSectionCollapsed,
     hideReflectSection,
-    showReflectSection,
-    dismissPrompt,
   } = useSectionPreferences();
 
   // ============================================
@@ -70,18 +67,6 @@ export function CycleInsightsPage() {
   const handleSectionToggle = useCallback((sectionId: string, isExpanded: boolean) => {
     setSectionCollapsed(sectionId, !isExpanded);
   }, [setSectionCollapsed]);
-
-  const handleReflectDismiss = useCallback(() => {
-    hideReflectSection();
-  }, [hideReflectSection]);
-
-  const handleReflectRestore = useCallback(() => {
-    showReflectSection();
-  }, [showReflectSection]);
-
-  const handleDismissPrompt = useCallback((promptId: string) => {
-    dismissPrompt(promptId);
-  }, [dismissPrompt]);
 
   // ============================================
   // CYCLE DETECTION & CALCULATIONS
@@ -277,28 +262,7 @@ const detectedCycles = useMemo(() => {
         />
       </CollapsibleSection>
 
-      {/* Section 6: Reflect */}
-      <DismissibleSection
-        title="Reflect"
-        icon={<ThoughtBubbleIcon className="w-5 h-5" />}
-        helpText="Questions to help you notice patterns. Your answers aren't stored — they're just for you."
-        defaultExpanded={!isSectionCollapsed("reflect")}
-        onToggle={(expanded) => handleSectionToggle("reflect", expanded)}
-        isDismissed={sectionPreferences.reflectSectionHidden}
-        onDismiss={handleReflectDismiss}
-        onRestore={handleReflectRestore}
-      >
-        <ReflectSection
-          consistentPatterns={consistentPatterns}
-          emergingPatterns={emergingPatterns}
-          coOccurrences={coOccurrences}
-          cycleCount={completeCycles.length}
-          dismissedPromptIds={sectionPreferences.dismissedPromptIds}
-          onDismissPrompt={handleDismissPrompt}
-        />
-      </DismissibleSection>
-
-      {/* Section 7: Detailed Views */}
+      {/* Section 6: Detailed Views */}
       <CollapsibleSection
         title="Detailed Views"
         icon={<ChartDetailIcon className="w-5 h-5" />}
@@ -314,7 +278,7 @@ const detectedCycles = useMemo(() => {
         />
       </CollapsibleSection>
 
-      {/* Section 8: Entries */}
+      {/* Section 7: Entries */}
       <CollapsibleSection
         title="Entries"
         icon={<EntryLogIcon className="w-5 h-5" />}

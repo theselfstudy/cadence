@@ -3,6 +3,7 @@
 import { SafeLink } from "@/components/ui/SafeLink";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useSettings } from "@/stores/useSettings";
 import { APP_CONFIG } from "@/lib/constants";
 
 /**
@@ -101,6 +102,10 @@ interface SidebarProps {
 
 function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { periodTracking } = useSettings();
+  
+  // Check if period tracking is enabled
+  const isPeriodTrackingEnabled = periodTracking?.enabled ?? false;
 
   // Navigation groups
   const primaryItems = [
@@ -112,7 +117,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/dashboard/weekly", label: "Weekly View" },
     { href: "/dashboard/monthly", label: "Monthly View" },
     { href: "/dashboard/history", label: "History View" },
-    { href: "/dashboard/cycleinsights", label: "Cycle Insights" },
+    ...(isPeriodTrackingEnabled ? [{ href: "/dashboard/cycleinsights", label: "Cycle Insights" }] : []),
     { href: "/dashboard/reports", label: "Reports" },
   ];
 

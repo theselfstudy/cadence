@@ -126,11 +126,13 @@ export interface GoogleSheetConfig {
   addedAt: string | null;
 }
 
-export interface CycleInsightsPreferences {
-  collapsedSections: string[];
+export interface MonthlyNavigationContext {
+  startDate: string | null;
+  endDate: string | null;
+  fromCycleInsights: boolean;
 }
 
-export interface MonthlyNavigationContext {
+export interface HistoryNavigationContext {
   startDate: string | null;
   endDate: string | null;
   fromCycleInsights: boolean;
@@ -180,9 +182,9 @@ export interface UserSettings {
 
   lastSavedSnapshot: string | null;
 
-  cycleInsightsPreferences: CycleInsightsPreferences;
-
   monthlyNavigationContext: MonthlyNavigationContext;
+  
+  historyNavigationContext: HistoryNavigationContext;
 }
 
 /**
@@ -191,6 +193,12 @@ export interface UserSettings {
 export interface SettingsActions {
   /** Update week start day preference */
   setWeekStartDay: (day: WeekStartDay) => void;
+  
+  /** Set history navigation context (for cross-page navigation) */
+  setHistoryNavigationContext: (context: Partial<HistoryNavigationContext>) => void;
+  
+  /** Clear history navigation context */
+  clearHistoryNavigationContext: () => void;
   
   /** Update time format preference */
   setTimeFormat: (format: TimeFormat) => void;

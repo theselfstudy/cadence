@@ -235,10 +235,12 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
     enabled: false,
     medicines: [],
   },
-  cycleInsightsPreferences: {
-    collapsedSections: [],
-  },
   monthlyNavigationContext: {
+    startDate: null,
+    endDate: null,
+    fromCycleInsights: false,
+  },
+  historyNavigationContext: {
     startDate: null,
     endDate: null,
     fromCycleInsights: false,

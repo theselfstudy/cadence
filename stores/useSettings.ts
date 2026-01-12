@@ -16,6 +16,7 @@ import type {
   IntensityTrackingConfig,
   StoolTrackingConfig,
   MedicineTracking,
+  HistoryNavigationContext,
 } from "@/types";
 
 import {
@@ -48,6 +49,8 @@ export const useSettings = create<SettingsStore>()(
       isSyncing: false,
       hasUnsavedChanges: false,
       lastSavedSnapshot: null, // JSON snapshot of last saved state for reverting
+      monthlyNavigationContext: { startDate: null, endDate: null, fromCycleInsights: false },
+      historyNavigationContext: { startDate: null, endDate: null, fromCycleInsights: false },
 
       // =======================================================================
       // GOOGLE SHEET ACTIONS
@@ -372,6 +375,30 @@ export const useSettings = create<SettingsStore>()(
       },
 
       // =======================================================================
+      // HISTORY NAVIGATION CONTEXT
+      // =======================================================================
+
+      setHistoryNavigationContext: (context: Partial<HistoryNavigationContext>) => {
+        set({
+          historyNavigationContext: {
+            startDate: context.startDate ?? null,
+            endDate: context.endDate ?? null,
+            fromCycleInsights: context.fromCycleInsights ?? false,
+          },
+        });
+      },
+
+      clearHistoryNavigationContext: () => {
+        set({
+          historyNavigationContext: {
+            startDate: null,
+            endDate: null,
+            fromCycleInsights: false,
+          },
+        });
+      },
+
+      // =======================================================================
       // UNSAVED CHANGES MANAGEMENT
       // =======================================================================
 
@@ -425,6 +452,9 @@ export const useSettings = create<SettingsStore>()(
           tutorialComplete: false,
           hasUnsavedChanges: false,
           lastSavedSnapshot: null,
+          monthlyNavigationContext: { startDate: null, endDate: null, fromCycleInsights: false },
+          historyNavigationContext: { startDate: null, endDate: null, fromCycleInsights: false },
+
         });
       },
     }),

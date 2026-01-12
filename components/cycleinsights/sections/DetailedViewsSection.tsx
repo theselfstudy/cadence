@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { StoredEntry } from "@/types";
 import type { DetectedCycle, CycleComparison } from "@/lib/monthlyUtils";
 import { formatPhase } from "@/lib/insightUtils";
@@ -279,6 +280,17 @@ function CycleCard({
   getMonthLabel,
   customProducts,
 }: CycleCardProps) {
+  const router = useRouter();
+
+  // Navigate to history with this cycle's date range pre-selected
+  const handleExploreInHistory = () => {
+    const endDate = cycle.endDate || new Date().toISOString().split("T")[0];
+    const params = new URLSearchParams({
+      startDate: cycle.startDate,
+      endDate: endDate,
+    });
+    router.push(`/dashboard/history?${params.toString()}`);
+  };
   // Collect symptoms for this cycle (deduplicated by date)
   const symptoms = useMemo(() => {
     const symptomsByDate: Record<string, Record<string, { intensity: number | null }>> = {};
@@ -570,6 +582,19 @@ function CycleCard({
               </div>
             </div>
           )}
+
+          {/* Explore in History button */}
+          <div className="pt-3 border-t border-app-border/50">
+            <button
+              onClick={handleExploreInHistory}
+              className="w-full py-2 px-4 rounded-lg bg-app-teal/10 text-app-teal text-sm font-medium hover:bg-app-teal/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Explore in History
+            </button>
+          </div>
         </div>
       )}
     </div>
