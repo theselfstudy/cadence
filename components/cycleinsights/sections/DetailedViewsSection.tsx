@@ -114,7 +114,7 @@ function CycleHistoryTab({
     const max = Math.max(...lengths);
 
     return {
-      avgLength: Math.round(avg * 10) / 10,
+      avgLength: Math.round(avg),
       minLength: min,
       maxLength: max,
       totalCycles: completeCycles.length,

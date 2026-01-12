@@ -57,6 +57,8 @@ export default function MonthlyPage() {
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [showStats, setShowStats] = useState(true);
+  const [showCharts, setShowCharts] = useState(true);
+  const [showComparison, setShowComparison] = useState(true);
   const [showEntries, setShowEntries] = useState(true);
 
   // Initialize client-side
@@ -479,7 +481,7 @@ export default function MonthlyPage() {
         </p>
       )}
 
-      {/* Stats Section - Shown by default, collapsible */}
+      {/* Month at a Glance Section */}
       <div className="card">
         <button
           onClick={() => setShowStats(!showStats)}
@@ -490,24 +492,36 @@ export default function MonthlyPage() {
         </button>
 
         {showStats && (
-          <div className="mt-4 space-y-6">
-            {/* Stats Cards */}
+          <div className="mt-4">
             <MonthlyStatsCards
-            stats={stats}
-            comparison={statsComparison}
-            hasPreviousMonthData={prevMonthEntries.length > 0}
-            topSymptoms={topSymptoms}
-            lastMonthTopSymptoms={lastMonthTopSymptoms}
-            periodTrackingEnabled={periodTrackingEnabled}
-            currentCyclePhase={cycleData.currentCyclePhase}
-            cycleDaysLogged={cycleData.cycleDaysLogged}
-            daysInMonth={daysInMonth}
-            phaseRanges={phaseRanges}
-            // selectedDays={selectedDays}
-            monthRange={monthRange}
-          />
+              stats={stats}
+              comparison={statsComparison}
+              hasPreviousMonthData={prevMonthEntries.length > 0}
+              topSymptoms={topSymptoms}
+              lastMonthTopSymptoms={lastMonthTopSymptoms}
+              periodTrackingEnabled={periodTrackingEnabled}
+              currentCyclePhase={cycleData.currentCyclePhase}
+              cycleDaysLogged={cycleData.cycleDaysLogged}
+              daysInMonth={daysInMonth}
+              phaseRanges={phaseRanges}
+              monthRange={monthRange}
+            />
+          </div>
+        )}
+      </div>
 
-            {/* Charts */}
+      {/* Monthly Charts Section */}
+      <div className="card">
+        <button
+          onClick={() => setShowCharts(!showCharts)}
+          className="w-full flex items-center justify-between"
+        >
+          <h2 className="text-lg font-semibold text-app-charcoal">Monthly Charts</h2>
+          <span className="text-app-gray text-xl">{showCharts ? "−" : "+"}</span>
+        </button>
+
+        {showCharts && (
+          <div className="mt-4">
             <MonthlyCharts
               entries={monthEntries}
               filteredEntries={filteredEntries}
@@ -521,8 +535,22 @@ export default function MonthlyPage() {
               medicines={settings.medicineTracking.medicines}
               monthRange={monthRange}
             />
+          </div>
+        )}
+      </div>
 
-            {/* Month Comparison */}
+      {/* Month over Month Section */}
+      <div className="card">
+        <button
+          onClick={() => setShowComparison(!showComparison)}
+          className="w-full flex items-center justify-between"
+        >
+          <h2 className="text-lg font-semibold text-app-charcoal">Month over Month</h2>
+          <span className="text-app-gray text-xl">{showComparison ? "−" : "+"}</span>
+        </button>
+
+        {showComparison && (
+          <div className="mt-4">
             <MonthlyComparison
               comparison={monthOverMonthComparison}
               hasPreviousMonthData={prevMonthEntries.length > 0}

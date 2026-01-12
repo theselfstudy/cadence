@@ -1,3 +1,3 @@
 export { LogSelectionModal } from "./LogSelectionModal";
-export { ReportSectionModal } from "./ReportSectionModal";
+export { ReportSectionModal, type ReportConfig } from "./ReportSectionModal";
 export { SegmentedIntensityBar } from "./SegmentedIntensityBar";
