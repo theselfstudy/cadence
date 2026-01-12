@@ -505,6 +505,9 @@ export default function EntryPage() {
 
   const [productUsage, setProductUsage] = useState<ProductUsageEntry[]>([]);
 
+  // Date selection - "today" or "yesterday"
+  const [selectedDateOption, setSelectedDateOption] = useState<"today" | "yesterday">("today");
+
   // Log section selection - null means modal is open, array means user has selected
   const [selectedLogSections, setSelectedLogSections] = useState<LogSection[] | null>(null);
 
@@ -663,9 +666,14 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     // Medicine logs from consolidated section
     const allMedicineLogs = loggedMedicines;
 
+    // Calculate the date based on selected option
+    const entryDate = selectedDateOption === "today"
+      ? getLocalDateString()
+      : getLocalDateString(new Date(new Date().setDate(new Date().getDate() - 1)));
+
     // Build the stored entry in the format expected by the entry store
     const entryData: Omit<StoredEntry, 'id' | 'createdAt' | 'updatedAt' | 'syncStatus'> = {
-      date: getLocalDateString(), // YYYY-MM-DD format in local timezone
+      date: entryDate, // YYYY-MM-DD format in local timezone
       startTime: formatTimeToString(startTime),
       endTime: formatTimeToString(endTime),
       painScale: painScaleType as PainScaleType,
@@ -738,9 +746,37 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-app-charcoal">New Entry</h1>
-          <p className="text-app-gray">{formatDate(new Date())}</p>
+          <p className="text-app-gray">
+            {selectedDateOption === "today"
+              ? formatDate(new Date())
+              : formatDate(new Date(new Date().setDate(new Date().getDate() - 1)))}
+          </p>
         </div>
-        <div className="text-sm text-app-gray">📅 Today</div>
+        {/* Date Selection Buttons */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedDateOption("today")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              selectedDateOption === "today"
+                ? "bg-app-teal text-white"
+                : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-teal"
+            }`}
+          >
+            📅 Today
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedDateOption("yesterday")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              selectedDateOption === "yesterday"
+                ? "bg-app-teal text-white"
+                : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-teal"
+            }`}
+          >
+            📆 Yesterday
+          </button>
+        </div>
       </div>
 
       {/* Start Time Card */}
