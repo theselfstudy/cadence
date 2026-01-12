@@ -22,7 +22,7 @@ const DEFAULT_PREFERENCES: SectionPreferences = {
   dismissedPromptIds: [],
 };
 
-const STORAGE_KEY = "cadence-cycle-insights-prefs";
+// const STORAGE_KEY = "cadence-cycle-insights-prefs";
 
 // ============================================
 // HOOK
@@ -33,29 +33,29 @@ export function useSectionPreferences() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load preferences from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setPreferences({
-          collapsedSections: parsed.collapsedSections || [],
-          reflectSectionHidden: parsed.reflectSectionHidden || false,
-          dismissedPromptIds: parsed.dismissedPromptIds || [],
-        });
-      }
-    } catch (e) {
-      console.warn("Failed to parse cycle insights preferences", e);
-    }
-    setIsLoaded(true);
-  }, []);
+  // useEffect(() => {
+  //   try {
+  //     const saved = localStorage.getItem(STORAGE_KEY);
+  //     if (saved) {
+  //       const parsed = JSON.parse(saved);
+  //       setPreferences({
+  //         collapsedSections: parsed.collapsedSections || [],
+  //         reflectSectionHidden: parsed.reflectSectionHidden || false,
+  //         dismissedPromptIds: parsed.dismissedPromptIds || [],
+  //       });
+  //     }
+  //   } catch (e) {
+  //     console.warn("Failed to parse cycle insights preferences", e);
+  //   }
+  //   setIsLoaded(true);
+  // }, []);
 
-  // Save preferences to localStorage when they change
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
-    }
-  }, [preferences, isLoaded]);
+  // // Save preferences to localStorage when they change
+  // useEffect(() => {
+  //   if (isLoaded) {
+  //     localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+  //   }
+  // }, [preferences, isLoaded]);
 
   // ============================================
   // SECTION COLLAPSE HELPERS
