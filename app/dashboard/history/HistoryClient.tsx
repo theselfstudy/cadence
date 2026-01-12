@@ -732,7 +732,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
     : "—";
 
   return (
-    <div className="card bg-gradient-to-br from-app-cream to-white">
+    <div className="card">
       {/* Collapsible Header */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -740,7 +740,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
       >
         <h3 className="text-lg font-semibold text-app-charcoal flex items-center gap-2">
           <svg className="w-5 h-5 text-app-plumb" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           Summary Statistics
@@ -749,7 +749,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
           {isCollapsed ? "+" : "−"}
         </span>
       </button>
-      
+
       {/* Collapsible Content */}
       {!isCollapsed && (
         <div className="mt-4">
@@ -757,7 +757,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
             <StatCard label="Total Entries" value={stats.totalEntries} icon="📊" />
             <StatCard
               label="Date Range"
-              value={stats.dateRange 
+              value={stats.dateRange
                 ? `${formatDateShort(stats.dateRange.start)} - ${formatDateShort(stats.dateRange.end)}`
                 : "—"
               }
@@ -767,12 +767,12 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
             <StatCard label="Avg Duration" value={avgDuration} icon="⏱️" />
             <StatCard label="Most Active Day" value={getMostCommon(stats.entriesByDayOfWeek) || "—"} icon="📆" />
           </div>
-          
+
           {/* Detailed Breakdowns */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Top Symptoms */}
             {topSymptoms.length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Top Symptoms</span>
                   <span className="text-xs">Count</span>
@@ -787,10 +787,10 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Bristol Distribution */}
             {Object.keys(stats.bristolTypeCounts).length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Bristol Types</span>
                   <span className="text-xs">Count</span>
@@ -807,10 +807,10 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Cycle Phase Distribution */}
             {Object.keys(stats.cyclePhaseDistribution).length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Cycle Phases</span>
                   <span className="text-xs">Count</span>
@@ -828,10 +828,10 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Top Medicines */}
             {topMedicines.length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Medicines Taken</span>
                   <span className="text-xs">Count</span>
@@ -846,10 +846,10 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Time of Day */}
             {Object.keys(stats.entriesByTimeOfDay).length > 0 && (
-              <div>
+              <div className="bg-app-cream/50 rounded-lg border border-app-border p-3">
                 <h4 className="text-sm font-medium text-app-gray mb-2 flex justify-between">
                   <span>Time of Day</span>
                   <span className="text-xs">Count</span>
@@ -875,19 +875,19 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
   );
 }
 
-function StatCard({ 
-  label, 
-  value, 
+function StatCard({
+  label,
+  value,
   icon,
-  small = false 
-}: { 
-  label: string; 
-  value: string | number; 
+  small = false
+}: {
+  label: string;
+  value: string | number;
   icon: string;
   small?: boolean;
 }) {
   return (
-    <div className="p-3 bg-white rounded-lg border border-app-border">
+    <div className="p-3 bg-app-cream/50 rounded-lg border border-app-border">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-lg">{icon}</span>
         <span className="text-xs text-app-gray">{label}</span>
