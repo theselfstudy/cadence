@@ -793,15 +793,21 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
         </div>
         <div 
           className="absolute bottom-4 left-4 text-2xl"
-          style={{ animation: "bounce 1.5s ease-in-out 0.3s infinite" }}
+          style={{ animation: "bounce 1.2s ease-in-out 0.7s infinite" }}
         >
-          ✨
+          🌸
         </div>
         <div 
           className="absolute top-8 left-2 text-xl"
           style={{ animation: "bounce 1.5s ease-in-out 0.6s infinite" }}
         >
           📝
+        </div>
+        <div 
+          className="absolute bottom-4 right-2 text-xl"
+          style={{ animation: "bounce 1.3s ease-in-out 0.9s infinite" }}
+        >
+          💊
         </div>
       </div>
     ),

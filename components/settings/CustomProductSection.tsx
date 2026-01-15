@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ProductOption, CustomProduct } from "@/types";
 import { existsCaseInsensitive, findSimilarItems } from "@/lib/stringUtils";
 import { SecureTextInput } from "@/components/ui/SecureInput";
+import { containsFormulaInjection } from "@/lib/inputSecurity";
 
 interface CustomProductSectionProps {
   product: ProductOption;
@@ -13,9 +14,11 @@ interface CustomProductSectionProps {
   hasError?: boolean;
   /** Callback when input validation state changes (true = valid, false = invalid) */
   onValidationChange?: (isValid: boolean) => void;
+  /** Callback when formula injection is detected (true = has injection, false = clean) */
+  onFormulaInjectionChange?: (hasInjection: boolean) => void;
 }
 
-export function CustomProductSection({ product, customProducts, onUpdate, hasError = false, onValidationChange }: CustomProductSectionProps) {
+export function CustomProductSection({ product, customProducts, onUpdate, hasError = false, onValidationChange, onFormulaInjectionChange }: CustomProductSectionProps) {
   const [newProductName, setNewProductName] = useState("");
   const [warning, setWarning] = useState<string | null>(null);
 
@@ -26,6 +29,10 @@ export function CustomProductSection({ product, customProducts, onUpdate, hasErr
   const handleInputChange = (value: string) => {
     setNewProductName(value);
     setWarning(null);
+
+    // Check for formula injection
+    const hasInjection = containsFormulaInjection(value);
+    onFormulaInjectionChange?.(hasInjection);
 
     // Notify parent of validation state
     const isValid = value.length <= 60;
@@ -110,12 +117,18 @@ export function CustomProductSection({ product, customProducts, onUpdate, hasErr
                     : "Thinx Period Underwear"
                 }`}
                 showCharCount={true}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newProductName.trim() && newProductName.length <= 60 && !containsFormulaInjection(newProductName)) {
+                    e.preventDefault();
+                    handleAdd();
+                  }
+                }}
               />
             </div>
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!newProductName.trim() || newProductName.length > 60}
+              disabled={!newProductName.trim() || newProductName.length > 60 || containsFormulaInjection(newProductName)}
               className="px-6 py-2 rounded-lg bg-app-red opacity-85 text-white font-medium hover:opacity-75 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               + Add

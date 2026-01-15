@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Medicine, MedicineCategory } from "@/types";
 import { existsCaseInsensitive, findSimilarItems, isSimilar } from "@/lib/stringUtils";
 import { SecureTextInput } from "@/components/ui/SecureInput";
+import { containsFormulaInjection } from "@/lib/inputSecurity";
 
 interface AddMedicineFormProps {
   onAdd: (medicine: Medicine) => void;
@@ -16,6 +17,10 @@ interface AddMedicineFormProps {
   onNameValidationChange?: (isValid: boolean) => void;
   /** Callback when dosage input validation state changes */
   onDosageValidationChange?: (isValid: boolean) => void;
+  /** Callback when medicine name has formula injection */
+  onNameFormulaInjectionChange?: (hasInjection: boolean) => void;
+  /** Callback when dosage has formula injection */
+  onDosageFormulaInjectionChange?: (hasInjection: boolean) => void;
 }
 
 export function AddMedicineForm({
@@ -27,6 +32,8 @@ export function AddMedicineForm({
   showValidationError = false,
   onNameValidationChange,
   onDosageValidationChange,
+  onNameFormulaInjectionChange,
+  onDosageFormulaInjectionChange,
 }: AddMedicineFormProps) {
   const [name, setName] = useState("");
   const [dosageInput, setDosageInput] = useState("");
@@ -46,6 +53,10 @@ export function AddMedicineForm({
     setShowDuplicatePrompt(false);
     setDuplicateMatch(null);
 
+    // Check for formula injection
+    const hasInjection = containsFormulaInjection(value);
+    onNameFormulaInjectionChange?.(hasInjection);
+
     // Notify parent of validation state
     const isValid = value.length <= 60;
     onNameValidationChange?.(isValid);
@@ -61,6 +72,10 @@ export function AddMedicineForm({
   // Handle dosage input changes
   const handleDosageInputChange = (value: string) => {
     setDosageInput(value);
+
+    // Check for formula injection
+    const hasInjection = containsFormulaInjection(value);
+    onDosageFormulaInjectionChange?.(hasInjection);
 
     // Notify parent of validation state
     const isValid = value.length <= 60;
@@ -88,7 +103,7 @@ export function AddMedicineForm({
 
   // Handle Enter key in dosage input
   const handleDosageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !containsFormulaInjection(dosageInput)) {
       e.preventDefault();
       handleAddDosage();
     }
@@ -340,7 +355,7 @@ export function AddMedicineForm({
           <button
             type="button"
             onClick={handleAddDosage}
-            disabled={!dosageInput.trim() || dosageInput.length > 60}
+            disabled={!dosageInput.trim() || dosageInput.length > 60 || containsFormulaInjection(dosageInput)}
             className="px-4 py-2 rounded-lg bg-app-taupe/20 text-app-charcoal font-medium hover:bg-app-taupe/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Add
@@ -404,7 +419,7 @@ export function AddMedicineForm({
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={!name.trim() || name.length > 60 || categories.length === 0}
+        disabled={!name.trim() || name.length > 60 || categories.length === 0 || containsFormulaInjection(name) || containsFormulaInjection(dosageInput)}
         className="w-full px-6 py-2 rounded-lg bg-app-green/60 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
       >
         + Add Medicine ({currentMedicineCount}/{maxMedicines})

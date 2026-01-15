@@ -10,6 +10,7 @@ import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { useButtonRateLimit } from "@/hooks/useRateLimit";
 import { SecureTextInput, SecureSheetURLInput } from '@/components/ui/SecureInput';
+import { containsFormulaInjection } from '@/lib/inputSecurity';
 
 import {
   DEFAULT_SYMPTOMS,
@@ -198,15 +199,29 @@ function SettingsPageContent() {
   const [customProductInputErrors, setCustomProductInputErrors] = useState<Record<string, boolean>>({});
   const [medicineNameInputError, setMedicineNameInputError] = useState(false);
   const [dosageInputError, setDosageInputError] = useState(false);
+  const [sheetUrlInputError, setSheetUrlInputError] = useState(false);
+  const [sheetNameInputError, setSheetNameInputError] = useState(false);
+
+  // Formula injection detection state
+  const [newSymptomHasFormulaInjection, setNewSymptomHasFormulaInjection] = useState(false);
+  const [newPeriodSymptomHasFormulaInjection, setNewPeriodSymptomHasFormulaInjection] = useState(false);
+  const [customProductFormulaInjection, setCustomProductFormulaInjection] = useState<Record<string, boolean>>({});
+  const [medicineNameHasFormulaInjection, setMedicineNameHasFormulaInjection] = useState(false);
+  const [dosageHasFormulaInjection, setDosageHasFormulaInjection] = useState(false);
 
   const hasTextInputError =
     newSymptom.length > 60 ||
     newPeriodSymptom.length > 60 ||
-    sheetUrl.length > 200 ||
+    sheetUrl.length > 120 ||
     sheetName.length > 60 ||
     Object.values(customProductInputErrors).some(hasError => hasError) ||
     medicineNameInputError ||
-    dosageInputError;
+    dosageInputError ||
+    newSymptomHasFormulaInjection ||
+    newPeriodSymptomHasFormulaInjection ||
+    Object.values(customProductFormulaInjection).some(hasInjection => hasInjection) ||
+    medicineNameHasFormulaInjection ||
+    dosageHasFormulaInjection;
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [pendingSheetUrl, setPendingSheetUrl] = useState<string | null>(null);
   const [pendingSheetName, setPendingSheetName] = useState<string | null>(null);
@@ -1245,7 +1260,7 @@ function SettingsPageContent() {
               </h2>
               <p className="text-sm text-app-gray mb-4">
                 {onboardingMode === "google-sheet" && !setupComplete
-                  ? "✨ Connect your Google Sheet to get started with Signed In & Synced Mode"
+                  ? "🔗 Connect your Google Sheet to get started with Signed In & Synced Mode"
                   : "Link a sheet to sync your data across devices (Signed In Mode)"}
               </p>
             </>
@@ -1321,6 +1336,7 @@ function SettingsPageContent() {
                       placeholder="https://docs.google.com/spreadsheets/d/..."
                       required={true}
                       errorMessage={sheetError || undefined}
+                      onValidationChange={(isValid) => setSheetUrlInputError(!isValid)}
                     />
                   </div>
                   <div>
@@ -1331,10 +1347,16 @@ function SettingsPageContent() {
                       placeholder="e.g., My Health Tracker"
                       required={true}
                       showCharCount={true}
+                      onValidationChange={(isValid) => setSheetNameInputError(!isValid)}
                     />
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={handleSaveGoogleSheet} className="btn-primary">
+                    <button
+                      type="button"
+                      onClick={handleSaveGoogleSheet}
+                      disabled={sheetUrlInputError || sheetNameInputError || sheetUrl.length > 150 || sheetName.length > 60}
+                      className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       {isEditingSheet ? "Update & Save" : "Connect & Sign In"}
                     </button>
                     {isEditingSheet && (
@@ -1536,16 +1558,25 @@ function SettingsPageContent() {
                       <div className="flex-1">
                         <SecureTextInput
                           value={newSymptom}
-                          onChange={setNewSymptom}
+                          onChange={(value) => {
+                            setNewSymptom(value);
+                            setNewSymptomHasFormulaInjection(containsFormulaInjection(value));
+                          }}
                           placeholder="Add custom symptom"
                           showCharCount={true}
                           className="w-full"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newSymptom.trim() && newSymptom.length <= 60 && !containsFormulaInjection(newSymptom)) {
+                              e.preventDefault();
+                              handleAddSymptom();
+                            }
+                          }}
                         />
                       </div>
                       <button
                         type="button"
                         onClick={handleAddSymptom}
-                        disabled={!newSymptom.trim() || newSymptom.length > 60}
+                        disabled={!newSymptom.trim() || newSymptom.length > 60 || containsFormulaInjection(newSymptom)}
                         className="px-6 py-2 rounded-lg bg-app-teal text-app-cream font-medium hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         + Add
@@ -1735,15 +1766,24 @@ function SettingsPageContent() {
                       <div className="flex-1">
                         <SecureTextInput
                           value={newPeriodSymptom}
-                          onChange={setNewPeriodSymptom}
+                          onChange={(value) => {
+                            setNewPeriodSymptom(value);
+                            setNewPeriodSymptomHasFormulaInjection(containsFormulaInjection(value));
+                          }}
                           placeholder="Add custom period or cycle symptom"
                           showCharCount={true}
                           className="w-full"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newPeriodSymptom.trim() && newPeriodSymptom.length <= 60 && !containsFormulaInjection(newPeriodSymptom)) {
+                              e.preventDefault();
+                              handleAddPeriodSymptom();
+                            }
+                          }}
                         />
                       </div>
                       <button
                         onClick={handleAddPeriodSymptom}
-                        disabled={!newPeriodSymptom.trim() || newPeriodSymptom.length > 60}
+                        disabled={!newPeriodSymptom.trim() || newPeriodSymptom.length > 60 || containsFormulaInjection(newPeriodSymptom)}
                         className="px-6 py-2 rounded-lg bg-app-red text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         + Add
@@ -1851,6 +1891,12 @@ function SettingsPageContent() {
                               [product.type]: !isValid
                             }));
                           }}
+                          onFormulaInjectionChange={(hasInjection) => {
+                            setCustomProductFormulaInjection(prev => ({
+                              ...prev,
+                              [product.type]: hasInjection
+                            }));
+                          }}
                           onUpdate={(updated) => {
                             setPeriodTracking({
                               productTracking: {
@@ -1922,6 +1968,8 @@ function SettingsPageContent() {
                     showValidationError={showValidationErrors && !medicineTrackingValid}
                     onNameValidationChange={(isValid) => setMedicineNameInputError(!isValid)}
                     onDosageValidationChange={(isValid) => setDosageInputError(!isValid)}
+                    onNameFormulaInjectionChange={(hasInjection) => setMedicineNameHasFormulaInjection(hasInjection)}
+                    onDosageFormulaInjectionChange={(hasInjection) => setDosageHasFormulaInjection(hasInjection)}
                   />
                 </div>
               </div>
@@ -2109,7 +2157,7 @@ function SettingsPageContent() {
             {hasTextInputError && (
               <div className="p-3 mb-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-800">
-                  ⚠️ One or more text fields exceed the 60-character limit. Please shorten your inputs before continuing.
+                  ⚠️ Please fix the highlighted fields to continue.
                 </p>
               </div>
             )}
