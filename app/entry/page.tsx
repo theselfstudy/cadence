@@ -9,7 +9,11 @@ import type { MedicineCategory, LogSection } from "@/types";
 import { LogSelectionModal, SegmentedIntensityBar } from "@/components/entry";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SuccessModal } from "@/components/ui/SuccessModal";
+import { WarningModal } from "@/components/ui/WarningModal";
 import { getLocalDateString } from '@/lib/dateUtils';
+import { useButtonRateLimit } from '@/hooks/useRateLimit';
+import { SecureTextarea, SecureTextInput } from '@/components/ui/SecureInput';
+import { sanitizeText, isTextSafe } from '@/lib/inputSecurity';
 
 
 import {
@@ -90,37 +94,6 @@ function isProductUsageComplete(
   return { isComplete: true, missingField: null };
 }
 
-// Sanitize text to prevent XSS
-function sanitizeText(input: string): string {
-  return input
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;")
-    .replace(/\//g, "&#x2F;")
-    .replace(/`/g, "&#96;")
-    .replace(/\(/g, "&#40;")
-    .replace(/\)/g, "&#41;");
-}
-
-// Validate notes - returns true if safe
-function isNoteSafe(input: string): boolean {
-  const dangerousPatterns = [
-    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-    /<[^>]+on\w+\s*=/gi,
-    /javascript:/gi,
-    /<iframe/gi,
-    /<object/gi,
-    /<embed/gi,
-    /<link/gi,
-    /<style/gi,
-    /<img[^>]+onerror/gi,
-  ];
-  
-  return !dangerousPatterns.some(pattern => pattern.test(input));
-}
-
 // =============================================================================
 // MEDICINE CATEGORY COLORS
 // =============================================================================
@@ -142,8 +115,17 @@ function ConsolidatedMedicineLog({
   loggedMedicines,
   onChange,
   is24Hour,
+  onCustomInputValidation,
 }: ConsolidatedMedicineLogProps) {
   const [customDosageInputs, setCustomDosageInputs] = useState<Record<string, string>>({});
+
+  // Notify parent of validation state whenever custom inputs change
+  useEffect(() => {
+    if (onCustomInputValidation) {
+      const hasError = Object.values(customDosageInputs).some((input) => input && input.length > 60);
+      onCustomInputValidation(hasError);
+    }
+  }, [customDosageInputs, onCustomInputValidation]);
 
   if (medicines.length === 0) {
     return (
@@ -220,8 +202,8 @@ function ConsolidatedMedicineLog({
               onClick={() => toggleMedicine(medicine)}
               className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
                 isSelected
-                  ? "bg-app-taupe text-white"
-                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-taupe"
+                  ? "bg-app-green/30 text-app-green"
+                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-green"
               }`}
             >
               {/* Category dots */}
@@ -256,7 +238,7 @@ function ConsolidatedMedicineLog({
             return (
               <div
                 key={entry.medicineId}
-                className="p-3 bg-app-taupe/5 rounded-lg border border-app-taupe/20"
+                className="p-3 bg-app-green/5 rounded-lg"
               >
                 {/* Medicine Name with Category Dots */}
                 <div className="flex items-center gap-2 mb-3">
@@ -289,8 +271,8 @@ function ConsolidatedMedicineLog({
                             onClick={() => updateLogEntry(entry.medicineId, { dosage })}
                             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                               entry.dosage === dosage
-                                ? "bg-app-taupe text-white"
-                                : "bg-app-white text-app-charcoal border border-app-border hover:border-app-taupe"
+                                ? "bg-app-green/30 text-app-green"
+                                : "bg-app-white text-app-charcoal border border-app-border hover:border-app-green"
                             }`}
                           >
                             {dosage}
@@ -299,7 +281,7 @@ function ConsolidatedMedicineLog({
                         
                         {/* Custom option indicator */}
                         {entry.dosage && !medicine.dosages!.includes(entry.dosage) && (
-                          <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-app-taupe text-white">
+                          <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-app-green/30 text-app-green">
                             {entry.dosage} (custom)
                           </span>
                         )}
@@ -308,43 +290,45 @@ function ConsolidatedMedicineLog({
                       {/* Custom Dosage Input */}
                       <div className="flex gap-2 items-center">
                         <span className="text-xs text-app-gray">or custom:</span>
-                        <input
-                          type="text"
-                          value={customInput}
-                          onChange={(e) => setCustomDosageInputs((prev) => ({
-                            ...prev,
-                            [medicine.id]: e.target.value,
-                          }))}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleCustomDosageAdd(medicine.id);
-                            }
-                          }}
-                          placeholder="Enter custom dosage"
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
-                        />
+                        <div className="flex-1">
+                          <SecureTextInput
+                            value={customInput}
+                            onChange={(value) => setCustomDosageInputs((prev) => ({
+                              ...prev,
+                              [medicine.id]: value,
+                            }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleCustomDosageAdd(medicine.id);
+                              }
+                            }}
+                            placeholder="Enter custom dosage (max 60 chars)"
+                            showCharCount={false}
+                            className="text-sm"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => handleCustomDosageAdd(medicine.id)}
-                          disabled={!customInput.trim()}
-                          className="px-3 py-1.5 rounded-lg bg-app-taupe/20 text-app-charcoal text-sm font-medium hover:bg-app-taupe/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!customInput.trim() || customInput.length > 60}
+                          className="px-3 py-1.5 rounded-lg bg-app-green/20 text-app-charcoal text-sm font-medium hover:bg-app-green/30 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Set
+                          + Custom
                         </button>
                       </div>
                     </div>
                   ) : (
                     // No predefined dosages - just show input
                     <div className="flex gap-2">
-                      <input
-                        type="text"
+                      <SecureTextInput
                         value={entry.dosage}
-                        onChange={(e) =>
-                          updateLogEntry(entry.medicineId, { dosage: e.target.value })
+                        onChange={(value) =>
+                          updateLogEntry(entry.medicineId, { dosage: value })
                         }
-                        placeholder="e.g., 2 pills, 200mg, 1000IUs..."
-                        className="flex-1 px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+                        placeholder="e.g., 2 pills, 200mg (max 60 chars)"
+                        showCharCount={false}
+                        className="text-sm"
                       />
                     </div>
                   )}
@@ -412,6 +396,14 @@ export default function EntryPage() {
   const { addEntry, syncEntryToSheet } = useEntries();
   const is24Hour = timeFormat === "24h";
 
+  // Rate limiting: Allow 5 submissions per minute
+  const submitRateLimit = useButtonRateLimit({
+    maxRequests: 5,
+    windowMs: 60000, // 1 minute
+    key: 'entry-submit',
+    storageType: 'localStorage'
+  });
+
   // Store access token for sync after OAuth completes
   const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
   const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
@@ -429,6 +421,9 @@ export default function EntryPage() {
     description: "",
     secondaryText: "",
   });
+
+  // Warning modal state for empty entries
+  const [showEmptyWarning, setShowEmptyWarning] = useState(false);
 
   // Google OAuth for syncing entries - OAuth-first
   const googleLogin = useGoogleLogin({
@@ -567,6 +562,15 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [notes, setNotes] = useState("");
   const [notesWarning, setNotesWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasCustomDosageInputError, setHasCustomDosageInputError] = useState(false);
+
+  // Validation: Check if notes exceeds character limit
+  const notesExceedsLimit = notes.length > 500;
+
+  // Validation: Check if any medicine dosage exceeds character limit
+  const hasMedicineDosageError = loggedMedicines.some((entry) => {
+    return entry.dosage && entry.dosage.length > 60;
+  });
 
   // Toggle symptom selection
   const toggleSymptom = (symptomName: string) => {
@@ -606,8 +610,9 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     // Handle notes change with security check
   const handleNotesChange = (value: string) => {
     setNotes(value);
-    if (!isNoteSafe(value)) {
-      setNotesWarning("⚠️ Some characters were detected that aren't allowed for security reasons.");
+    const safetyCheck = isTextSafe(value);
+    if (!safetyCheck.isSafe) {
+      setNotesWarning(safetyCheck.reason || "Some characters were detected that aren't allowed for security reasons.");
     } else {
       setNotesWarning(null);
     }
@@ -621,33 +626,19 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     return `${time.hour}:${time.minute.toString().padStart(2, '0')} ${time.period}`;
   };
 
-  const handleSubmit = async () => {
-    // Validation
-    if (!isNoteSafe(notes)) {
-      alert("Please remove any code-like content from the notes field.");
-      return;
-    }
+  // Helper to check if the entry is empty (no selections made)
+  const isEntryEmpty = (): boolean => {
+    const hasSymptoms = selectedSymptoms.length > 0;
+    const hasBowelData = bristolType !== null || postFeeling !== null;
+    const hasPeriodData = cyclePhase !== null || flowLevel !== null || productUsage.length > 0;
+    const hasMedicineData = loggedMedicines.length > 0;
+    const hasNotes = notes.trim().length > 0;
 
-    // Validate product usage completeness (only if period section selected and in menstrual phase)
-    if (shouldShowSection("period") && isMenstrualPhase && safePeriodTracking.productTracking?.enabled && productUsage.length > 0) {
-      const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
-      const incompleteProducts = productUsage.filter((usage) => {
-        const validation = isProductUsageComplete(usage, PRODUCT_OPTIONS, customProducts);
-        return !validation.isComplete;
-      });
+    return !hasSymptoms && !hasBowelData && !hasPeriodData && !hasMedicineData && !hasNotes;
+  };
 
-      if (incompleteProducts.length > 0) {
-        const productNames = incompleteProducts
-          .map((p) => {
-            const product = PRODUCT_OPTIONS.find((opt) => opt.type === p.productType);
-            return product?.label ?? p.productType;
-          })
-          .join(", ");
-        alert(`Please complete the selection for: ${productNames}`);
-        return;
-      }
-    }
-
+  // Core submission logic (extracted to be reused from warning confirmation)
+  const performSubmission = async () => {
     setIsSubmitting(true);
 
     // Build symptom intensities map (separating general vs period-related)
@@ -691,10 +682,10 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     // If Google Sheet is connected, use OAuth-first approach
     if (isGoogleSheetConnected && googleSheet.url) {
       console.log("Google Sheet connected, initiating OAuth-first save...");
-      
+
       // Store entry data - will be saved only if OAuth succeeds
       setPendingEntryData(entryData);
-      
+
       // Trigger OAuth - entry will be saved in onSuccess callback
       googleLogin();
     } else {
@@ -702,9 +693,9 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       console.log("No Google Sheet connected, saving locally only");
       const savedEntry = addEntry(entryData);
       console.log("Entry saved to localStorage:", savedEntry.id);
-      
+
       setIsSubmitting(false);
-      
+
       setSuccessModalConfig({
         title: "Entry Logged!",
         description: "Your entry has been saved to this device.",
@@ -712,6 +703,56 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       });
       setShowSuccessModal(true);
     }
+  };
+
+  const handleSubmit = async () => {
+    // Rate limit check first - attempt to record the click
+    if (!submitRateLimit.attempt()) {
+      alert(`Please wait ${submitRateLimit.getFormattedTime()} before submitting again.`);
+      return;
+    }
+
+    // Check if entry is empty
+    if (isEntryEmpty()) {
+      setShowEmptyWarning(true);
+      return;
+    }
+
+    // Validation
+    const notesCheck = isTextSafe(notes);
+    if (!notesCheck.isSafe) {
+      alert(notesCheck.reason || "Please remove any dangerous content from the notes field.");
+      return;
+    }
+
+    // Validate product usage completeness (only if period section selected and in menstrual phase)
+    if (shouldShowSection("period") && isMenstrualPhase && safePeriodTracking.productTracking?.enabled && productUsage.length > 0) {
+      const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
+      const incompleteProducts = productUsage.filter((usage) => {
+        const validation = isProductUsageComplete(usage, PRODUCT_OPTIONS, customProducts);
+        return !validation.isComplete;
+      });
+
+      if (incompleteProducts.length > 0) {
+        const productNames = incompleteProducts
+          .map((p) => {
+            const product = PRODUCT_OPTIONS.find((opt) => opt.type === p.productType);
+            return product?.label ?? p.productType;
+          })
+          .join(", ");
+        alert(`Please complete the selection for: ${productNames}`);
+        return;
+      }
+    }
+
+    // All validations passed, perform submission
+    await performSubmission();
+  };
+
+  // Handle confirmation from empty warning modal
+  const handleEmptyWarningConfirm = async () => {
+    setShowEmptyWarning(false);
+    await performSubmission();
   };
 
   // Reset form
@@ -760,7 +801,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
             className={`flex-1 sm:flex-none px-4 sm:px-3 py-2 sm:py-1.5 rounded-lg text-sm sm:text-xs font-medium transition-all ${
               selectedDateOption === "today"
                 ? "bg-app-teal text-white"
-                : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-teal"
+                : "bg-app-gray/20 text-app-charcoal border border-app-border hover:border-app-teal"
             }`}
           >
             📅 Today
@@ -771,7 +812,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
             className={`flex-1 sm:flex-none px-4 sm:px-3 py-2 sm:py-1.5 rounded-lg text-sm sm:text-xs font-medium transition-all ${
               selectedDateOption === "yesterday"
                 ? "bg-app-teal text-white"
-                : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-teal"
+                : "bg-app-gray/20 text-app-charcoal border border-app-border hover:border-app-teal"
             }`}
           >
             📆 Yesterday
@@ -1096,6 +1137,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
             loggedMedicines={loggedMedicines}
             onChange={setLoggedMedicines}
             is24Hour={is24Hour}
+            onCustomInputValidation={setHasCustomDosageInputError}
           />
         </section>
       )}
@@ -1104,25 +1146,19 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       <section className="card">
         <h2 className="text-lg font-semibold text-app-charcoal mb-4">📝 Additional Notes</h2>
         <p className="text-sm text-app-gray mb-3">
-          Optional — Add any additional thoughts or observations
+          Add any additional thoughts or observations (Optional) (max 500 characters)
         </p>
-        <textarea
+        <SecureTextarea
           value={notes}
-          onChange={(e) => handleNotesChange(e.target.value)}
+          onChange={handleNotesChange}
           placeholder="How are you feeling today? Any additional details..."
           rows={4}
-          className={`w-full px-4 py-3 rounded-lg border bg-app-white focus:outline-none focus:ring-2 resize-none text-app-charcoal ${
-            notesWarning
-              ? "border-app-red focus:ring-app-red"
-              : "border-app-border focus:ring-app-green"
-          }`}
+          showCharCount={true}
+          errorMessage={notesWarning || undefined}
         />
-        {/* {notesWarning && (
-          <p className="mt-2 text-sm text-app-red">{notesWarning}</p>
-        )}
         <p className="mt-2 text-xs text-app-gray">
-          🔒 For security, code-like content is not allowed in notes.
-        </p> */}
+          🔒 For security, certain characters are disallowed and will be flagged.
+        </p>
       </section>
 
       {/* End Time Card */}
@@ -1137,14 +1173,21 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
       {/* Submit Button */}
       <div className="pt-2 sm:pt-4">
+        {submitRateLimit.isRateLimited && (
+          <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-800">
+              ⏱️ Rate limit reached. Please wait <strong>{submitRateLimit.getFormattedTime()}</strong> before submitting again.
+            </p>
+          </div>
+        )}
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isSubmitting || !!notesWarning}
+          disabled={isSubmitting || !!notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited}
           className={`w-full py-3 sm:py-4 rounded-lg font-semibold text-white transition-all text-sm sm:text-base ${
             isSubmitting
               ? "bg-app-teal/70 cursor-wait"
-              : notesWarning
+              : notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited
               ? "bg-app-gray cursor-not-allowed"
               : "bg-app-teal hover:bg-app-teal"
           }`}
@@ -1208,7 +1251,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       isOpen={showSuccessModal}
       onClose={() => {
         setShowSuccessModal(false);
-        // reset form logic for logging another entry...
+        resetForm();
       }}
       title="Entry Logged"
       description="Your entry has been saved successfully."
@@ -1218,6 +1261,17 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         setShowSuccessModal(false);
         router.push("/dashboard");
       }}
+    />
+
+    {/* Empty Entry Warning Modal */}
+    <WarningModal
+      isOpen={showEmptyWarning}
+      onClose={() => setShowEmptyWarning(false)}
+      onConfirm={handleEmptyWarningConfirm}
+      title="No Selections Made"
+      description="We noticed you haven't made any selections on the entry form. Are you sure you'd like to submit an empty entry?"
+      confirmButtonText="Submit Anyway"
+      cancelButtonText="Go Back"
     />
     </>
   );
@@ -1308,6 +1362,7 @@ interface ConsolidatedMedicineLogProps {
   loggedMedicines: MedicineLogEntry[];
   onChange: (entries: MedicineLogEntry[]) => void;
   is24Hour: boolean;
+  onCustomInputValidation?: (hasError: boolean) => void;
 }
 
 interface ProductUsageEntrySectionProps {

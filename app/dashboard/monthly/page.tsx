@@ -444,6 +444,7 @@ export default function MonthlyPage() {
             availableOptions={availableOptions}
             categoryFilterCounts={categoryFilterCounts}
             hasFilters={hasAdvancedFilters}
+            settings={settings}
             onLoadSavedFilter={setFilters}
             toggleSymptom={toggleSymptom}
             toggleCyclePhase={toggleCyclePhase}

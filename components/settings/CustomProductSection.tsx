@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ProductOption, CustomProduct } from "@/types";
 import { existsCaseInsensitive, findSimilarItems } from "@/lib/stringUtils";
+import { SecureTextInput } from "@/components/ui/SecureInput";
 
 interface CustomProductSectionProps {
   product: ProductOption;
@@ -10,12 +11,14 @@ interface CustomProductSectionProps {
   onUpdate: (products: CustomProduct[]) => void;
   /** When true, displays red border to indicate validation error */
   hasError?: boolean;
+  /** Callback when input validation state changes (true = valid, false = invalid) */
+  onValidationChange?: (isValid: boolean) => void;
 }
 
-export function CustomProductSection({ product, customProducts, onUpdate, hasError = false }: CustomProductSectionProps) {
+export function CustomProductSection({ product, customProducts, onUpdate, hasError = false, onValidationChange }: CustomProductSectionProps) {
   const [newProductName, setNewProductName] = useState("");
   const [warning, setWarning] = useState<string | null>(null);
-  
+
   const maxProducts = product.maxCustomProducts ?? 5;
   const canAddMore = customProducts.length < maxProducts;
   const existingNames = customProducts.map((p) => p.name);
@@ -23,6 +26,10 @@ export function CustomProductSection({ product, customProducts, onUpdate, hasErr
   const handleInputChange = (value: string) => {
     setNewProductName(value);
     setWarning(null);
+
+    // Notify parent of validation state
+    const isValid = value.length <= 60;
+    onValidationChange?.(isValid);
 
     if (value.trim()) {
       // Check for similar existing items (fuzzy match)
@@ -90,25 +97,26 @@ export function CustomProductSection({ product, customProducts, onUpdate, hasErr
 
       {canAddMore && (
         <div className="space-y-2">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newProductName}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              placeholder={`e.g., ${
-                product.type === "cup"
-                  ? "Saalt Soft, Lena Cup"
-                  : product.type === "disc"
-                  ? "Hello Disc, Flex Disc"
-                  : "Brand name..."
-              }`}
-              className="flex-1 px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-red"
-            />
+          <div className="flex gap-2 items-start">
+            <div className="flex-1">
+              <SecureTextInput
+                value={newProductName}
+                onChange={handleInputChange}
+                placeholder={`e.g., ${
+                  product.type === "cup"
+                    ? "Saalt Soft, Lena Cup"
+                    : product.type === "disc"
+                    ? "Hello Disc, Flex Disc"
+                    : "Thinx Period Underwear"
+                }`}
+                showCharCount={true}
+              />
+            </div>
             <button
               type="button"
               onClick={handleAdd}
-              className="px-6 py-2 rounded-lg bg-app-red opacity-85 text-white font-medium hover:opacity-75 transition-opacity"
+              disabled={!newProductName.trim() || newProductName.length > 60}
+              className="px-6 py-2 rounded-lg bg-app-red opacity-85 text-white font-medium hover:opacity-75 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               + Add
             </button>

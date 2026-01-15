@@ -435,6 +435,7 @@ export default function WeeklyPage() {
             availableOptions={availableOptions}
             categoryFilterCounts={categoryFilterCounts}
             hasFilters={hasAdvancedFilters}
+            settings={settings}
             onLoadSavedFilter={setFilters}
             toggleSymptom={toggleSymptom}
             toggleCyclePhase={toggleCyclePhase}

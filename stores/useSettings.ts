@@ -435,8 +435,8 @@ export const useSettings = create<SettingsStore>()(
           timeFormat: "12h",
           weekStartDay: "sunday",
           symptoms: {
-            enabled: true,
-            selected: [...DEFAULT_SYMPTOMS],
+            enabled: false,
+            selected: [],
             custom: [],
             intensityTracking: { enabled: false, scaleType: "simple" },
           },

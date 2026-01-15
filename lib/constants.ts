@@ -50,8 +50,8 @@ export const PAIN_SCALE_INFO = {
       "Developed for chronic pain sufferers, this scale provides specific functional descriptions at each level, helping you communicate more effectively with healthcare providers. Recommended for those managing ongoing chronic conditions.",
     levels: [
       { value: 0, label: "Pain-free" },
-      { value: 1, label: "Very minor annoyance — occasional twinges" },
-      { value: 2, label: "Minor annoyance — occasional strong twinges" },
+      { value: 1, label: "Very minor annoyance; occasional twinges" },
+      { value: 2, label: "Minor annoyance; occasional strong twinges" },
       { value: 3, label: "Annoying enough to be distracting" },
       { value: 4, label: "Can be ignored if deeply involved in work, but still distracting" },
       { value: 5, label: "Can't be ignored for more than 30 minutes" },
@@ -59,7 +59,7 @@ export const PAIN_SCALE_INFO = {
       { value: 7, label: "Makes it difficult to concentrate; interferes with sleep" },
       { value: 8, label: "Physical activity severely limited; conversation requires great effort" },
       { value: 9, label: "Unable to speak; crying out or moaning uncontrollably" },
-      { value: 10, label: "Unconscious — pain makes you pass out" },
+      { value: 10, label: "Unconscious; the pain makes you pass out" },
     ],
   },
 } as const;

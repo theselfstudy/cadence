@@ -497,7 +497,6 @@ function PhaseSymptomView({ entries, cyclePhaseHeatMapData, cycleCount, isPhaseA
           </div>
 
           {/* Symptom Rows */}
-                    {/* Symptom Rows */}
           <div className="space-y-1 max-h-80 overflow-y-auto">
             {(isPhaseAware ? sortedData : simplifiedData || []).slice(0, 15).map((symptom) => {
               const isSelected = selectedCell?.name === symptom.symptom;

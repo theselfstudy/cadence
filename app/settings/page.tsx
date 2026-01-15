@@ -8,6 +8,8 @@ import { useSettings } from "@/stores/useSettings";
 import { validateSettings } from "@/lib/settingsValidation";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SuccessModal } from "@/components/ui/SuccessModal";
+import { useButtonRateLimit } from "@/hooks/useRateLimit";
+import { SecureTextInput, SecureSheetURLInput } from '@/components/ui/SecureInput';
 
 import {
   DEFAULT_SYMPTOMS,
@@ -91,6 +93,41 @@ function SettingsPageContent() {
   const router = useRouter();
 
   // ---------------------------------------------------------------------------
+  // RATE LIMITING
+  // ---------------------------------------------------------------------------
+  // Save to Sheet buttons: Allow 3 saves per minute
+  const saveRateLimit = useButtonRateLimit({
+    maxRequests: 3,
+    windowMs: 60000, // 1 minute
+    key: 'settings-save',
+    storageType: 'localStorage'
+  });
+
+  // Edit button: Allow 5 edits per minute
+  const editRateLimit = useButtonRateLimit({
+    maxRequests: 5,
+    windowMs: 60000,
+    key: 'settings-edit',
+    storageType: 'localStorage'
+  });
+
+  // Disconnect button: Allow 2 disconnects per 5 minutes
+  const disconnectRateLimit = useButtonRateLimit({
+    maxRequests: 2,
+    windowMs: 300000, // 5 minutes
+    key: 'settings-disconnect',
+    storageType: 'localStorage'
+  });
+
+  // Continue/Skip Tutorial buttons: Allow 10 clicks per minute
+  const tutorialNavRateLimit = useButtonRateLimit({
+    maxRequests: 10,
+    windowMs: 60000,
+    key: 'settings-tutorial-nav',
+    storageType: 'localStorage'
+  });
+
+  // ---------------------------------------------------------------------------
   // STORE
   // ---------------------------------------------------------------------------
   const {
@@ -156,6 +193,20 @@ function SettingsPageContent() {
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetName, setSheetName] = useState("");
   const [isEditingSheet, setIsEditingSheet] = useState(false);
+
+  // Validation: Check if any text inputs exceed character limits
+  const [customProductInputErrors, setCustomProductInputErrors] = useState<Record<string, boolean>>({});
+  const [medicineNameInputError, setMedicineNameInputError] = useState(false);
+  const [dosageInputError, setDosageInputError] = useState(false);
+
+  const hasTextInputError =
+    newSymptom.length > 60 ||
+    newPeriodSymptom.length > 60 ||
+    sheetUrl.length > 200 ||
+    sheetName.length > 60 ||
+    Object.values(customProductInputErrors).some(hasError => hasError) ||
+    medicineNameInputError ||
+    dosageInputError;
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [pendingSheetUrl, setPendingSheetUrl] = useState<string | null>(null);
   const [pendingSheetName, setPendingSheetName] = useState<string | null>(null);
@@ -501,6 +552,16 @@ function SettingsPageContent() {
   };
 
   const handleEditGoogleSheet = () => {
+    if (editRateLimit.isRateLimited) {
+      alert(`Please wait ${editRateLimit.getFormattedTime()} before editing again.`);
+      return;
+    }
+
+    if (!editRateLimit.attempt()) {
+      alert(`Rate limit reached. Please wait ${editRateLimit.getFormattedTime()} before editing again.`);
+      return;
+    }
+
     setSheetUrl(safeGoogleSheet.url || "");
     setSheetName(safeGoogleSheet.name || "");
     setIsEditingSheet(true);
@@ -515,7 +576,17 @@ function SettingsPageContent() {
   };
 
   const handleRemoveGoogleSheet = () => {
+    if (disconnectRateLimit.isRateLimited) {
+      alert(`Please wait ${disconnectRateLimit.getFormattedTime()} before disconnecting again.`);
+      return;
+    }
+
     if (window.confirm("Are you sure you want to disconnect? You will switch to Anonymous Mode.")) {
+      if (!disconnectRateLimit.attempt()) {
+        alert(`Rate limit reached. Please wait ${disconnectRateLimit.getFormattedTime()}.`);
+        return;
+      }
+
       clearGoogleSheet();
       setSheetUrl("");
       setSheetName("");
@@ -641,6 +712,12 @@ function SettingsPageContent() {
   // ---------------------------------------------------------------------------
 
   const handleSaveSettings = () => {
+    // Rate limit check
+    if (saveRateLimit.isRateLimited) {
+      alert(`Please wait ${saveRateLimit.getFormattedTime()} before saving again.`);
+      return;
+    }
+
     // Validate before allowing save
     const validation = validateSettings({
       symptoms,
@@ -654,6 +731,11 @@ function SettingsPageContent() {
       return;
     }
 
+    if (!saveRateLimit.attempt()) {
+      alert(`Rate limit reached. Please wait ${saveRateLimit.getFormattedTime()}.`);
+      return;
+    }
+
     setShowValidationErrors(false);
     saveLogin();
   };
@@ -663,9 +745,20 @@ function SettingsPageContent() {
   // ---------------------------------------------------------------------------
 
     const handleContinueToTutorial = () => {
+    // Rate limit check
+    if (tutorialNavRateLimit.isRateLimited) {
+      alert(`Please wait ${tutorialNavRateLimit.getFormattedTime()} before continuing.`);
+      return;
+    }
+
     // Validate and block navigation if invalid
     if (!settingsValidation.isValid) {
       setShowValidationErrors(true);
+      return;
+    }
+
+    if (!tutorialNavRateLimit.attempt()) {
+      alert(`Rate limit reached. Please wait ${tutorialNavRateLimit.getFormattedTime()}.`);
       return;
     }
 
@@ -682,9 +775,20 @@ function SettingsPageContent() {
   };
 
     const handleSkipTutorial = () => {
+    // Rate limit check
+    if (tutorialNavRateLimit.isRateLimited) {
+      alert(`Please wait ${tutorialNavRateLimit.getFormattedTime()} before continuing.`);
+      return;
+    }
+
     // Validate and block navigation if invalid
     if (!settingsValidation.isValid) {
       setShowValidationErrors(true);
+      return;
+    }
+
+    if (!tutorialNavRateLimit.attempt()) {
+      alert(`Rate limit reached. Please wait ${tutorialNavRateLimit.getFormattedTime()}.`);
       return;
     }
 
@@ -1046,7 +1150,7 @@ function SettingsPageContent() {
               <div>
                 <p className="font-medium text-app-charcoal">Welcome to Cadence!</p>
                 <p className="text-sm text-app-gray mt-1">
-                  Take a moment to customize your tracking preferences below. You can always change
+                  Take a moment to customize your preferences below. You can always change
                   these settings later.
                 </p>
               </div>
@@ -1180,21 +1284,23 @@ function SettingsPageContent() {
                     <button
                       type="button"
                       onClick={handleEditGoogleSheet}
-                      className="px-4 py-2 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border transition-colors font-medium text-sm"
+                      disabled={editRateLimit.isRateLimited}
+                      className="px-4 py-2 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={handleRemoveGoogleSheet}
-                      className="px-4 py-2 rounded-lg bg-app-red/10 text-app-red border border-app-red/20 hover:bg-app-red/20 transition-colors font-medium text-sm"
+                      disabled={disconnectRateLimit.isRateLimited}
+                      className="px-4 py-2 rounded-lg bg-app-red/10 text-app-red border border-app-red/20 hover:bg-app-red/20 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Disconnect
                     </button>
                     <button
                       type="button"
                       onClick={handleSaveSettings}
-                      disabled={isSyncing || !hasUnsavedChanges}
+                      disabled={isSyncing || !hasUnsavedChanges || hasTextInputError || saveRateLimit.isRateLimited}
                       className="px-4 py-2 rounded-lg bg-app-teal text-white font-medium hover:opacity-90 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSyncing ? "Saving..." : !hasUnsavedChanges ? "Saved ✓" : "Save Settings"}
@@ -1205,35 +1311,26 @@ function SettingsPageContent() {
                 // Not connected or editing - show form
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="sheetUrl" className="block text-sm font-medium text-app-charcoal mb-1">
-                      Google Sheet URL <span className="text-app-red">*</span>
-                    </label>
-                    <input
-                      id="sheetUrl"
-                      type="url"
+                    <SecureSheetURLInput
                       value={sheetUrl}
-                      onChange={(e) => {
-                        setSheetUrl(e.target.value);
+                      onChange={(value) => {
+                        setSheetUrl(value);
                         setSheetError(null);
                       }}
+                      label="Google Sheet URL"
                       placeholder="https://docs.google.com/spreadsheets/d/..."
-                      className={`w-full px-4 py-2 rounded-lg border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green ${
-                        sheetError ? "border-app-red" : "border-app-border"
-                      }`}
+                      required={true}
+                      errorMessage={sheetError || undefined}
                     />
-                    {sheetError && <p className="text-sm text-app-red mt-1">{sheetError}</p>}
                   </div>
                   <div>
-                    <label htmlFor="sheetName" className="block text-sm font-medium text-app-charcoal mb-1">
-                      Sheet Name <span className="text-app-red">*</span>
-                    </label>
-                    <input
-                      id="sheetName"
-                      type="text"
+                    <SecureTextInput
                       value={sheetName}
-                      onChange={(e) => setSheetName(e.target.value)}
+                      onChange={setSheetName}
+                      label="Sheet Name"
                       placeholder="e.g., My Health Tracker"
-                      className="w-full px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green"
+                      required={true}
+                      showCharCount={true}
                     />
                   </div>
                   <div className="flex gap-2">
@@ -1435,20 +1532,21 @@ function SettingsPageContent() {
 
                   {/* Add custom symptom */}
                   {canAddMoreCustomSymptoms ? (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        id="customGeneralSymptoms"
-                        value={newSymptom}
-                        onChange={(e) => setNewSymptom(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleAddSymptom()}
-                        placeholder="Add custom symptom..."
-                        className="flex-1 px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-teal"
-                      />
+                    <div className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <SecureTextInput
+                          value={newSymptom}
+                          onChange={setNewSymptom}
+                          placeholder="Add custom symptom"
+                          showCharCount={true}
+                          className="w-full"
+                        />
+                      </div>
                       <button
                         type="button"
                         onClick={handleAddSymptom}
-                        className="px-6 py-2 rounded-lg bg-app-teal text-app-cream font-medium hover:opacity-90 transition-colors"
+                        disabled={!newSymptom.trim() || newSymptom.length > 60}
+                        className="px-6 py-2 rounded-lg bg-app-teal text-app-cream font-medium hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         + Add
                       </button>
@@ -1633,19 +1731,20 @@ function SettingsPageContent() {
                   )}
 
                   {canAddMorePeriodSymptoms ? (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        id="customPeriodSymptoms"
-                        value={newPeriodSymptom}
-                        onChange={(e) => setNewPeriodSymptom(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleAddPeriodSymptom()}
-                        placeholder="Add custom period or cycle symptom..."
-                        className="flex-1 px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-red"
-                      />
+                    <div className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <SecureTextInput
+                          value={newPeriodSymptom}
+                          onChange={setNewPeriodSymptom}
+                          placeholder="Add custom period or cycle symptom"
+                          showCharCount={true}
+                          className="w-full"
+                        />
+                      </div>
                       <button
                         onClick={handleAddPeriodSymptom}
-                        className="px-6 py-2 rounded-lg bg-app-red text-white font-medium hover:opacity-90"
+                        disabled={!newPeriodSymptom.trim() || newPeriodSymptom.length > 60}
+                        className="px-6 py-2 rounded-lg bg-app-red text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         + Add
                       </button>
@@ -1746,6 +1845,12 @@ function SettingsPageContent() {
                           product={product}
                           customProducts={safePeriodTracking.productTracking?.customProducts?.[product.type] ?? []}
                           hasError={showValidationErrors && productsMissingCustomItems.includes(product.label)}
+                          onValidationChange={(isValid) => {
+                            setCustomProductInputErrors(prev => ({
+                              ...prev,
+                              [product.type]: !isValid
+                            }));
+                          }}
                           onUpdate={(updated) => {
                             setPeriodTracking({
                               productTracking: {
@@ -1815,6 +1920,8 @@ function SettingsPageContent() {
                     maxMedicines={MAX_MEDICINES}
                     existingMedicines={safeMedicineTracking.medicines}
                     showValidationError={showValidationErrors && !medicineTrackingValid}
+                    onNameValidationChange={(isValid) => setMedicineNameInputError(!isValid)}
+                    onDosageValidationChange={(isValid) => setDosageInputError(!isValid)}
                   />
                 </div>
               </div>
@@ -1866,10 +1973,17 @@ function SettingsPageContent() {
               </div>
             )}
             
+            {saveRateLimit.isRateLimited && (
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  ⏱️ Rate limit reached. Please wait <strong>{saveRateLimit.getFormattedTime()}</strong> before saving again.
+                </p>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleSaveSettings}
-              disabled={isSyncing || !hasUnsavedChanges}
+              disabled={isSyncing || !hasUnsavedChanges || hasTextInputError || saveRateLimit.isRateLimited}
               className="w-full py-3 px-6 rounded-lg bg-app-teal text-white font-semibold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSyncing ? "Saving..." : !hasUnsavedChanges ? "No Changes to Save" : "Save Settings to Google Sheet"}
@@ -1990,12 +2104,29 @@ function SettingsPageContent() {
                 </p>
               </div>
             )}
-            
+
+            {/* Text input character limit warning */}
+            {hasTextInputError && (
+              <div className="p-3 mb-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  ⚠️ One or more text fields exceed the 60-character limit. Please shorten your inputs before continuing.
+                </p>
+              </div>
+            )}
+
+            {tutorialNavRateLimit.isRateLimited && (
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  ⏱️ Rate limit reached. Please wait <strong>{tutorialNavRateLimit.getFormattedTime()}</strong> before continuing.
+                </p>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={handleContinueToTutorial}
-                className="flex-1 py-3 px-6 rounded-lg bg-app-green text-white font-semibold hover:bg-app-green-dark flex items-center justify-center gap-2"
+                disabled={tutorialNavRateLimit.isRateLimited || hasTextInputError}
+                className="flex-1 py-3 px-6 rounded-lg bg-app-green text-white font-semibold hover:bg-app-green-dark flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGoogleSheetConnected ? "Save & Continue to Tutorial" : "Continue to Tutorial"}
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2005,7 +2136,8 @@ function SettingsPageContent() {
               <button
                 type="button"
                 onClick={handleSkipTutorial}
-                className="py-3 px-6 rounded-lg bg-app-cream text-app-charcoal font-medium border border-app-border hover:bg-app-border"
+                disabled={tutorialNavRateLimit.isRateLimited || hasTextInputError}
+                className="py-3 px-6 rounded-lg bg-app-cream text-app-charcoal font-medium border border-app-border hover:bg-app-border disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGoogleSheetConnected ? "Save & Skip Tutorial" : "Skip Tutorial"}
               </button>
