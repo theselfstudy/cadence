@@ -9,6 +9,7 @@ import type { MedicineCategory, LogSection } from "@/types";
 import { LogSelectionModal, SegmentedIntensityBar } from "@/components/entry";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SuccessModal } from "@/components/ui/SuccessModal";
+import { WarningModal } from "@/components/ui/WarningModal";
 import { getLocalDateString } from '@/lib/dateUtils';
 import { useButtonRateLimit } from '@/hooks/useRateLimit';
 import { SecureTextarea, SecureTextInput } from '@/components/ui/SecureInput';
@@ -421,6 +422,9 @@ export default function EntryPage() {
     secondaryText: "",
   });
 
+  // Warning modal state for empty entries
+  const [showEmptyWarning, setShowEmptyWarning] = useState(false);
+
   // Google OAuth for syncing entries - OAuth-first
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -622,40 +626,19 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     return `${time.hour}:${time.minute.toString().padStart(2, '0')} ${time.period}`;
   };
 
-  const handleSubmit = async () => {
-    // Rate limit check
-    if (submitRateLimit.isRateLimited) {
-      alert(`Please wait ${submitRateLimit.getFormattedTime()} before submitting again.`);
-      return;
-    }
+  // Helper to check if the entry is empty (no selections made)
+  const isEntryEmpty = (): boolean => {
+    const hasSymptoms = selectedSymptoms.length > 0;
+    const hasBowelData = bristolType !== null || postFeeling !== null;
+    const hasPeriodData = cyclePhase !== null || flowLevel !== null || productUsage.length > 0;
+    const hasMedicineData = loggedMedicines.length > 0;
+    const hasNotes = notes.trim().length > 0;
 
-    // Validation
-    const notesCheck = isTextSafe(notes);
-    if (!notesCheck.isSafe) {
-      alert(notesCheck.reason || "Please remove any dangerous content from the notes field.");
-      return;
-    }
+    return !hasSymptoms && !hasBowelData && !hasPeriodData && !hasMedicineData && !hasNotes;
+  };
 
-    // Validate product usage completeness (only if period section selected and in menstrual phase)
-    if (shouldShowSection("period") && isMenstrualPhase && safePeriodTracking.productTracking?.enabled && productUsage.length > 0) {
-      const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
-      const incompleteProducts = productUsage.filter((usage) => {
-        const validation = isProductUsageComplete(usage, PRODUCT_OPTIONS, customProducts);
-        return !validation.isComplete;
-      });
-
-      if (incompleteProducts.length > 0) {
-        const productNames = incompleteProducts
-          .map((p) => {
-            const product = PRODUCT_OPTIONS.find((opt) => opt.type === p.productType);
-            return product?.label ?? p.productType;
-          })
-          .join(", ");
-        alert(`Please complete the selection for: ${productNames}`);
-        return;
-      }
-    }
-
+  // Core submission logic (extracted to be reused from warning confirmation)
+  const performSubmission = async () => {
     setIsSubmitting(true);
 
     // Build symptom intensities map (separating general vs period-related)
@@ -699,10 +682,10 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     // If Google Sheet is connected, use OAuth-first approach
     if (isGoogleSheetConnected && googleSheet.url) {
       console.log("Google Sheet connected, initiating OAuth-first save...");
-      
+
       // Store entry data - will be saved only if OAuth succeeds
       setPendingEntryData(entryData);
-      
+
       // Trigger OAuth - entry will be saved in onSuccess callback
       googleLogin();
     } else {
@@ -710,9 +693,9 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       console.log("No Google Sheet connected, saving locally only");
       const savedEntry = addEntry(entryData);
       console.log("Entry saved to localStorage:", savedEntry.id);
-      
+
       setIsSubmitting(false);
-      
+
       setSuccessModalConfig({
         title: "Entry Logged!",
         description: "Your entry has been saved to this device.",
@@ -720,6 +703,56 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       });
       setShowSuccessModal(true);
     }
+  };
+
+  const handleSubmit = async () => {
+    // Rate limit check
+    if (submitRateLimit.isRateLimited) {
+      alert(`Please wait ${submitRateLimit.getFormattedTime()} before submitting again.`);
+      return;
+    }
+
+    // Check if entry is empty
+    if (isEntryEmpty()) {
+      setShowEmptyWarning(true);
+      return;
+    }
+
+    // Validation
+    const notesCheck = isTextSafe(notes);
+    if (!notesCheck.isSafe) {
+      alert(notesCheck.reason || "Please remove any dangerous content from the notes field.");
+      return;
+    }
+
+    // Validate product usage completeness (only if period section selected and in menstrual phase)
+    if (shouldShowSection("period") && isMenstrualPhase && safePeriodTracking.productTracking?.enabled && productUsage.length > 0) {
+      const customProducts = safePeriodTracking.productTracking.customProducts ?? {};
+      const incompleteProducts = productUsage.filter((usage) => {
+        const validation = isProductUsageComplete(usage, PRODUCT_OPTIONS, customProducts);
+        return !validation.isComplete;
+      });
+
+      if (incompleteProducts.length > 0) {
+        const productNames = incompleteProducts
+          .map((p) => {
+            const product = PRODUCT_OPTIONS.find((opt) => opt.type === p.productType);
+            return product?.label ?? p.productType;
+          })
+          .join(", ");
+        alert(`Please complete the selection for: ${productNames}`);
+        return;
+      }
+    }
+
+    // All validations passed, perform submission
+    await performSubmission();
+  };
+
+  // Handle confirmation from empty warning modal
+  const handleEmptyWarningConfirm = async () => {
+    setShowEmptyWarning(false);
+    await performSubmission();
   };
 
   // Reset form
@@ -1218,7 +1251,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       isOpen={showSuccessModal}
       onClose={() => {
         setShowSuccessModal(false);
-        // reset form logic for logging another entry...
+        resetForm();
       }}
       title="Entry Logged"
       description="Your entry has been saved successfully."
@@ -1228,6 +1261,17 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         setShowSuccessModal(false);
         router.push("/dashboard");
       }}
+    />
+
+    {/* Empty Entry Warning Modal */}
+    <WarningModal
+      isOpen={showEmptyWarning}
+      onClose={() => setShowEmptyWarning(false)}
+      onConfirm={handleEmptyWarningConfirm}
+      title="No Selections Made"
+      description="We noticed you haven't made any selections on the entry form. Are you sure you'd like to submit an empty entry?"
+      confirmButtonText="Submit Anyway"
+      cancelButtonText="Go Back"
     />
     </>
   );

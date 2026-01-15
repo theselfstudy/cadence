@@ -43,7 +43,7 @@ const ENTRIES_PER_PAGE = 10;
 
 export default function HistoryPage() {
   // Client-side rendering guard
-  // const [isClient, setIsClient] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   // Rate limiting: Allow 3 refresh requests per minute
   const refreshRateLimit = useButtonRateLimit({
@@ -187,8 +187,8 @@ export default function HistoryPage() {
 
   // Check if user should see backup prompt (anonymous mode, has entries, hasn't dismissed recently)
   useEffect(() => {
-    // setIsClient(true);
-    
+    setIsClient(true);
+
     // Show backup prompt for anonymous users with entries
     if (!isGoogleSheetConnected && entries.length > 0) {
       const lastDismissed = localStorage.getItem("Cadence-backup-prompt-dismissed");
@@ -315,10 +315,10 @@ export default function HistoryPage() {
   const handleLoadMore = () => {
     setVisibleCount(prev => prev + ENTRIES_PER_PAGE);
   };
-  
-  // if (!isClient) {
-  //   return <HistorySkeleton />;
-  // }
+
+  if (!isClient) {
+    return <HistorySkeleton />;
+  }
 
   return (
     <div className="space-y-6">
