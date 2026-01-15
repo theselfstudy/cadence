@@ -13,7 +13,6 @@ import type { NotableReason, NotableCycle } from "@/lib/insightUtils";
 // ============================================
 // NOTABLE CYCLES SECTION
 // Shows cycles that differed from the user's usual pattern
-// Uses neutral, factual language — never alarming
 // Displayed as 2x2 snapshot cards with expandable details
 // ============================================
 

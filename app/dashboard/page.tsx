@@ -38,7 +38,7 @@ export default function DashboardPage() {
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-app-charcoal">Dashboard</h1>
-        <p className="text-app-gray">Your health tracking overview</p>
+        <p className="text-app-gray">Your health at a glance and quick navigation</p>
       </div>
 
       {/* Quick Actions */}

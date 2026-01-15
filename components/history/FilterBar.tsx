@@ -17,6 +17,7 @@ import type {
   BristolScaleType,
   PostBowelFeeling,
   FlowLevel,
+  UserSettings,
 } from "@/types";
 
 // ============================================
@@ -31,9 +32,10 @@ interface FilterBarProps {
   categoryFilterCounts: Record<string, number>;
   hasFilters: boolean;
   hideSavedFilters?: boolean;
+  settings: UserSettings;
   // Saved filter action
   onLoadSavedFilter: (filters: HistoryFilters) => void;
-  
+
   // Toggle actions
   toggleSymptom: (symptom: string) => void;
   toggleCyclePhase: (phase: CyclePhase) => void;
@@ -41,13 +43,13 @@ interface FilterBarProps {
   toggleBristolType: (type: BristolScaleType) => void;
   toggleFeeling: (feeling: PostBowelFeeling) => void;
   toggleMedicine: (medicine: string) => void;
-  
+
   // Select all actions
   selectAllSymptoms: () => void;
   selectAllCycle: () => void;
   selectAllBowel: () => void;
   selectAllMedicine: () => void;
-  
+
   // Clear actions
   clearCategory: (category: string) => void;
   clearAllFilters: () => void;
@@ -81,6 +83,7 @@ export function FilterBar({
   categoryFilterCounts,
   hasFilters,
   hideSavedFilters,
+  settings,
   onLoadSavedFilter,
   toggleSymptom,
   toggleCyclePhase,
@@ -97,7 +100,23 @@ export function FilterBar({
 }: FilterBarProps) {
   const [openCategory, setOpenCategory] = useState<CategoryKey | null>(null);
   const isMobile = useIsMobile();
-  
+
+  // Filter categories based on enabled settings
+  const enabledCategories = CATEGORIES.filter(category => {
+    switch (category.key) {
+      case "symptoms":
+        return settings.symptoms.enabled;
+      case "cycle":
+        return settings.periodTracking.enabled;
+      case "bowel":
+        return settings.stoolTracking.enabled;
+      case "medicine":
+        return settings.medicineTracking.enabled;
+      default:
+        return true;
+    }
+  });
+
   // Refs for each category button (for focus management on desktop)
   const buttonRefs = {
     symptoms: useRef<HTMLButtonElement>(null),
@@ -244,8 +263,8 @@ export function FilterBar({
   };
 
   // Get current open category info
-  const openCategoryInfo = openCategory 
-    ? CATEGORIES.find(c => c.key === openCategory) 
+  const openCategoryInfo = openCategory
+    ? enabledCategories.find(c => c.key === openCategory)
     : null;
 
   return (
@@ -253,8 +272,8 @@ export function FilterBar({
       {/* Category Buttons Row */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-app-gray">Filter by:</span>
-        
-        {CATEGORIES.map(category => (
+
+        {enabledCategories.map(category => (
           <div key={category.key} className="relative">
             <FilterCategoryButton
               ref={buttonRefs[category.key]}

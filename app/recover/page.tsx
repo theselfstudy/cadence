@@ -8,6 +8,8 @@ import { useSettings } from '@/stores/useSettings';
 import { useSavedFilters } from '@/stores/useSavedFilters';
 import { useGoogleLogin } from '@react-oauth/google';
 import { GOOGLE_SHEET_URL_PATTERN } from '@/lib/constants';
+import { useButtonRateLimit } from '@/hooks/useRateLimit';
+import { SecureSheetURLInput } from '@/components/ui/SecureInput';
 
 // Helper function to extract ID from URL
 function getSpreadsheetIdFromUrl(url: string): string | null {
@@ -21,6 +23,14 @@ export default function RecoverPage() {
   const loadSavedFiltersFromSheet = useSavedFilters((state) => state.loadFromSheet);
   const [sheetUrl, setSheetUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Rate limiting: Allow 3 restore requests per minute
+  const restoreRateLimit = useButtonRateLimit({
+    maxRequests: 3,
+    windowMs: 60000, // 1 minute
+    key: 'recover-restore',
+    storageType: 'localStorage'
+  });
 
   // This hook handles the real Google login for the restore flow
   const restoreLogin = useGoogleLogin({
@@ -55,18 +65,30 @@ export default function RecoverPage() {
 
   const handleRestore = () => {
   setError(null);
-  
+
+  // Rate limit check
+  if (restoreRateLimit.isRateLimited) {
+    setError(`Please wait ${restoreRateLimit.getFormattedTime()} before attempting to restore again.`);
+    return;
+  }
+
   if (!sheetUrl.trim()) {
     setError("Please enter your Google Sheet URL first.");
     return;
   }
-  
+
   // Validate Google Sheets URL format
   if (!GOOGLE_SHEET_URL_PATTERN.test(sheetUrl.trim())) {
     setError("Please enter a valid Google Sheets URL");
     return;
   }
-  
+
+  // Attempt rate limit check
+  if (!restoreRateLimit.attempt()) {
+    setError(`Rate limit reached. Please wait ${restoreRateLimit.getFormattedTime()} before trying again.`);
+    return;
+  }
+
   // This will trigger the Google login popup
   restoreLogin();
   };
@@ -81,27 +103,30 @@ export default function RecoverPage() {
             </p>
         </div>
         
-        {/* THIS IS THE NEW, WORKING FORM */}
+        {/* Google Sheet URL Input */}
         <div className="text-left">
-          <label htmlFor="sheetUrl" className="block text-sm font-medium text-app-charcoal mb-1">
-            Your Cadence Google Sheet URL
-          </label>
-          <input
-            id="sheetUrl"
-            type="url"
+          <SecureSheetURLInput
             value={sheetUrl}
-            onChange={(e) => setSheetUrl(e.target.value)}
+            onChange={setSheetUrl}
+            label="Your Cadence Google Sheet URL"
             placeholder="https://docs.google.com/spreadsheets/d/..."
-            className="w-full px-4 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green"
+            required={true}
+            errorMessage={error || undefined}
           />
         </div>
 
-        {error && <p className="p-3 bg-app-red/10 text-app-red text-sm rounded-md text-center">{error}</p>}
+        {restoreRateLimit.isRateLimited && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-800">
+              ⏱️ Rate limit reached. Please wait <strong>{restoreRateLimit.getFormattedTime()}</strong> before restoring again.
+            </p>
+          </div>
+        )}
 
         <div className="pt-2 text-center">
           <button
             onClick={handleRestore}
-            disabled={isSyncing || !sheetUrl}
+            disabled={isSyncing || !sheetUrl || restoreRateLimit.isRateLimited}
             className="w-full btn-primary disabled:bg-app-gray/50 disabled:cursor-not-allowed"
           >
             {isSyncing ? "Restoring..." : "Connect Google & Restore"}

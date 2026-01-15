@@ -120,7 +120,7 @@ export default function SettingsOverviewPage() {
           </h1>
         </div>
         <p className="text-app-gray">
-          Your current tracking configuration at a glance
+          Your current settings configuration at a glance
         </p>
 
         <div className="mt-4 p-3 bg-app-cream rounded-lg border border-app-border">
@@ -455,7 +455,7 @@ export default function SettingsOverviewPage() {
       </section>
 
       {/* Color Palette Preview (Collapsible) */}
-      <section className="card">
+      {/* <section className="card">
         <button
           onClick={() => setShowColorPalette(!showColorPalette)}
           className="w-full flex justify-between items-center"
@@ -486,7 +486,7 @@ export default function SettingsOverviewPage() {
             </div>
           </div>
         )}
-      </section>
+      </section> */}
     </div>
   );
 }

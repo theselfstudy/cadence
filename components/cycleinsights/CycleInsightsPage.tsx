@@ -127,10 +127,10 @@ const detectedCycles = useMemo(() => {
         <div className="bg-app-white rounded-xl border border-app-border p-8 text-center">
           <span className="text-4xl block mb-4">🌸</span>
           <h2 className="text-lg font-semibold text-app-charcoal mb-2">
-            Period Tracking Not Enabled
+            Period logging Not Enabled
           </h2>
           <p className="text-sm text-app-gray max-w-md mx-auto">
-            Enable period tracking in Settings to see cycle insights and patterns.
+            Enable period logging in Settings to see cycle insights and patterns.
           </p>
         </div>
       </div>

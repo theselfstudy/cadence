@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Medicine, MedicineCategory } from "@/types";
 import { MEDICINE_CATEGORIES } from "@/lib/constants";
+import { SecureTextInput } from "@/components/ui/SecureInput";
 
 interface MedicineItemProps {
   medicine: Medicine;
@@ -130,15 +131,13 @@ export function MedicineItem({
 
         {/* Medicine Name */}
         <div>
-          <label className="block text-xs text-app-gray mb-1">
-            Medicine Name *
-          </label>
-          <input
-            type="text"
+          <SecureTextInput
             value={editName}
-            onChange={(e) => setEditName(e.target.value)}
+            onChange={setEditName}
+            label="Medicine Name *"
             placeholder="e.g., Ibuprofen, Metamucil, Spironolactone..."
-            className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+            required={true}
+            showCharCount={true}
           />
         </div>
 
@@ -170,19 +169,20 @@ export function MedicineItem({
           )}
           
           {/* Add new dosage */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={editDosageInput}
-              onChange={(e) => setEditDosageInput(e.target.value)}
-              onKeyDown={handleDosageKeyDown}
-              placeholder="e.g., 200mg, 2 pills, 1000IUs..."
-              className="flex-1 px-3 py-1.5 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
-            />
+          <div className="flex gap-2 items-start">
+            <div className="flex-1">
+              <SecureTextInput
+                value={editDosageInput}
+                onChange={setEditDosageInput}
+                placeholder="e.g., 200mg, 2 pills, 1000IUs..."
+                showCharCount={true}
+                className="text-sm"
+              />
+            </div>
             <button
               type="button"
               onClick={handleAddEditDosage}
-              disabled={!editDosageInput.trim()}
+              disabled={!editDosageInput.trim() || editDosageInput.length > 60}
               className="px-3 py-1.5 rounded-lg bg-app-taupe/20 text-app-charcoal text-sm font-medium hover:bg-app-taupe/30 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               + Add
@@ -239,7 +239,7 @@ export function MedicineItem({
           <button
             type="button"
             onClick={handleSave}
-            disabled={!editName.trim() || editCategories.length === 0}
+            disabled={!editName.trim() || editName.length > 60 || editCategories.length === 0}
             className="flex-1 px-4 py-2 rounded-lg bg-app-green/70 text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             Save Changes

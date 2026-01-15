@@ -83,7 +83,7 @@ const TUTORIAL_STEPS = [
     id: "sync",
     title: "Optional Cloud Backup",
     description:
-      "Connect a Google Sheet in Settings to automatically sync your entries to the cloud. Your data stays safe even if you clear your browser, and you can access it from any device.",
+      "Connect a Google Sheet in Settings to automatically sync your entries to the cloud. Your data stays safe even if you clear your browser, and you can access it from any device when linked to the same Google Sheet.",
     illustration: "sync",
   },
   {
@@ -761,7 +761,7 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
 
         {/* Optional badge */}
         <p className="text-xs text-app-gray text-center mt-3">
-          Optional — Your data always stays on your device too
+          This is optional. Your data always stays on your device
         </p>
       </div>
     ),

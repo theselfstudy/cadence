@@ -12,10 +12,11 @@ import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
 import { FilterBar } from "@/components/history";
-import { BRISTOL_TYPES, POST_BOWEL_FEELINGS, CYCLE_PHASES } from "@/lib/constants";
+import { CYCLE_PHASES } from "@/lib/constants";
 import { useGoogleLogin } from "@react-oauth/google";
 import { getLocalDateString } from '@/lib/dateUtils';
 import { EntryCard } from '@/components/ui/EntryCard';
+import { useButtonRateLimit } from '@/hooks/useRateLimit';
 
 
 // ============================================
@@ -43,10 +44,18 @@ const ENTRIES_PER_PAGE = 10;
 export default function HistoryPage() {
   // Client-side rendering guard
   // const [isClient, setIsClient] = useState(false);
-  
+
+  // Rate limiting: Allow 3 refresh requests per minute
+  const refreshRateLimit = useButtonRateLimit({
+    maxRequests: 3,
+    windowMs: 60000, // 1 minute
+    key: 'history-refresh',
+    storageType: 'localStorage'
+  });
+
   // URL search params for pre-filtering (e.g., from Cycle Insights)
   const searchParams = useSearchParams();
-  
+
   // Store data
   const entries = useEntries((state) => state.entries);
   const { isGoogleSheetConnected, timeFormat } = useSettings();
@@ -239,6 +248,20 @@ export default function HistoryPage() {
   };
 
   // Handle refresh from sheet
+  const handleRefreshClick = () => {
+    if (refreshRateLimit.isRateLimited) {
+      alert(`Please wait ${refreshRateLimit.getFormattedTime()} before refreshing again.`);
+      return;
+    }
+
+    if (!refreshRateLimit.attempt()) {
+      alert(`Rate limit reached. Please wait ${refreshRateLimit.getFormattedTime()}.`);
+      return;
+    }
+
+    refreshFromSheet();
+  };
+
   const refreshFromSheet = useGoogleLogin({
     scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
     onSuccess: async (tokenResponse) => {
@@ -361,9 +384,9 @@ export default function HistoryPage() {
           {/* Refresh from Sheet button - only for connected users */}
           {isGoogleSheetConnected && (
             <button
-              onClick={() => refreshFromSheet()}
-              disabled={isRefreshing}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-app-teal/10 text-app-teal 
+              onClick={handleRefreshClick}
+              disabled={isRefreshing || refreshRateLimit.isRateLimited}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-app-teal/10 text-app-teal
                          rounded-lg hover:bg-app-teal/20 disabled:opacity-50 disabled:cursor-not-allowed
                          transition-colors"
               title="Pull latest entries from your Google Sheet"
@@ -385,17 +408,24 @@ export default function HistoryPage() {
             </button>
           )}
         </div>
-        
+
+        {/* Rate limit warning */}
+        {refreshRateLimit.isRateLimited && (
+          <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+            ⏱️ Rate limit reached. Please wait <strong>{refreshRateLimit.getFormattedTime()}</strong> before refreshing again.
+          </div>
+        )}
+
         {/* Refresh result notification */}
         {refreshResult && (
           <div className="mt-2 p-2 bg-app-teal/10 rounded-lg text-sm text-app-teal flex items-center gap-2">
             <span>✓</span>
             <span>
-              {refreshResult.imported > 0 
+              {refreshResult.imported > 0
                 ? `Imported ${refreshResult.imported} new ${refreshResult.imported === 1 ? 'entry' : 'entries'}`
                 : 'Already up to date'}
               {refreshResult.skipped > 0 && ` (${refreshResult.skipped} skipped)`}
-              {refreshResult.filtersLoaded != null && refreshResult.filtersLoaded > 0 && 
+              {refreshResult.filtersLoaded != null && refreshResult.filtersLoaded > 0 &&
                 ` · ${refreshResult.filtersLoaded} saved filter${refreshResult.filtersLoaded === 1 ? '' : 's'} synced`}
             </span>
           </div>
@@ -496,6 +526,7 @@ export default function HistoryPage() {
               availableOptions={availableOptions}
               categoryFilterCounts={categoryFilterCounts}
               hasFilters={hasFilters}
+              settings={settings}
               onLoadSavedFilter={setFilters}
               toggleSymptom={toggleSymptom}
               toggleCyclePhase={toggleCyclePhase}
@@ -631,16 +662,16 @@ export default function HistoryPage() {
       </div>
 
       {/* Debug JSON View */}
-      {filteredEntries.length > 0 && (
+      {/* {filteredEntries.length > 0 && (
         <details className="card">
           <summary className="cursor-pointer text-sm font-medium text-app-gray hover:text-app-charcoal">
             🔍 View Raw JSON Data ({filteredEntries.length} entries)
           </summary>
           <pre className="mt-4 p-4 bg-app-charcoal text-app-cream text-xs rounded-lg overflow-x-auto max-h-96">
-            {JSON.stringify(filteredEntries, null, 2)}
+            {JSON.str ingify(filteredEntries, null, 2)}
           </pre>
         </details>
-      )}
+      )} */}
       {/* OAuth Error Modal */}
       <OAuthErrorModal
         isOpen={showOAuthError}
