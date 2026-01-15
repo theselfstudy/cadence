@@ -706,8 +706,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   };
 
   const handleSubmit = async () => {
-    // Rate limit check
-    if (submitRateLimit.isRateLimited) {
+    // Rate limit check first - attempt to record the click
+    if (!submitRateLimit.attempt()) {
       alert(`Please wait ${submitRateLimit.getFormattedTime()} before submitting again.`);
       return;
     }

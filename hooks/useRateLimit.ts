@@ -39,7 +39,7 @@ export function useRateLimit(config: RateLimitConfig) {
   // Storage operations based on storage type
   const getEntry = useCallback((): RateLimitEntry => {
     if (storageType === 'localStorage') {
-      const stored = localStorage.getItem(`rateLimit_${key}`);
+      const stored = localStorage.getItem(`Cadence-rateLimit_${key}`);
       if (stored) {
         try {
           return JSON.parse(stored);
@@ -55,7 +55,7 @@ export function useRateLimit(config: RateLimitConfig) {
 
   const setEntry = useCallback((entry: RateLimitEntry) => {
     if (storageType === 'localStorage') {
-      localStorage.setItem(`rateLimit_${key}`, JSON.stringify(entry));
+      localStorage.setItem(`Cadence-rateLimit_${key}`, JSON.stringify(entry));
     } else {
       memoryStorage[key] = entry;
     }
@@ -63,7 +63,7 @@ export function useRateLimit(config: RateLimitConfig) {
 
   const clearEntry = useCallback(() => {
     if (storageType === 'localStorage') {
-      localStorage.removeItem(`rateLimit_${key}`);
+      localStorage.removeItem(`Cadence-rateLimit_${key}`);
     } else {
       delete memoryStorage[key];
     }
