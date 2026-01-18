@@ -8,6 +8,7 @@ import type { StoredEntry, TimeFormat } from "@/types";
 import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 import { useSavedFilters } from "@/stores/useSavedFilters";
+import { useSyncTracker } from "@/stores/useSyncTracker";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
@@ -17,6 +18,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { getLocalDateString } from '@/lib/dateUtils';
 import { EntryCard } from '@/components/ui/EntryCard';
 import { useButtonRateLimit } from '@/hooks/useRateLimit';
+import { SyncWithGoogleSheetsButton } from '@/components/sync';
 
 
 // ============================================
@@ -45,20 +47,13 @@ export default function HistoryPage() {
   // Client-side rendering guard
   const [isClient, setIsClient] = useState(false);
 
-  // Rate limiting: Allow 3 refresh requests per minute
-  const refreshRateLimit = useButtonRateLimit({
-    maxRequests: 3,
-    windowMs: 60000, // 1 minute
-    key: 'history-refresh',
-    storageType: 'localStorage'
-  });
-
   // URL search params for pre-filtering (e.g., from Cycle Insights)
   const searchParams = useSearchParams();
 
   // Store data
   const entries = useEntries((state) => state.entries);
   const { isGoogleSheetConnected, timeFormat } = useSettings();
+  const { getLastSuccessfulSyncAt } = useSyncTracker();
 
   const settings = useSettings();
 
@@ -89,17 +84,6 @@ export default function HistoryPage() {
   
   // Pagination state
   const [visibleCount, setVisibleCount] = useState(ENTRIES_PER_PAGE);
-
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshResult, setRefreshResult] = useState<{
-    imported: number;
-    skipped: number;
-    filtersLoaded?: number;
-  } | null>(null);
-
-  // OAuth error state
-  const [showOAuthError, setShowOAuthError] = useState(false);
-  const [oauthErrorAction, setOauthErrorAction] = useState("");
 
     // Date-filtered entries (before advanced filters)
   const dateFilteredEntries = useMemo(() => {
@@ -247,70 +231,6 @@ export default function HistoryPage() {
     setShowBackupPrompt(false);
   };
 
-  // Handle refresh from sheet
-  const handleRefreshClick = () => {
-    if (refreshRateLimit.isRateLimited) {
-      alert(`Please wait ${refreshRateLimit.getFormattedTime()} before refreshing again.`);
-      return;
-    }
-
-    if (!refreshRateLimit.attempt()) {
-      alert(`Rate limit reached. Please wait ${refreshRateLimit.getFormattedTime()}.`);
-      return;
-    }
-
-    refreshFromSheet();
-  };
-
-  const refreshFromSheet = useGoogleLogin({
-    scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
-    onSuccess: async (tokenResponse) => {
-      setIsRefreshing(true);
-      setRefreshResult(null);
-      
-      // Import entries
-      const result = await importEntriesFromSheet(tokenResponse.access_token);
-      
-      // Also refresh saved filters
-      let filtersLoaded = 0;
-      const googleSheetUrl = useSettings.getState().googleSheet?.url;
-      if (googleSheetUrl) {
-        const spreadsheetId = googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
-        if (spreadsheetId) {
-          const filtersBefore = useSavedFilters.getState().savedFilters.length;
-          await loadSavedFiltersFromSheet(spreadsheetId, tokenResponse.access_token);
-          const filtersAfter = useSavedFilters.getState().savedFilters.length;
-          filtersLoaded = Math.max(0, filtersAfter - filtersBefore);
-        }
-      }
-      
-      setIsRefreshing(false);
-      
-      if (result.success) {
-        setRefreshResult({
-          imported: result.imported,
-          skipped: result.skipped,
-          filtersLoaded,
-        });
-        
-        // Clear the result after 5 seconds
-        setTimeout(() => setRefreshResult(null), 5000);
-      } else {
-        alert(`Failed to refresh: ${result.error}`);
-      }
-    },
-    onError: () => {
-      setIsRefreshing(false);
-      setOauthErrorAction("refresh from your Google Sheet");
-      setShowOAuthError(true);
-    },
-    onNonOAuthError: () => {
-      setIsRefreshing(false);
-      setOauthErrorAction("refresh from your Google Sheet");
-      setShowOAuthError(true);
-    },
-  });
-  
   // Handle load more
   const handleLoadMore = () => {
     setVisibleCount(prev => prev + ENTRIES_PER_PAGE);
@@ -375,61 +295,15 @@ export default function HistoryPage() {
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
             <span className="text-sm text-app-charcoal">
-              {isGoogleSheetConnected 
-                ? "Syncing with Google Sheets" 
+              {isGoogleSheetConnected
+                ? `Google Sheets: ${formatTimeSinceSync(getLastSuccessfulSyncAt())}`
                 : "Local storage only (Anonymous Mode)"}
             </span>
           </div>
-          
-          {/* Refresh from Sheet button - only for connected users */}
-          {isGoogleSheetConnected && (
-            <button
-              onClick={handleRefreshClick}
-              disabled={isRefreshing || refreshRateLimit.isRateLimited}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-app-teal/10 text-app-teal
-                         rounded-lg hover:bg-app-teal/20 disabled:opacity-50 disabled:cursor-not-allowed
-                         transition-colors"
-              title="Pull latest entries from your Google Sheet"
-            >
-              <svg 
-                className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
-                />
-              </svg>
-              {isRefreshing ? "Refreshing..." : "Refresh from Sheet"}
-            </button>
-          )}
+
+          {/* Sync with Google Sheets button - only for connected users */}
+          <SyncWithGoogleSheetsButton variant="secondary" />
         </div>
-
-        {/* Rate limit warning */}
-        {refreshRateLimit.isRateLimited && (
-          <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-            ⏱️ Rate limit reached. Please wait <strong>{refreshRateLimit.getFormattedTime()}</strong> before refreshing again.
-          </div>
-        )}
-
-        {/* Refresh result notification */}
-        {refreshResult && (
-          <div className="mt-2 p-2 bg-app-teal/10 rounded-lg text-sm text-app-teal flex items-center gap-2">
-            <span>✓</span>
-            <span>
-              {refreshResult.imported > 0
-                ? `Imported ${refreshResult.imported} new ${refreshResult.imported === 1 ? 'entry' : 'entries'}`
-                : 'Already up to date'}
-              {refreshResult.skipped > 0 && ` (${refreshResult.skipped} skipped)`}
-              {refreshResult.filtersLoaded != null && refreshResult.filtersLoaded > 0 &&
-                ` · ${refreshResult.filtersLoaded} saved filter${refreshResult.filtersLoaded === 1 ? '' : 's'} synced`}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Filters & Controls */}
@@ -672,13 +546,6 @@ export default function HistoryPage() {
           </pre>
         </details>
       )} */}
-      {/* OAuth Error Modal */}
-      <OAuthErrorModal
-        isOpen={showOAuthError}
-        onClose={() => setShowOAuthError(false)}
-        onRetry={() => refreshFromSheet()}
-        actionDescription={oauthErrorAction}
-      />
     </div>
   );
 }
@@ -1217,6 +1084,20 @@ function HistorySkeleton() {
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
+
+function formatTimeSinceSync(lastSyncAt: string | null): string {
+  if (!lastSyncAt) return "Not synced";
+
+  const ms = Date.now() - new Date(lastSyncAt).getTime();
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `Synced ${days}d ago`;
+  if (hours > 0) return `Synced ${hours}h ago`;
+  if (minutes > 0) return `Synced ${minutes}m ago`;
+  return "Synced just now";
+}
 
 function getFilterLabel(filter: DateRangeFilter): string {
   switch (filter) {
