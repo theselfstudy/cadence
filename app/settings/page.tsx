@@ -3,7 +3,7 @@
 import { useGoogleLogin } from "@react-oauth/google";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { checkForExistingSettings, deleteSettingsSheet } from "@/lib/googleSheets";
+import { checkForExistingSettings, deleteSettingsSheet, deleteSavedFiltersSheet } from "@/lib/googleSheets";
 import { useSettings } from "@/stores/useSettings";
 import { validateSettings } from "@/lib/settingsValidation";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
@@ -33,7 +33,6 @@ import {
   AddMedicineForm,
   RecoveryPromptModal,
   SavePromptModal,
-  AnonymousContinueModal,
   ImportEntriesModal,
 } from "@/components/settings";
 import { SyncWithGoogleSheetsButton } from "@/components/sync";
@@ -46,6 +45,41 @@ import { SyncWithGoogleSheetsButton } from "@/components/sync";
 const MAX_CUSTOM_SYMPTOMS = 30;
 const MAX_CUSTOM_PERIOD_SYMPTOMS = 30;
 const MAX_MEDICINES = 15;
+
+// =============================================================================
+// LOCALSTORAGE UTILITY
+// =============================================================================
+
+/**
+ * Clears all Cadence-related localStorage keys.
+ * @param includeEntries - If true, also clears the entries cache (default: false)
+ */
+function clearAllCadenceStorage(includeEntries: boolean = false): void {
+  // Known Cadence storage keys
+  const keysToRemove = [
+    "cadence-settings",
+    "cadence-saved-filters",
+    "cadence-sync-tracker",
+    "cadence-backup-prompt-dismissed",
+  ];
+
+  if (includeEntries) {
+    keysToRemove.push("cadence-entries");
+  }
+
+  // Remove known keys
+  keysToRemove.forEach((key) => {
+    localStorage.removeItem(key);
+  });
+
+  // Remove all rate limit keys (dynamic pattern: cadence-rateLimit_*)
+  const allKeys = Object.keys(localStorage);
+  allKeys.forEach((key) => {
+    if (key.startsWith("cadence-rateLimit_")) {
+      localStorage.removeItem(key);
+    }
+  });
+}
 
 // =============================================================================
 // MAIN PAGE COMPONENT
@@ -112,21 +146,14 @@ function SettingsPageContent() {
     storageType: 'localStorage'
   });
 
-  // Disconnect button: Allow 2 disconnects per 5 minutes
+  // Disconnect button: Consolidated with sync-google-sheets rate limit (3 per minute)
   const disconnectRateLimit = useButtonRateLimit({
-    maxRequests: 2,
-    windowMs: 300000, // 5 minutes
-    key: 'settings-disconnect',
+    maxRequests: 3,
+    windowMs: 60000, // 1 minute (matches sync-google-sheets)
+    key: 'sync-google-sheets', // Shares rate limit with sync buttons
     storageType: 'localStorage'
   });
 
-  // Continue/Skip Tutorial buttons: Allow 10 clicks per minute
-  const tutorialNavRateLimit = useButtonRateLimit({
-    maxRequests: 10,
-    windowMs: 60000,
-    key: 'settings-tutorial-nav',
-    storageType: 'localStorage'
-  });
 
   // ---------------------------------------------------------------------------
   // STORE
@@ -159,7 +186,6 @@ function SettingsPageContent() {
     loadSettingsFromSheet,
     clearGoogleSheet,
     completeSetup,
-    resetSettings,
     setMedicineTracking,
   } = useSettings();
 
@@ -226,8 +252,7 @@ function SettingsPageContent() {
   const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false);  
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<"tutorial" | "entry" | null>(null);
-  const [showAnonymousContinueModal, setShowAnonymousContinueModal] = useState(false);
-  const [showLocalSaveModal, setShowLocalSaveModal] = useState(false);
+  // Removed showLocalSaveModal - now using SuccessModal directly
   // OAuth error modal
   const [showOAuthError, setShowOAuthError] = useState(false);
   const [oauthErrorAction, setOauthErrorAction] = useState("");
@@ -516,20 +541,29 @@ function SettingsPageContent() {
     scope: "https://www.googleapis.com/auth/spreadsheets",
     onSuccess: async (tokenResponse) => {
       const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet?.url || "");
-      
+
       if (spreadsheetId) {
-        const deleted = await deleteSettingsSheet(spreadsheetId, tokenResponse.access_token);
-        if (deleted) {
+        // Delete settings sheet
+        const settingsDeleted = await deleteSettingsSheet(spreadsheetId, tokenResponse.access_token);
+        if (settingsDeleted) {
           console.log("Settings sheet deleted from Google Sheet.");
         } else {
           console.warn("Failed to delete settings sheet, but proceeding with local reset.");
         }
+
+        // Delete saved filters sheet
+        const filtersDeleted = await deleteSavedFiltersSheet(spreadsheetId, tokenResponse.access_token);
+        if (filtersDeleted) {
+          console.log("Saved filters sheet deleted from Google Sheet.");
+        } else {
+          console.warn("Failed to delete saved filters sheet, but proceeding with local reset.");
+        }
       }
-      
-      // Reset local state
-      resetSettings();
+
+      // Clear all local storage including entries cache
+      clearAllCadenceStorage(true);
       alert("All settings have been reset. You'll need to set up again.");
-      router.push("/settings");
+      window.location.href = "/settings"; // Full reload to reinitialize stores
     },
     onError: () => {
       setOauthErrorAction("reset your settings");
@@ -686,6 +720,11 @@ function SettingsPageContent() {
   const handleImportComplete = () => {
     setShowImportEntriesModal(false);
     setPendingImportAccessToken(null);
+    router.push("/settings");
+  };
+  const handleHistoryView = () => {
+    setShowImportEntriesModal(false);
+    setPendingImportAccessToken(null);
     router.push("/dashboard/history");
   };
 
@@ -693,97 +732,61 @@ function SettingsPageContent() {
   // SAVE SETTINGS HANDLER
   // ---------------------------------------------------------------------------
 
-  const handleSaveSettings = () => {
-    // Rate limit check
-    if (saveRateLimit.isRateLimited) {
-      alert(`Please wait ${saveRateLimit.getFormattedTime()} before saving again.`);
-      return;
-    }
+  // const handleSaveSettings = () => {
+  //   // Rate limit check
+  //   if (saveRateLimit.isRateLimited) {
+  //     alert(`Please wait ${saveRateLimit.getFormattedTime()} before saving again.`);
+  //     return;
+  //   }
 
-    // Validate before allowing save
-    const validation = validateSettings({
-      symptoms,
-      stoolTracking: safeStoolTracking,
-      periodTracking: safePeriodTracking,
-      medicineTracking: safeMedicineTracking,
-    });
+  //   // Validate before allowing save
+  //   const validation = validateSettings({
+  //     symptoms,
+  //     stoolTracking: safeStoolTracking,
+  //     periodTracking: safePeriodTracking,
+  //     medicineTracking: safeMedicineTracking,
+  //   });
 
-    if (!validation.isValid) {
-      setShowValidationErrors(true);
-      return;
-    }
+  //   if (!validation.isValid) {
+  //     setShowValidationErrors(true);
+  //     return;
+  //   }
 
-    if (!saveRateLimit.attempt()) {
-      alert(`Rate limit reached. Please wait ${saveRateLimit.getFormattedTime()}.`);
-      return;
-    }
+  //   if (!saveRateLimit.attempt()) {
+  //     alert(`Rate limit reached. Please wait ${saveRateLimit.getFormattedTime()}.`);
+  //     return;
+  //   }
 
-    setShowValidationErrors(false);
-    saveLogin();
-  };
+  //   setShowValidationErrors(false);
+  //   saveLogin();
+  // };
 
   // ---------------------------------------------------------------------------
   // NAVIGATION HANDLERS
   // ---------------------------------------------------------------------------
 
-    const handleContinueToTutorial = () => {
-    // Rate limit check
-    if (tutorialNavRateLimit.isRateLimited) {
-      alert(`Please wait ${tutorialNavRateLimit.getFormattedTime()} before continuing.`);
-      return;
-    }
-
+  const handleContinueToTutorial = () => {
     // Validate and block navigation if invalid
     if (!settingsValidation.isValid) {
       setShowValidationErrors(true);
       return;
     }
 
-    if (!tutorialNavRateLimit.attempt()) {
-      alert(`Rate limit reached. Please wait ${tutorialNavRateLimit.getFormattedTime()}.`);
-      return;
-    }
-
     setShowValidationErrors(false);
-
-    if (isGoogleSheetConnected) {
-      setPendingNavigation("tutorial");
-      setShowSavePrompt(true);
-    } else {
-      // Anonymous mode - show confirmation modal
-      setPendingNavigation("tutorial");
-      setShowAnonymousContinueModal(true);
-    }
+    setPendingNavigation("tutorial");
+    setShowSavePrompt(true);
   };
 
-    const handleSkipTutorial = () => {
-    // Rate limit check
-    if (tutorialNavRateLimit.isRateLimited) {
-      alert(`Please wait ${tutorialNavRateLimit.getFormattedTime()} before continuing.`);
-      return;
-    }
-
+  const handleSkipTutorial = () => {
     // Validate and block navigation if invalid
     if (!settingsValidation.isValid) {
       setShowValidationErrors(true);
       return;
     }
 
-    if (!tutorialNavRateLimit.attempt()) {
-      alert(`Rate limit reached. Please wait ${tutorialNavRateLimit.getFormattedTime()}.`);
-      return;
-    }
-
     setShowValidationErrors(false);
-
-    if (isGoogleSheetConnected) {
-      setPendingNavigation("entry");
-      setShowSavePrompt(true);
-    } else {
-      // Anonymous mode - show confirmation modal
-      setPendingNavigation("entry");
-      setShowAnonymousContinueModal(true);
-    }
+    setPendingNavigation("entry");
+    setShowSavePrompt(true);
   };
 
   const handleSaveAndContinue = () => {
@@ -796,18 +799,11 @@ function SettingsPageContent() {
     setShowSavePrompt(false);
     setPendingNavigation(null);
     completeSetup();
-    router.push(destination === "tutorial" ? "/tutorial" : "/entry");
-  };
-
-    const handleAnonymousContinue = () => {
-    const destination = pendingNavigation;
-    setShowAnonymousContinueModal(false);
-    setPendingNavigation(null);
-    completeSetup();
     if (destination === "entry") {
+      // User is skipping tutorial, mark it complete
       useSettings.getState().completeTutorial();
     }
-  router.push(destination === "tutorial" ? "/tutorial" : "/entry");
+    router.push(destination === "tutorial" ? "/tutorial" : "/entry");
   };
 
   // ---------------------------------------------------------------------------
@@ -820,12 +816,7 @@ function SettingsPageContent() {
       return;
     }
     setShowValidationErrors(false);
-    setShowLocalSaveModal(true);
-  };
-
-  const handleLocalSaveConfirm = () => {
-    setShowLocalSaveModal(false);
-    // Show success modal for anonymous users, then navigate
+    // Show success modal directly with two button options
     setSuccessModalConfig({
       title: "Settings Saved!",
       description: "Your data is saved locally on this device.",
@@ -1036,7 +1027,7 @@ function SettingsPageContent() {
         />
       )}
 
-      {showSavePrompt && (
+      {showSavePrompt && pendingNavigation && (
         <SavePromptModal
           onSave={handleSaveAndContinue}
           onContinueWithoutSaving={handleContinueWithoutSaving}
@@ -1045,53 +1036,18 @@ function SettingsPageContent() {
             setPendingNavigation(null);
           }}
           isGoogleSheetConnected={isGoogleSheetConnected}
-        />
-      )}
-
-            {showAnonymousContinueModal && pendingNavigation && (
-        <AnonymousContinueModal
           destination={pendingNavigation}
-          onContinue={handleAnonymousContinue}
-          onCancel={() => {
-            setShowAnonymousContinueModal(false);
-            setPendingNavigation(null);
-          }}
         />
       )}
 
-      {showLocalSaveModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">💾</span>
-              <h2 className="text-xl font-bold text-app-charcoal">Your Data is Saved</h2>
-            </div>
-            <div className="space-y-3 mb-6">
-              <p className="text-app-gray">Your data is saved locally on this device.</p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleLocalSaveConfirm}
-                className="flex-1 py-3 px-4 rounded-lg bg-app-green text-white font-semibold hover:bg-app-green-dark transition-colors"
-              >
-                Continue
-              </button>
-              <button
-                onClick={() => setShowLocalSaveModal(false)}
-                className="py-3 px-4 rounded-lg bg-app-cream text-app-charcoal border border-app-border hover:bg-app-border transition-colors"
-              >
-                Back to Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {showImportEntriesModal && pendingImportAccessToken && (
         <ImportEntriesModal
           onImport={handleImportEntries}
           onSkip={handleImportSkip}
           onClose={handleImportComplete}
+          onHistoryView={handleHistoryView}
         />
       )}
 
@@ -1181,10 +1137,12 @@ function SettingsPageContent() {
         )}
 
                 {/* Google Sheet Integration */}
-        <section className={`card border-2 transition-colors ${
+        <section
+          id="google-sheet-integration"
+          className={`card border-2 transition-colors ${
           onboardingMode === "google-sheet" && !setupComplete
             ? "border-app-green bg-app-green/5"
-            : "border-app-taupe/50"
+            : "border-app-teal/50 bg-app-teal/5"
         }`}>
           {/* Collapsible header for Anonymous mode during onboarding */}
           {onboardingMode === "anonymous" && !setupComplete && !isGoogleSheetConnected ? (
@@ -1939,7 +1897,7 @@ function SettingsPageContent() {
 
         {/* Continue Button - Anonymous users who completed setup AND tutorial */}
         {!isGoogleSheetConnected && setupComplete && tutorialComplete && (
-          <section className="card border-2 border-app-green bg-app-green/5">
+          <section className="card border-2 border-app-green/50 bg-app-green/5">
             <h2 className="text-lg font-semibold text-app-charcoal mb-2">💾 Save & Continue</h2>
             <p className="text-sm text-app-gray mb-4">
               Your settings are saved automatically to this device.
@@ -1966,12 +1924,31 @@ function SettingsPageContent() {
 
         {/* Sync with Google Sheets */}
         {setupComplete && (
-          <section className="card border-2 border-app-teal/30">
-            <h2 className="text-lg font-semibold text-app-charcoal mb-2">🔄 Sync with Google Sheets</h2>
-            <p className="text-sm text-app-gray mb-4">
-              Push your local changes and pull updates from your Google Sheet backup.
-            </p>
-            <SyncWithGoogleSheetsButton variant="primary" showStatus />
+          <section className="card border-2 border-app-teal/30 bg-app-teal/5">
+            {isGoogleSheetConnected ? (
+              <>
+                <h2 className="text-lg font-semibold text-app-charcoal mb-2">🔄 Sync with Google Sheets</h2>
+                <p className="text-sm text-app-gray mb-4">
+                  Push your local changes and pull updates from your Google Sheet backup.
+                </p>
+                <SyncWithGoogleSheetsButton variant="primary" showStatus />
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-app-charcoal mb-2">
+                  📊 Want to backup your data?{" "}
+                  <a
+                    href="#google-sheet-integration"
+                    className="text-app-teal hover:text-app-teal/80 underline"
+                  >
+                    Connect to Google Sheets
+                  </a>
+                </h2>
+                <p className="text-sm text-app-gray mb-4">
+                  Link a Google Sheet to sync your data across devices.
+                </p>
+              </>
+            )}
           </section>
         )}
 
@@ -1991,74 +1968,86 @@ function SettingsPageContent() {
                 </svg>
               </summary>
               <div className="mt-4 p-4 bg-app-cream rounded-lg space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-app-charcoal mb-1">Reset All Settings</p>
-                  <p className="text-sm text-app-gray mb-3">
-                    ⚠️ This will reset all settings to their default values. This action cannot be undone.
-                  </p>
-                  
-                  {isGoogleSheetConnected ? (
-                    <div className="space-y-3">
-                      {/* Option 2: Local Only */}
-                      <div className="p-3 border border-app-border rounded-lg">
-                        <p className="text-sm font-medium text-app-charcoal">Reset This Device Only</p>
-                        <p className="text-xs text-app-gray mt-1 mb-2">
-                          Clears settings on this device but keeps your Google Sheet backup intact. 
-                          You can reconnect the same sheet later to restore your settings.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm(
-                              "This will reset settings on this device. Your Google Sheet backup will remain and can be used to recover later. Continue?"
-                            )) {
-                              resetSettings();
-                              router.push("/settings");
-                            }
-                          }}
-                          className="px-4 py-2 rounded-lg text-sm text-app-gray border border-app-border hover:bg-app-border"
-                        >
-                          Reset This Device
-                        </button>
-                      </div>
-                      {/* Option 1: Full Reset */}
-                      <div className="p-3 border border-app-border rounded-lg">
-                        <p className="text-sm font-medium text-app-charcoal">Full Reset</p>
-                        <p className="text-xs text-app-gray mt-1 mb-2">
-                          Clears settings on this device AND removes saved settings from your Google Sheet. 
-                          You won't be able to recover your current configuration.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm(
-                              "This will permanently delete your settings everywhere, including your Google Sheet. This cannot be undone. Continue?"
-                            )) {
-                              resetWithSheetDelete();
-                            }
-                          }}
-                          className="px-4 py-2 rounded-lg text-sm text-app-red border border-app-red/30 hover:bg-app-red/10"
-                        >
-                          Reset Everything
-                        </button>
-                      </div>
 
-                    </div>
-                  ) : (
+                {/* Option 1: Reset Settings (for all users) */}
+                <div className="p-3 border border-app-border rounded-lg">
+                  <p className="text-sm font-medium text-app-charcoal">Reset App Settings</p>
+                  <p className="text-xs text-app-gray mt-1 mb-2">
+                    Clears all settings, filters, and app preferences. Your Google Sheet will disconnect but <span className="font-medium text-app-charcoal">all of your entry data will remain intact</span>
+                    {isGoogleSheetConnected
+                      ? " in your connected Google Sheet."
+                      : " in this device's browser storage."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(
+                        "This will reset all settings, filters, and preferences to defaults. Your entry data will NOT be deleted. Continue?"
+                      )) {
+                        clearAllCadenceStorage(false); // Keep entries cache
+                        window.location.href = "/settings"; // Full reload to reinitialize stores
+                      }
+                    }}
+                    className="px-4 py-2 rounded-lg text-sm text-app-gray border border-app-border hover:bg-app-border"
+                  >
+                    Reset App Settings Only
+                  </button>
+                </div>
+
+                {/* Option 2: Delete All Data (local users only) */}
+                {!isGoogleSheetConnected && (
+                  <div className="p-3 border border-red-200 rounded-lg bg-red-50/50">
+                    <p className="text-sm font-medium text-app-red">Delete All Data</p>
+                    <p className="text-xs text-app-gray mt-1 mb-1">
+                      <span className="font-semibold text-app-red">⚠️ Warning: This will permanently delete ALL your data</span>, including all your entries, settings, and saved filters. This action cannot be undone.
+                    </p>
+                    <p className="text-xs text-app-gray mb-3">
+                      You will start fresh as a new user with no history.
+                    </p>
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm("Are you sure you want to reset all settings? This cannot be undone.")) {
-                          resetSettings();
-                          router.push("/settings");
+                        if (window.confirm(
+                          "⚠️ ARE YOU SURE?\n\nThis will PERMANENTLY DELETE:\n• All your entries\n• All your settings\n• All saved filters\n\nThis CANNOT be undone. You will lose all your data."
+                        )) {
+                          if (window.confirm(
+                            "Final confirmation: Delete ALL data and start as a new user?"
+                          )) {
+                            clearAllCadenceStorage(true); // Include entries
+                            window.location.href = "/settings"; // Full reload to reinitialize stores
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg text-sm text-white bg-app-red hover:bg-red-700"
+                    >
+                      Delete All Data
+                    </button>
+                  </div>
+                )}
+
+                {/* Google Sheets users: Reset all local data including entries cache */}
+                {isGoogleSheetConnected && (
+                  <div className="p-3 border border-app-border rounded-lg">
+                    <p className="text-sm font-medium text-app-charcoal">Delete Metadata</p>
+                    <p className="text-xs text-app-gray mt-1 mb-2">
+                      Deletes all settings and saved from both this device AND your Google Sheet. <span className="font-medium text-app-charcoal">Your entry data remains safe in your Google Sheet.</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(
+                          "This will clear all local data and remove settings/filters from your Google Sheet.\n\nYour entry data in Google Sheets will NOT be deleted. Continue?"
+                        )) {
+                          resetWithSheetDelete();
                         }
                       }}
                       className="px-4 py-2 rounded-lg text-sm text-app-red border border-app-red/30 hover:bg-app-red/10"
                     >
-                      Reset All Settings
+                      Delete Device and Sheet Metadata
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
+
               </div>
             </details>
           </section>
@@ -2098,18 +2087,11 @@ function SettingsPageContent() {
               </div>
             )}
 
-            {tutorialNavRateLimit.isRateLimited && (
-              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm text-amber-800">
-                  ⏱️ Rate limit reached. Please wait <strong>{tutorialNavRateLimit.getFormattedTime()}</strong> before continuing.
-                </p>
-              </div>
-            )}
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
                 onClick={handleContinueToTutorial}
-                disabled={tutorialNavRateLimit.isRateLimited || hasTextInputError}
+                disabled={hasTextInputError}
                 className="flex-1 py-3 px-6 rounded-lg bg-app-green text-white font-semibold hover:bg-app-green-dark flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGoogleSheetConnected ? "Save & Continue to Tutorial" : "Continue to Tutorial"}
@@ -2120,7 +2102,7 @@ function SettingsPageContent() {
               <button
                 type="button"
                 onClick={handleSkipTutorial}
-                disabled={tutorialNavRateLimit.isRateLimited || hasTextInputError}
+                disabled={hasTextInputError}
                 className="py-3 px-6 rounded-lg bg-app-cream text-app-charcoal font-medium border border-app-border hover:bg-app-border disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGoogleSheetConnected ? "Save & Skip Tutorial" : "Skip Tutorial"}

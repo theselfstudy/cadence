@@ -14,6 +14,8 @@ interface ImportEntriesModalProps {
   onSkip: () => void;
   /** Called when modal closes */
   onClose: () => void;
+  /** Called when user wants history view */
+  onHistoryView: () => void;
 }
 
 type ModalState = "prompt" | "importing" | "complete" | "error";
@@ -26,6 +28,7 @@ export function ImportEntriesModal({
   onImport,
   onSkip,
   onClose,
+  onHistoryView,
 }: ImportEntriesModalProps) {
   const [state, setState] = useState<ModalState>("prompt");
   const [result, setResult] = useState<ImportEntriesResult | null>(null);
@@ -180,13 +183,26 @@ export function ImportEntriesModal({
           )}
         </div>
       )}
-
-      <button
-        onClick={onClose}
-        className="w-full py-3 px-4 rounded-lg bg-app-green text-white font-semibold hover:opacity-90 transition-colors"
-      >
-        View History
-      </button>
+          <div className="px-6 pb-6 flex gap-3">
+            <button
+              type="button"
+              onClick={onHistoryView}
+              className="flex-1 px-4 py-3 rounded-xl bg-[#3F592E] text-white 
+                         font-medium hover:bg-[#3F592E]/90 transition-colors"
+            >
+              Go to History
+            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                }}
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-app-border 
+                       text-app-charcoal font-medium hover:bg-app-cream transition-colors"
+              >
+                Close
+              </button>
+      </div>
     </>
   );
 

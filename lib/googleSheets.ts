@@ -6,20 +6,20 @@ import type { StoredEntry, UserSettings, SheetColumn, MedicineLogEntry, ProductU
 
 import { PRODUCT_OPTIONS } from '@/lib/constants';
 
-// Entry sheet naming: Cadence-YYYY-MM (e.g., Cadence-2024-01)
+// Entry sheet naming: cadence-YYYY-MM (e.g., cadence-2024-01)
 export const ENTRIES_SHEET_PREFIX = "Cadence";
 
 // ============================================
 // SHEET NAMES & CONFIGURATION
 // ============================================
 
-const SETTINGS_SHEET_NAME = ".Cadence-settings";
-const SAVED_FILTERS_SHEET_NAME = ".Cadence-savedfilters";
+const SETTINGS_SHEET_NAME = ".cadence-settings";
+const SAVED_FILTERS_SHEET_NAME = ".cadence-savedfilters";
 const SAVED_FILTERS_RANGE = `${SAVED_FILTERS_SHEET_NAME}!A1`;
 
 /**
  * Generates the sheet name for a given date's month.
- * Format: Cadence-YYYY-MM
+ * Format: cadence-YYYY-MM
  */
 function getEntriesSheetName(date: Date = new Date()): string {
   const year = date.getFullYear();

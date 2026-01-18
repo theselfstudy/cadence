@@ -122,7 +122,7 @@ export const useSyncTracker = create<SyncTrackerStore>()(
       },
     }),
     {
-      name: "Cadence-sync-tracker",
+      name: "cadence-sync-tracker",
     }
   )
 );

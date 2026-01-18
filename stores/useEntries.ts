@@ -445,7 +445,7 @@ export const useEntries = create<EntryStore>()(
     // PERSIST CONFIGURATION
     // ═══════════════════════════════════════
     {
-      name: STORAGE_KEYS.entries || 'Cadence-entries',
+      name: STORAGE_KEYS.entries || 'cadence-entries',
       storage: createJSONStorage(() => localStorage),
     }
   )

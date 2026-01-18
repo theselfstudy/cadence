@@ -21,7 +21,7 @@ const TUTORIAL_STEPS = [
     id: "log-selection",
     title: "Choose What to Log",
     description:
-      "Each time you create an entry, you'll first select which sections you want to log in the moment. If you want to log everything, tap the \"Log Everything\" button, and it'll quick-select all categories for you.",
+      "Each time you create an entry, you'll first select which sections you want to log in the moment. If you want to log everything, tap the \"Log Everything\" button, and it'll quick-select all your setup categories for you.",
     illustration: "log-selection",
     // This step dynamically shows the user's enabled sections
     dynamicContent: "logSelection",

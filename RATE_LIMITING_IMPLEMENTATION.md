@@ -42,37 +42,20 @@ A custom React hook (`useButtonRateLimit`) that provides client-side rate limiti
 - **Key:** `settings-edit`
 - **Location:** Line ~1272
 
-#### 4. Settings Page - Disconnect Button
-**File:** `/app/settings/page.tsx`
-- **Limit:** 2 disconnects per 5 minutes
-- **Storage:** localStorage
-- **UI Feedback:** Alert dialog + disabled button state
-- **Key:** `settings-disconnect`
-- **Location:** Line ~1280
-
-#### 5. History Page - Refresh from Sheet Button
-**File:** `/app/dashboard/history/HistoryClient.tsx`
-- **Limit:** 3 refresh requests per minute
+#### 4. Sync with Google Sheets Button (All Locations)
+**File:** `/components/sync/SyncWithGoogleSheetsButton.tsx`
+- **Limit:** 3 syncs per minute
 - **Storage:** localStorage
 - **UI Feedback:** Disabled button state + warning banner with countdown timer
-- **Key:** `history-refresh`
-- **Location:** Line ~387
-
-#### 6. Settings Page - Continue to Tutorial Button
-**File:** `/app/settings/page.tsx`
-- **Limit:** 10 clicks per minute
-- **Storage:** localStorage
-- **UI Feedback:** Alert dialog + disabled button state + warning banner
-- **Key:** `settings-tutorial-nav`
-- **Location:** Line ~2100
-
-#### 7. Settings Page - Skip Tutorial Button
-**File:** `/app/settings/page.tsx`
-- **Limit:** 10 clicks per minute (shares limit with Continue button)
-- **Storage:** localStorage
-- **UI Feedback:** Alert dialog + disabled button state + warning banner
-- **Key:** `settings-tutorial-nav`
-- **Location:** Line ~2112
+- **Key:** `sync-google-sheets`
+- **Locations (all share the same rate limit):**
+  - `/app/settings/page.tsx` - Primary variant with status
+  - `/app/settings/page.tsx` - Disconnect button (consolidated)
+  - `/app/dashboard/page.tsx` - Secondary variant with status
+  - `/app/dashboard/history/HistoryClient.tsx` - Subtle variant
+  - `/app/dashboard/weekly/page.tsx` - Subtle variant
+  - `/app/dashboard/monthly/page.tsx` - Subtle variant
+  - `/components/cycleinsights/CycleInsightsPage.tsx` - Subtle variant
 
 ## Rate Limit Configuration Summary
 
@@ -81,9 +64,7 @@ A custom React hook (`useButtonRateLimit`) that provides client-side rate limiti
 | Entry Submission | 5 | 1 minute | localStorage |
 | Save Settings | 3 | 1 minute | localStorage |
 | Edit Sheet | 5 | 1 minute | localStorage |
-| Disconnect Sheet | 2 | 5 minutes | localStorage |
-| Refresh History | 3 | 1 minute | localStorage |
-| Tutorial Navigation | 10 | 1 minute | localStorage |
+| Sync with Google Sheets | 3 | 1 minute | localStorage |
 
 ## How It Works
 

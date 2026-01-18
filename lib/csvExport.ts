@@ -436,7 +436,7 @@ export function downloadEntriesAsCSV(
  */
 function generateFilename(entries: StoredEntry[]): string {
   if (entries.length === 0) {
-    return `Cadence-export-${new Date().toISOString().split("T")[0]}.csv`;
+    return `cadence-export-${new Date().toISOString().split("T")[0]}.csv`;
   }
   
   // Sort to get date range
@@ -448,10 +448,10 @@ function generateFilename(entries: StoredEntry[]): string {
   const endDate = sorted[sorted.length - 1].date;
   
   if (startDate === endDate) {
-    return `Cadence-${startDate}.csv`;
+    return `cadence-${startDate}.csv`;
   }
   
-  return `Cadence-${startDate}-to-${endDate}.csv`;
+  return `cadence-${startDate}-to-${endDate}.csv`;
 }
 
 // ============================================

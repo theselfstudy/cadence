@@ -310,8 +310,8 @@ export const APP_CONFIG = {
 // ============================================
 
 export const STORAGE_KEYS = {
-  settings: "Cadence-settings",
-  entries: 'Cadence-entries', 
+  settings: "cadence-settings",
+  entries: 'cadence-entries', 
 } as const;
 
 export const PRODUCT_OPTIONS: ProductOption[] = [

@@ -22,19 +22,13 @@ import { NotableCyclesSection } from "./sections/NotableCyclesSection";
 import { DetailedViewsSection } from "./sections/DetailedViewsSection";
 import { EntriesSection } from "./sections/EntriesSection";
 import { CollapsibleSection } from "./shared/CollapsibleSection";
-// import { useSectionPreferences } from "./hooks/useSectionPreferences";
 
-import { 
+import {
   calculateConsistentPatterns,
   calculateEmergingPatterns,
   calculateCoOccurrences,
   calculateNotableCycles,
 } from "@/lib/insightUtils";
-// ============================================
-// TYPES
-// ============================================
-
-// SectionPreferences moved to hooks/useSectionPreferences.ts
 
 // ============================================
 // CYCLE INSIGHTS PAGE
@@ -52,25 +46,6 @@ export function CycleInsightsPage() {
   const periodTracking = useSettings((state) => state.periodTracking);
   const { getLastSuccessfulSyncAt } = useSyncTracker();
   
-  // ============================================
-  // SECTION PREFERENCES (via hook)
-  // ============================================
-  
-  // const {
-  //   preferences: sectionPreferences,
-  //   isSectionCollapsed,
-  //   setSectionCollapsed,
-  //   hideReflectSection,
-  // } = useSectionPreferences();
-
-  // ============================================
-  // SECTION TOGGLE HANDLERS
-  // ============================================
-  
-  // const handleSectionToggle = useCallback((sectionId: string, isExpanded: boolean) => {
-  //   setSectionCollapsed(sectionId, !isExpanded);
-  // }, [setSectionCollapsed]);
-
   // ============================================
   // CYCLE DETECTION & CALCULATIONS
   // ============================================

@@ -19,7 +19,7 @@ import type { SavedFiltersStore, SavedFilter, HistoryFilters } from "@/types";
 
 const MAX_SAVED_FILTERS = 3;
 const MAX_FILTER_NAME_LENGTH = 20;
-const STORAGE_KEY = "Cadence-saved-filters";
+const STORAGE_KEY = "cadence-saved-filters";
 
 // ============================================
 // HELPER FUNCTIONS
@@ -152,7 +152,7 @@ export const useSavedFilters = create<SavedFiltersStore>()(
 
         // Get spreadsheet ID from settings (we need to import useSettings or pass it)
         // For now, we'll need the URL passed in - we'll handle this in the component
-        const settingsStr = localStorage.getItem("Cadence-settings");
+        const settingsStr = localStorage.getItem("cadence-settings");
         if (!settingsStr) return false;
 
         try {

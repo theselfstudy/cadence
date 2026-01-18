@@ -9,15 +9,15 @@ import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useSyncTracker } from "@/stores/useSyncTracker";
-import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
+// import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
 import { FilterBar } from "@/components/history";
 import { CYCLE_PHASES } from "@/lib/constants";
-import { useGoogleLogin } from "@react-oauth/google";
+// import { useGoogleLogin } from "@react-oauth/google";
 import { getLocalDateString } from '@/lib/dateUtils';
 import { EntryCard } from '@/components/ui/EntryCard';
-import { useButtonRateLimit } from '@/hooks/useRateLimit';
+// import { useButtonRateLimit } from '@/hooks/useRateLimit';
 import { SyncWithGoogleSheetsButton } from '@/components/sync';
 
 
@@ -175,7 +175,7 @@ export default function HistoryPage() {
 
     // Show backup prompt for anonymous users with entries
     if (!isGoogleSheetConnected && entries.length > 0) {
-      const lastDismissed = localStorage.getItem("Cadence-backup-prompt-dismissed");
+      const lastDismissed = localStorage.getItem("cadence-backup-prompt-dismissed");
       if (!lastDismissed) {
         setShowBackupPrompt(true);
       } else {
@@ -227,7 +227,7 @@ export default function HistoryPage() {
   
   // Handle backup prompt dismiss
   const dismissBackupPrompt = () => {
-    localStorage.setItem("Cadence-backup-prompt-dismissed", new Date().toISOString());
+    localStorage.setItem("cadence-backup-prompt-dismissed", new Date().toISOString());
     setShowBackupPrompt(false);
   };
 
