@@ -70,7 +70,7 @@ export function NotableCyclesSection({ entries, cycles }: NotableCyclesSectionPr
   if (notableCycles.length === 0) {
     return (
       <div className="bg-app-cream/30 rounded-lg p-6 text-center">
-        <span className="text-2xl block mb-2">✨</span>
+        <span className="text-2xl block mb-2">📝</span>
         <p className="text-sm text-app-charcoal font-medium mb-1">
           All cycles within your usual range
         </p>

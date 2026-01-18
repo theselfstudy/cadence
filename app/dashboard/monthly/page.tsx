@@ -28,6 +28,8 @@ import { FilterBar } from "@/components/history";
 
 import type { StoredEntry, TimeFormat } from "@/types";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { SyncWithGoogleSheetsButton } from "@/components/sync";
+import { useSyncTracker } from "@/stores/useSyncTracker";
 
 // ============================================
 // TYPES
@@ -51,6 +53,8 @@ export default function MonthlyPage() {
   const periodTrackingEnabled = useSettings((state) => state.periodTracking.enabled);
   const medicineTrackingEnabled = useSettings((state) => state.medicineTracking.enabled);
   const symptomsEnabled = useSettings((state) => state.symptoms.enabled);
+  const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
+  const { getLastSuccessfulSyncAt } = useSyncTracker();
 
   const settings = useSettings();
 
@@ -409,6 +413,23 @@ export default function MonthlyPage() {
             {totalFilterCount} filter{totalFilterCount !== 1 ? "s" : ""} active
           </span>
         )}
+      </div>
+
+      {/* Mode Indicator */}
+      <div className="p-3 bg-app-cream rounded-lg border border-app-border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
+            <span className="text-sm text-app-charcoal">
+              {isGoogleSheetConnected
+                ? `Google Sheets: ${formatTimeSinceSync(getLastSuccessfulSyncAt())}`
+                : "Local storage only (Anonymous Mode)"}
+            </span>
+          </div>
+
+          {/* Sync with Google Sheets button - only for connected users */}
+          <SyncWithGoogleSheetsButton variant="subtle" />
+        </div>
       </div>
 
       {/* Month Navigation */}
@@ -1113,6 +1134,20 @@ function MonthlyPageSkeleton() {
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
+
+function formatTimeSinceSync(lastSyncAt: string | null): string {
+  if (!lastSyncAt) return "Not synced";
+
+  const ms = Date.now() - new Date(lastSyncAt).getTime();
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `Synced ${days}d ago`;
+  if (hours > 0) return `Synced ${hours}h ago`;
+  if (minutes > 0) return `Synced ${minutes}m ago`;
+  return "Synced just now";
+}
 
 function formatDate(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);

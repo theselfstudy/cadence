@@ -253,47 +253,110 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// function formatTimeForDisplay(timeStr: string, format: TimeFormat): string {
+//   if (!timeStr) return "";
+
+//   const [hourStr, minuteStr] = timeStr.split(":");
+//   const hour = parseInt(hourStr, 10);
+//   const minute = minuteStr || "00";
+
+//   if (format === "24h") {
+//     return `${hourStr.padStart(2, "0")}:${minute}`;
+//   }
+
+//   // 12h format
+//   if (hour === 0) return `12:${minute} AM`;
+//   if (hour === 12) return `12:${minute} PM`;
+//   if (hour > 12) return `${hour - 12}:${minute} PM`;
+//   return `${hour}:${minute} AM`;
+// }
+
+// function calculateDuration(startTime: string, endTime: string): string {
+//   if (!startTime || !endTime) return "—";
+
+//   const [startHour, startMin] = startTime.split(":").map(Number);
+//   const [endHour, endMin] = endTime.split(":").map(Number);
+
+//   let startTotal = startHour * 60 + startMin;
+//   let endTotal = endHour * 60 + endMin;
+
+//   // Handle crossing midnight
+//   if (endTotal < startTotal) {
+//     endTotal += 24 * 60;
+//   }
+
+//   const duration = endTotal - startTotal;
+
+//   if (duration < 60) {
+//     return `${duration}m`;
+//   }
+
+//   const hours = Math.floor(duration / 60);
+//   const mins = duration % 60;
+
+//   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+// }
+
 function formatTimeForDisplay(timeStr: string, format: TimeFormat): string {
   if (!timeStr) return "";
 
-  const [hourStr, minuteStr] = timeStr.split(":");
-  const hour = parseInt(hourStr, 10);
-  const minute = minuteStr || "00";
+  let hour: number;
+  let minute: number;
 
-  if (format === "24h") {
-    return `${hourStr.padStart(2, "0")}:${minute}`;
+  // Check if input has AM/PM
+  const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (!ampmMatch) return "";
+
+  hour = parseInt(ampmMatch[1], 10);
+  minute = parseInt(ampmMatch[2], 10);
+  const meridian = ampmMatch[3]?.toUpperCase();
+
+  // Convert to 24h if necessary
+  if (meridian) {
+    if (meridian === "PM" && hour < 12) hour += 12;
+    if (meridian === "AM" && hour === 12) hour = 0;
   }
 
-  // 12h format
-  if (hour === 0) return `12:${minute} AM`;
-  if (hour === 12) return `12:${minute} PM`;
-  if (hour > 12) return `${hour - 12}:${minute} PM`;
-  return `${hour}:${minute} AM`;
+  if (format === "24h") {
+    return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  }
+
+  // Convert back to 12h for display
+  const displayMeridian = hour >= 12 ? "PM" : "AM";
+  let displayHour = hour % 12;
+  if (displayHour === 0) displayHour = 12;
+
+  return `${displayHour}:${minute.toString().padStart(2, "0")} ${displayMeridian}`;
 }
 
 function calculateDuration(startTime: string, endTime: string): string {
   if (!startTime || !endTime) return "—";
 
-  const [startHour, startMin] = startTime.split(":").map(Number);
-  const [endHour, endMin] = endTime.split(":").map(Number);
+  const parseToMinutes = (timeStr: string) => {
+    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (!match) return NaN;
+    let [_, hourStr, minStr, meridian] = match;
+    let hour = parseInt(hourStr, 10);
+    const min = parseInt(minStr, 10);
+    if (meridian) {
+      if (meridian.toUpperCase() === "PM" && hour < 12) hour += 12;
+      if (meridian.toUpperCase() === "AM" && hour === 12) hour = 0;
+    }
+    return hour * 60 + min;
+  };
 
-  let startTotal = startHour * 60 + startMin;
-  let endTotal = endHour * 60 + endMin;
+  let startTotal = parseToMinutes(startTime);
+  let endTotal = parseToMinutes(endTime);
+  if (isNaN(startTotal) || isNaN(endTotal)) return "—";
 
   // Handle crossing midnight
-  if (endTotal < startTotal) {
-    endTotal += 24 * 60;
-  }
+  if (endTotal < startTotal) endTotal += 24 * 60;
 
   const duration = endTotal - startTotal;
-
-  if (duration < 60) {
-    return `${duration}m`;
-  }
+  if (duration < 60) return `${duration}m`;
 
   const hours = Math.floor(duration / 60);
   const mins = duration % 60;
-
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 

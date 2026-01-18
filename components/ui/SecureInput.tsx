@@ -318,7 +318,7 @@ export function SecureSheetURLInput({
         setLocalError('Please enter a valid Google Sheets URL');
         onValidationChange?.(false);
       } else if (newValue.length > maxLength) {
-        setLocalError(`URL must be ${maxLength} characters or less`);
+        setLocalError(`⚠️ URL must be ${maxLength} characters or less`);
         onValidationChange?.(false);
       } else {
         setLocalError(null);
@@ -335,7 +335,7 @@ export function SecureSheetURLInput({
       setLocalError('Please enter a valid Google Sheets URL');
       onValidationChange?.(false);
     } else if (value.length > maxLength) {
-      setLocalError(`URL must be ${maxLength} characters or less`);
+      setLocalError(`⚠️ URL must be ${maxLength} characters or less`);
       onValidationChange?.(false);
     } else {
       setLocalError(null);

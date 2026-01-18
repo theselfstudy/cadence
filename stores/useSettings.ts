@@ -121,6 +121,10 @@ export const useSettings = create<SettingsStore>()(
             hasUnsavedChanges: false,
             lastSavedSnapshot: JSON.stringify(settingsToSave),
           });
+
+          // Update sync tracker
+          const { useSyncTracker } = await import('./useSyncTracker');
+          useSyncTracker.getState().updateSettingsSyncTime(new Date().toISOString());
         } else {
           set({ isSyncing: false });
         }

@@ -367,3 +367,12 @@ export const MEDICINE_CATEGORIES: { value: MedicineCategory; label: string; icon
   { value: "period", label: "Period", icon: "🌸" },
   { value: "other", label: "Other", icon: "🏷️" },
 ];
+
+// ============================================
+// Sync Reminder Interval
+// ============================================
+
+/**
+ * Interval for showing the sync reminder modal (48 hours)
+ */
+export const SYNC_REMINDER_INTERVAL_MS = 48 * 60 * 60 * 1000;

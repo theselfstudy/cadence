@@ -56,7 +56,7 @@ export function SaveFilterModal({
     }
     
     if (trimmedName.length > MAX_FILTER_NAME_LENGTH) {
-      setError(`Name must be ${MAX_FILTER_NAME_LENGTH} characters or less`);
+      setError(`⚠️ Name must be ${MAX_FILTER_NAME_LENGTH} characters or less`);
       return;
     }
 
@@ -73,7 +73,7 @@ export function SaveFilterModal({
     
     // Show warning if approaching limit
     if (value.length > MAX_FILTER_NAME_LENGTH) {
-      setError(`Name must be ${MAX_FILTER_NAME_LENGTH} characters or less`);
+      setError(`⚠️ Name must be ${MAX_FILTER_NAME_LENGTH} characters or less`);
     }
   };
 

@@ -172,6 +172,13 @@ export const useSavedFilters = create<SavedFiltersStore>()(
           );
 
           set({ isSyncing: false });
+
+          // Update sync tracker if successful
+          if (success) {
+            const { useSyncTracker } = await import('./useSyncTracker');
+            useSyncTracker.getState().updateFiltersSyncTime(new Date().toISOString());
+          }
+
           return success;
         } catch (error) {
           console.error("Error syncing saved filters:", error);

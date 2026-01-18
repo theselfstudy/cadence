@@ -114,10 +114,16 @@ export const useEntries = create<EntryStore>()(
 
         if (result.success) {
           get().markEntrySynced(entryId);
-          set({ 
-            isSyncing: false, 
-            lastSyncAt: new Date().toISOString() 
+          const now = new Date().toISOString();
+          set({
+            isSyncing: false,
+            lastSyncAt: now
           });
+
+          // Update sync tracker
+          const { useSyncTracker } = await import('./useSyncTracker');
+          useSyncTracker.getState().updateEntrySyncTime(now);
+
           return true;
         } else {
           get().markEntryFailed(entryId, result.error || 'Unknown error');
@@ -292,11 +298,18 @@ export const useEntries = create<EntryStore>()(
         }
 
         // Final state update
-        set({ 
-          isSyncing: false, 
+        const now = new Date().toISOString();
+        set({
+          isSyncing: false,
           batchSyncProgress: null,
-          lastSyncAt: new Date().toISOString() 
+          lastSyncAt: now
         });
+
+        // Update sync tracker if any entries succeeded
+        if (allSyncedIds.length > 0 || allSkippedIds.length > 0) {
+          const { useSyncTracker } = await import('./useSyncTracker');
+          useSyncTracker.getState().updateEntrySyncTime(now);
+        }
 
         return {
           success: allFailedIds.length === 0,

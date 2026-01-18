@@ -373,7 +373,7 @@ function OccasionalView({ patterns }: OccasionalViewProps) {
   if (patterns.length === 0) {
     return (
       <div className="text-center py-8 bg-app-cream/30 rounded-lg">
-        <span className="text-2xl block mb-2">✨</span>
+        <span className="text-2xl block mb-2">🔄</span>
         <p className="text-app-charcoal font-medium">No occasional patterns</p>
         <p className="text-sm text-app-gray mt-1">
           Patterns appearing in 30-59% of cycles will show here

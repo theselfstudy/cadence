@@ -15,7 +15,7 @@
 export const CHARACTER_LIMITS = {
   SHORT_TEXT: 60,
   LONG_TEXT: 500,
-  GOOGLE_SHEET_URL: 200,
+  GOOGLE_SHEET_URL: 150,
   FILTER_NAME: 20, // Existing limit, kept for consistency
 } as const;
 
@@ -93,7 +93,7 @@ export function validateLength(
   if (text.length > limit) {
     return {
       isValid: false,
-      error: `${fieldName} must be ${limit} characters or less (currently ${text.length})`,
+      error: `⚠️ ${fieldName} must be ${limit} characters or less (currently ${text.length})`,
     };
   }
 
@@ -145,7 +145,7 @@ export function isTextSafe(text: string): {
   if (containsFormulaInjection(text)) {
     return {
       isSafe: false,
-      reason: 'Input contains potential formula injection patterns. Please remove any leading =, +, -, or @ characters and formula functions.',
+      reason: 'Input contains potential formula patterns. Please remove any =, +, -, or @ characters and formula functions.',
     };
   }
 
@@ -296,7 +296,7 @@ export function validateLongText(
 }
 
 /**
- * Complete validation for Google Sheet URLs (200 chars)
+ * Complete validation for Google Sheet URLs (80 chars)
  */
 export function validateGoogleSheetURL(
   url: string,

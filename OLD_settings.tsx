@@ -10,7 +10,6 @@ import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { useButtonRateLimit } from "@/hooks/useRateLimit";
 import { SecureTextInput, SecureSheetURLInput } from '@/components/ui/SecureInput';
-import { containsFormulaInjection } from '@/lib/inputSecurity';
 
 import {
   DEFAULT_SYMPTOMS,
@@ -34,9 +33,9 @@ import {
   RecoveryPromptModal,
   SavePromptModal,
   AnonymousContinueModal,
+  SyncEntriesModal,
   ImportEntriesModal,
 } from "@/components/settings";
-import { SyncWithGoogleSheetsButton } from "@/components/sync";
 
 
 // =============================================================================
@@ -165,6 +164,9 @@ function SettingsPageContent() {
 
   const hasUnsavedChanges = useSettings((state) => state.hasUnsavedChanges);
 
+  const syncableEntriesCount = useEntries((state) => 
+    state.entries.filter(e => e.syncStatus === 'pending' || e.syncStatus === 'error').length
+  );
   const batchSyncEntries = useEntries((state) => state.batchSyncEntries);
   const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
 
@@ -196,29 +198,15 @@ function SettingsPageContent() {
   const [customProductInputErrors, setCustomProductInputErrors] = useState<Record<string, boolean>>({});
   const [medicineNameInputError, setMedicineNameInputError] = useState(false);
   const [dosageInputError, setDosageInputError] = useState(false);
-  const [sheetUrlInputError, setSheetUrlInputError] = useState(false);
-  const [sheetNameInputError, setSheetNameInputError] = useState(false);
-
-  // Formula injection detection state
-  const [newSymptomHasFormulaInjection, setNewSymptomHasFormulaInjection] = useState(false);
-  const [newPeriodSymptomHasFormulaInjection, setNewPeriodSymptomHasFormulaInjection] = useState(false);
-  const [customProductFormulaInjection, setCustomProductFormulaInjection] = useState<Record<string, boolean>>({});
-  const [medicineNameHasFormulaInjection, setMedicineNameHasFormulaInjection] = useState(false);
-  const [dosageHasFormulaInjection, setDosageHasFormulaInjection] = useState(false);
 
   const hasTextInputError =
     newSymptom.length > 60 ||
     newPeriodSymptom.length > 60 ||
-    sheetUrl.length > 120 ||
+    sheetUrl.length > 200 ||
     sheetName.length > 60 ||
     Object.values(customProductInputErrors).some(hasError => hasError) ||
     medicineNameInputError ||
-    dosageInputError ||
-    newSymptomHasFormulaInjection ||
-    newPeriodSymptomHasFormulaInjection ||
-    Object.values(customProductFormulaInjection).some(hasInjection => hasInjection) ||
-    medicineNameHasFormulaInjection ||
-    dosageHasFormulaInjection;
+    dosageInputError;
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [pendingSheetUrl, setPendingSheetUrl] = useState<string | null>(null);
   const [pendingSheetName, setPendingSheetName] = useState<string | null>(null);
@@ -228,6 +216,7 @@ function SettingsPageContent() {
   const [pendingNavigation, setPendingNavigation] = useState<"tutorial" | "entry" | null>(null);
   const [showAnonymousContinueModal, setShowAnonymousContinueModal] = useState(false);
   const [showLocalSaveModal, setShowLocalSaveModal] = useState(false);
+  const [showSyncEntriesModal, setShowSyncEntriesModal] = useState(false);
   // OAuth error modal
   const [showOAuthError, setShowOAuthError] = useState(false);
   const [oauthErrorAction, setOauthErrorAction] = useState("");
@@ -242,7 +231,9 @@ function SettingsPageContent() {
   const [navigateAfterSuccess, setNavigateAfterSuccess] = useState<string | null>(null);
   const [showImportEntriesModal, setShowImportEntriesModal] = useState(false);
   const [pendingImportAccessToken, setPendingImportAccessToken] = useState<string | null>(null);
+  const [pendingSyncAccessToken, setPendingSyncAccessToken] = useState<string | null>(null);
 
+  
   // Validation error display - only show after user attempts to submit
   const [showValidationErrors, setShowValidationErrors] = useState(false);
 
@@ -396,34 +387,24 @@ function SettingsPageContent() {
         setShowRecoveryPrompt(true);
       } else {
         setGoogleSheet(sheetUrl, sheetName);
-        const settingsSuccess = await saveSettingsToSheet(tokenResponse.access_token);
-
+        const success = await saveSettingsToSheet(tokenResponse.access_token);
+        
         // Also sync any existing saved filters to the new sheet
         await savedFiltersSyncToSheet(tokenResponse.access_token);
-
-        // Auto-sync any pending entries
-        const pendingEntries = useEntries.getState().entries.filter(
-          e => e.syncStatus === 'pending' || e.syncStatus === 'error'
-        );
-        let entriesSynced = 0;
-
-        if (pendingEntries.length > 0) {
-          const syncResult = await batchSyncEntries(tokenResponse.access_token);
-          entriesSynced = syncResult.succeeded;
-        }
-
-        // Show success modal with summary
-        if (settingsSuccess) {
-          const description = entriesSynced > 0
-            ? `Your settings and ${entriesSynced} ${entriesSynced === 1 ? 'entry have' : 'entries have'} been synced.`
-            : "Your settings have been synced to your Google Sheet.";
-
-          setSuccessModalConfig({
-            title: "Google Sheet Connected!",
-            description,
-            secondaryText: "Your data is now backed up and will sync across devices.",
-          });
-          setShowSuccessModal(true);
+        
+        if (success) {
+          // Check if there are local entries to sync
+          const currentSyncableCount = useEntries.getState().entries.filter(
+            e => e.syncStatus === 'pending' || e.syncStatus === 'error'
+          ).length;
+          
+          if (currentSyncableCount > 0) {
+            // Store the access token and show sync modal
+            setPendingSyncAccessToken(tokenResponse.access_token);
+            setShowSyncEntriesModal(true);
+          } else {
+            alert("Google Sheet connected and settings saved!");
+          }
         } else {
           alert("Sheet connected but failed to save settings. Please try saving again.");
         }
@@ -491,10 +472,16 @@ function SettingsPageContent() {
       }
       
       // Now save with the correct flags
-      await saveSettingsToSheet(tokenResponse.access_token);
-
+      const success = await saveSettingsToSheet(tokenResponse.access_token);
+      
       // Also sync saved filters to sheet
       await savedFiltersSyncToSheet(tokenResponse.access_token);
+
+      if (success) {
+        alert("Settings saved successfully!");
+      } else {
+        alert("Failed to save settings, but continuing anyway.");
+      }
 
       router.push(destination === "tutorial" ? "/tutorial" : "/entry");
     },
@@ -660,6 +647,37 @@ function SettingsPageContent() {
   };
 
   // ---------------------------------------------------------------------------
+  // SYNC ENTRIES HANDLERS
+  // ---------------------------------------------------------------------------
+
+  const handleSyncEntries = async (
+    onProgress: (progress: import("@/types").BatchSyncProgress) => void
+  ) => {
+    if (!pendingSyncAccessToken) {
+      return { 
+        success: false, 
+        total: 0, 
+        succeeded: 0, 
+        failed: 0, 
+        failedEntryIds: [] 
+      };
+    }
+    
+    return await batchSyncEntries(pendingSyncAccessToken, onProgress);
+  };
+
+  const handleSyncSkip = () => {
+    setShowSyncEntriesModal(false);
+    setPendingSyncAccessToken(null);
+    alert("Google Sheet connected! Your local entries remain unsynced.");
+  };
+
+  const handleSyncComplete = () => {
+    setShowSyncEntriesModal(false);
+    setPendingSyncAccessToken(null);
+  };
+
+    // ---------------------------------------------------------------------------
   // IMPORT ENTRIES HANDLERS
   // ---------------------------------------------------------------------------
 
@@ -828,8 +846,8 @@ function SettingsPageContent() {
     // Show success modal for anonymous users, then navigate
     setSuccessModalConfig({
       title: "Settings Saved!",
-      description: "Your data is saved locally on this device.",
-      secondaryText: "",
+      description: "Your settings have been saved to this device.",
+      secondaryText: "Note: Clearing browser data will delete your settings. Consider connecting a Google Sheet for backup.",
     });
     setNavigateAfterSuccess("/dashboard");
     setShowSuccessModal(true);
@@ -1044,7 +1062,6 @@ function SettingsPageContent() {
             setShowSavePrompt(false);
             setPendingNavigation(null);
           }}
-          isGoogleSheetConnected={isGoogleSheetConnected}
         />
       )}
 
@@ -1064,17 +1081,25 @@ function SettingsPageContent() {
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-3xl">💾</span>
-              <h2 className="text-xl font-bold text-app-charcoal">Your Data is Saved</h2>
+              <h2 className="text-xl font-bold text-app-charcoal">Settings Saved Locally</h2>
             </div>
             <div className="space-y-3 mb-6">
-              <p className="text-app-gray">Your data is saved locally on this device.</p>
+              <p className="text-app-gray">Your settings have been saved to this device.</p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>⚠️ Important:</strong> Clearing your browser data will delete your settings and entries.
+                </p>
+              </div>
+              <p className="text-sm text-app-gray">
+                For automatic cloud backup, you can connect a Google Sheet in settings anytime.
+              </p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={handleLocalSaveConfirm}
                 className="flex-1 py-3 px-4 rounded-lg bg-app-green text-white font-semibold hover:bg-app-green-dark transition-colors"
               >
-                Continue
+                Got it, Continue
               </button>
               <button
                 onClick={() => setShowLocalSaveModal(false)}
@@ -1085,6 +1110,15 @@ function SettingsPageContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {showSyncEntriesModal && pendingSyncAccessToken && (
+        <SyncEntriesModal
+          entryCount={syncableEntriesCount}
+          onSync={handleSyncEntries}
+          onSkip={handleSyncSkip}
+          onCancel={handleSyncComplete}
+        />
       )}
 
       {showImportEntriesModal && pendingImportAccessToken && (
@@ -1211,7 +1245,7 @@ function SettingsPageContent() {
               </h2>
               <p className="text-sm text-app-gray mb-4">
                 {onboardingMode === "google-sheet" && !setupComplete
-                  ? "🔗 Connect your Google Sheet to get started with Signed In & Synced Mode"
+                  ? "✨ Connect your Google Sheet to get started with Signed In & Synced Mode"
                   : "Link a sheet to sync your data across devices (Signed In Mode)"}
               </p>
             </>
@@ -1263,24 +1297,15 @@ function SettingsPageContent() {
                     >
                       Disconnect
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveSettings}
+                      disabled={isSyncing || !hasUnsavedChanges || hasTextInputError || saveRateLimit.isRateLimited}
+                      className="px-4 py-2 rounded-lg bg-app-teal text-white font-medium hover:opacity-90 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSyncing ? "Saving..." : !hasUnsavedChanges ? "Saved ✓" : "Save Settings"}
+                    </button>
                   </div>
-
-                  {/* Auto-sync info banner for returning users */}
-                  {setupComplete && (
-                    <div className="mt-4 p-3 bg-app-green/10 border border-app-green/20 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <span className="text-lg">✓</span>
-                        <div>
-                          <p className="text-sm font-medium text-app-charcoal">
-                            Google Sheet Connected!
-                          </p>
-                          <p className="text-xs text-app-gray mt-1">
-                            Click any "🔄 Sync with Google Sheets" buttons to keep your data and settings up to date in your Google Sheet.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 // Not connected or editing - show form
@@ -1296,7 +1321,6 @@ function SettingsPageContent() {
                       placeholder="https://docs.google.com/spreadsheets/d/..."
                       required={true}
                       errorMessage={sheetError || undefined}
-                      onValidationChange={(isValid) => setSheetUrlInputError(!isValid)}
                     />
                   </div>
                   <div>
@@ -1307,16 +1331,10 @@ function SettingsPageContent() {
                       placeholder="e.g., My Health Tracker"
                       required={true}
                       showCharCount={true}
-                      onValidationChange={(isValid) => setSheetNameInputError(!isValid)}
                     />
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSaveGoogleSheet}
-                      disabled={sheetUrlInputError || sheetNameInputError || sheetUrl.length > 150 || sheetName.length > 60}
-                      className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                    <button type="button" onClick={handleSaveGoogleSheet} className="btn-primary">
                       {isEditingSheet ? "Update & Save" : "Connect & Sign In"}
                     </button>
                     {isEditingSheet && (
@@ -1518,25 +1536,16 @@ function SettingsPageContent() {
                       <div className="flex-1">
                         <SecureTextInput
                           value={newSymptom}
-                          onChange={(value) => {
-                            setNewSymptom(value);
-                            setNewSymptomHasFormulaInjection(containsFormulaInjection(value));
-                          }}
+                          onChange={setNewSymptom}
                           placeholder="Add custom symptom"
                           showCharCount={true}
                           className="w-full"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && newSymptom.trim() && newSymptom.length <= 60 && !containsFormulaInjection(newSymptom)) {
-                              e.preventDefault();
-                              handleAddSymptom();
-                            }
-                          }}
                         />
                       </div>
                       <button
                         type="button"
                         onClick={handleAddSymptom}
-                        disabled={!newSymptom.trim() || newSymptom.length > 60 || containsFormulaInjection(newSymptom)}
+                        disabled={!newSymptom.trim() || newSymptom.length > 60}
                         className="px-6 py-2 rounded-lg bg-app-teal text-app-cream font-medium hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         + Add
@@ -1726,24 +1735,15 @@ function SettingsPageContent() {
                       <div className="flex-1">
                         <SecureTextInput
                           value={newPeriodSymptom}
-                          onChange={(value) => {
-                            setNewPeriodSymptom(value);
-                            setNewPeriodSymptomHasFormulaInjection(containsFormulaInjection(value));
-                          }}
+                          onChange={setNewPeriodSymptom}
                           placeholder="Add custom period or cycle symptom"
                           showCharCount={true}
                           className="w-full"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && newPeriodSymptom.trim() && newPeriodSymptom.length <= 60 && !containsFormulaInjection(newPeriodSymptom)) {
-                              e.preventDefault();
-                              handleAddPeriodSymptom();
-                            }
-                          }}
                         />
                       </div>
                       <button
                         onClick={handleAddPeriodSymptom}
-                        disabled={!newPeriodSymptom.trim() || newPeriodSymptom.length > 60 || containsFormulaInjection(newPeriodSymptom)}
+                        disabled={!newPeriodSymptom.trim() || newPeriodSymptom.length > 60}
                         className="px-6 py-2 rounded-lg bg-app-red text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         + Add
@@ -1851,12 +1851,6 @@ function SettingsPageContent() {
                               [product.type]: !isValid
                             }));
                           }}
-                          onFormulaInjectionChange={(hasInjection) => {
-                            setCustomProductFormulaInjection(prev => ({
-                              ...prev,
-                              [product.type]: hasInjection
-                            }));
-                          }}
                           onUpdate={(updated) => {
                             setPeriodTracking({
                               productTracking: {
@@ -1928,8 +1922,6 @@ function SettingsPageContent() {
                     showValidationError={showValidationErrors && !medicineTrackingValid}
                     onNameValidationChange={(isValid) => setMedicineNameInputError(!isValid)}
                     onDosageValidationChange={(isValid) => setDosageInputError(!isValid)}
-                    onNameFormulaInjectionChange={(hasInjection) => setMedicineNameHasFormulaInjection(hasInjection)}
-                    onDosageFormulaInjectionChange={(hasInjection) => setDosageHasFormulaInjection(hasInjection)}
                   />
                 </div>
               </div>
@@ -1964,14 +1956,38 @@ function SettingsPageContent() {
           </section>
         )}
 
-        {/* Sync with Google Sheets */}
-        {setupComplete && (
-          <section className="card border-2 border-app-teal/30">
-            <h2 className="text-lg font-semibold text-app-charcoal mb-2">🔄 Sync with Google Sheets</h2>
+        {/* Save Settings - Only show for users who have completed setup */}
+        {isGoogleSheetConnected && setupComplete && (
+          <section className="card border-2 border-app-teal bg-app-teal/5">
+            <h2 className="text-lg font-semibold text-app-charcoal mb-2">💾 Save Settings</h2>
             <p className="text-sm text-app-gray mb-4">
-              Push your local changes and pull updates from your Google Sheet backup.
+              Save your current settings to your connected Google Sheet.
             </p>
-            <SyncWithGoogleSheetsButton variant="primary" showStatus />
+            
+            {/* Validation warning */}
+            {showValidationErrors && !settingsValidation.isValid && (
+              <div className="p-3 mb-4 bg-app-red/10 rounded-lg border border-app-red/30">
+                <p className="text-sm text-app-red font-medium">
+                  ⚠️ {settingsValidation.validationMessage}
+                </p>
+              </div>
+            )}
+            
+            {saveRateLimit.isRateLimited && (
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  ⏱️ Rate limit reached. Please wait <strong>{saveRateLimit.getFormattedTime()}</strong> before saving again.
+                </p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleSaveSettings}
+              disabled={isSyncing || !hasUnsavedChanges || hasTextInputError || saveRateLimit.isRateLimited}
+              className="w-full py-3 px-6 rounded-lg bg-app-teal text-white font-semibold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSyncing ? "Saving..." : !hasUnsavedChanges ? "No Changes to Save" : "Save Settings to Google Sheet"}
+            </button>
           </section>
         )}
 
@@ -2068,7 +2084,7 @@ function SettingsPageContent() {
         {!setupComplete && (
           <section className="card border-2 border-app-green bg-app-green/5">
             <h2 className="text-lg font-semibold text-app-charcoal mb-2">▶️ Ready to Start?</h2>
-
+            
             {/* Context-aware description */}
             {isGoogleSheetConnected ? (
               <p className="text-sm text-app-gray mb-4">
@@ -2079,7 +2095,7 @@ function SettingsPageContent() {
                 Your preferences are saved automatically to this device.
               </p>
             )}
-
+            
             {/* Validation warning */}
             {showValidationErrors && !settingsValidation.isValid && (
               <div className="p-3 mb-4 bg-app-red/10 rounded-lg border border-app-red/30">
@@ -2093,7 +2109,7 @@ function SettingsPageContent() {
             {hasTextInputError && (
               <div className="p-3 mb-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-800">
-                  ⚠️ Please fix the highlighted fields to continue.
+                  ⚠️ One or more text fields exceed the 60-character limit. Please shorten your inputs before continuing.
                 </p>
               </div>
             )}
@@ -2128,7 +2144,6 @@ function SettingsPageContent() {
             </div>
           </section>
         )}
-
       </div>
       {/* OAuth Error Modal */}
       <OAuthErrorModal
