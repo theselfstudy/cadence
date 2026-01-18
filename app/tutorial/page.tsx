@@ -90,7 +90,7 @@ const TUTORIAL_STEPS = [
     id: "sync-buttons",
     title: "Sync Buttons Around the App",
     description:
-      "Use the \"Sync with Google Sheets\" buttons in the app to back up your data. You'll be asked to sign in with the Google account connected to your sheet so everything stays in sync.",
+      "Use the \"🔄 Sync with Google Sheets\" buttons in the app to back up your data and preferences. You'll be asked to sign in with the Google account connected to your sheet so everything stays in sync.",
     illustration: "sync-buttons",
   },
   {
@@ -202,14 +202,6 @@ export default function TutorialPage() {
             <p className="text-app-gray max-w-md mx-auto leading-relaxed">
               {step.description}
             </p>
-            
-            {/* Dynamic additional content
-            {step.dynamicContent === "history" && isGoogleSheetConnected && (
-              <p className="text-app-teal text-sm mt-3 max-w-md mx-auto">
-                Since you have a Google Sheet connected, you can also use "Refresh from Sheet" 
-                to pull in any entries added from other devices!
-              </p>
-            )} */}
           </div>
 
           {/* Progress dots */}
@@ -803,7 +795,7 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
 
             {/* Secondary */}
             <div className="flex items-center justify-between">
-              <span className="text-xs text-app-gray w-16">History</span>
+              <span className="text-xs text-app-gray w-16">Dashboard</span>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-app-teal text-white text-xs font-medium">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -815,7 +807,7 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
 
             {/* Subtle */}
             <div className="flex items-center justify-between">
-              <span className="text-xs text-app-gray w-16">Weekly</span>
+              <span className="text-xs text-app-gray w-16">History</span>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-app-teal/10 text-app-teal text-xs font-medium">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

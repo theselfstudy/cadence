@@ -302,7 +302,7 @@ export default function HistoryPage() {
           </div>
 
           {/* Sync with Google Sheets button - only for connected users */}
-          <SyncWithGoogleSheetsButton variant="secondary" />
+          <SyncWithGoogleSheetsButton variant="subtle" />
         </div>
       </div>
 

@@ -44,7 +44,7 @@ export function SavePromptModal({
               onClick={onSave}
               className="w-full py-3 px-4 rounded-lg bg-app-teal text-white font-semibold hover:opacity-90 transition-opacity"
             >
-              Sync & Continue
+              Sign in to Sync & Continue
             </button>
           )}
           <button

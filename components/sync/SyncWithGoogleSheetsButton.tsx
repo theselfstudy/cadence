@@ -293,7 +293,7 @@ export function SyncWithGoogleSheetsButton({
     `,
     secondary: `
       px-4 py-2 rounded-lg bg-app-teal text-white font-medium
-      hover:bg-app-teal/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+      hover:bg-app-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed
     `,
     subtle: `
       flex items-center gap-1.5 px-3 py-1.5 text-sm bg-app-teal/10 text-app-teal

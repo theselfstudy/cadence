@@ -43,7 +43,7 @@ export default function DashboardPage() {
           <p className="text-app-gray">Your health at a glance and quick navigation</p>
         </div>
         {/* Sync with Google Sheets - Positioned next to header */}
-        <SyncWithGoogleSheetsButton variant="primary" showStatus />
+        <SyncWithGoogleSheetsButton variant="secondary" showStatus />
       </div>
 
       {/* Quick Actions */}
