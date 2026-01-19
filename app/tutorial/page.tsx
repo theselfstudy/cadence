@@ -53,7 +53,7 @@ const TUTORIAL_STEPS = [
     id: "symptoms",
     title: "Tracking Symptoms",
     description:
-      "Tap any symptoms you're experiencing to select them. If you've enabled intensity tracking, you can rate severity on a scale. Period-related symptoms are color-coded when you're in your menstrual phase.",
+      "Tap any symptoms you're experiencing to select them. If you've enabled intensity tracking, you can rate severity on a scale.",
     illustration: "symptoms",
   },
   {
@@ -203,10 +203,18 @@ export default function TutorialPage() {
             <h1 className="text-2xl font-bold text-app-charcoal mb-4">
               {step.title}
             </h1>
+
             <p className="text-app-gray max-w-md mx-auto leading-relaxed">
               {step.description}
+              {step.id === "symptoms" && dynamicContext.periodTracking && (
+                <>
+                  {" "}
+                  Period-related symptoms are color-coded when you're in your menstrual phase.
+                </>
+              )}
             </p>
           </div>
+
 
           {/* Progress dots */}
           <div className="flex items-center justify-center gap-2 pb-6">
@@ -492,7 +500,11 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
           <div className="flex flex-wrap gap-2">
             {[
               { name: "Bloating", selected: true, period: false },
-              { name: "Cramps", selected: true, period: true },
+              {
+                name: "Cramps",
+                selected: true,
+                period: context.periodTracking,
+              },              
               { name: "Fatigue", selected: false, period: false },
               { name: "Headache", selected: false, period: false },
             ].map((symptom) => (
