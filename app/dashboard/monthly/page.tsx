@@ -456,6 +456,7 @@ export default function MonthlyPage() {
           onSelectAll={selectAllDays}
           entries={monthEntries}
           weekStartDay={weekStartDay}
+          periodTrackingEnabled={periodTrackingEnabled}
         />
 
         {/* Category Filters */}
@@ -693,6 +694,7 @@ interface MonthCalendarFilterProps {
   onSelectAll: () => void;
   entries: StoredEntry[];
   weekStartDay: "sunday" | "monday";
+  periodTrackingEnabled: boolean;
 }
 
 function MonthCalendarFilter({
@@ -704,6 +706,7 @@ function MonthCalendarFilter({
   onSelectAll,
   entries,
   weekStartDay,
+  periodTrackingEnabled,
 }: MonthCalendarFilterProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [rangeStart, setRangeStart] = useState<number | null>(null);
@@ -803,9 +806,17 @@ function MonthCalendarFilter({
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium text-app-charcoal">Filter by Day</p>
           <span className="text-xs text-app-gray">
-            <span className="text-app-red ml-1">{totalPeriodDays} period day{totalPeriodDays !== 1 ? "s" : ""} logged </span>
-            • {totalDaysWithEntries} total day{totalDaysWithEntries !== 1 ? "s" : ""} logged
+            {periodTrackingEnabled && totalPeriodDays > 0 && (
+              <>
+                <span className="text-app-red ml-1">
+                  {totalPeriodDays} period day{totalPeriodDays !== 1 ? "s" : ""} logged
+                </span>
+                {" • "}
+              </>
+            )}
+            {totalDaysWithEntries} total day{totalDaysWithEntries !== 1 ? "s" : ""} logged
           </span>
+
         </div>
         <div className="flex items-center gap-2">
           {selectedDays.length > 0 && (
