@@ -184,6 +184,36 @@ export async function checkForExistingSettings(
 }
 
 /**
+ * Checks if the spreadsheet has any Cadence entry sheets with data.
+ * Returns true if at least one entry exists.
+ */
+export async function checkForExistingEntries(
+  spreadsheetId: string,
+  accessToken: string
+): Promise<boolean> {
+  try {
+    const sheets = await getAllEntriesSheets(spreadsheetId, accessToken);
+
+    if (sheets.length === 0) {
+      return false;
+    }
+
+    // Check first sheet for any data rows (beyond header)
+    for (const sheet of sheets) {
+      const data = await fetchSheetData(spreadsheetId, accessToken, sheet.name);
+      if (data && data.rows.length > 0) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error checking for existing entries:", error);
+    return false;
+  }
+}
+
+/**
  * Deletes the settings sheet from the user's Google Sheet.
  * Used when doing a full reset to remove all saved settings.
  */

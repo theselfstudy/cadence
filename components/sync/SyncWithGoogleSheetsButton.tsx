@@ -232,7 +232,7 @@ export function SyncWithGoogleSheetsButton({
 
         // If nothing happened
         if (messages.length === 0) {
-          messages.push("Already up to date");
+          messages.push("Up to date");
         }
 
         const allPushSuccess =

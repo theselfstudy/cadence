@@ -3,11 +3,12 @@
 import { useGoogleLogin } from "@react-oauth/google";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { checkForExistingSettings, deleteSettingsSheet, deleteSavedFiltersSheet } from "@/lib/googleSheets";
+import { checkForExistingSettings, checkForExistingEntries, deleteSettingsSheet, deleteSavedFiltersSheet } from "@/lib/googleSheets";
 import { useSettings } from "@/stores/useSettings";
 import { validateSettings } from "@/lib/settingsValidation";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SuccessModal } from "@/components/ui/SuccessModal";
+import { AdvancedOptionsModal, DoubleConfirmModal } from "@/components/ui/AdvancedOptionsModal";
 import { useButtonRateLimit } from "@/hooks/useRateLimit";
 import { SecureTextInput, SecureSheetURLInput } from '@/components/ui/SecureInput';
 import { containsFormulaInjection } from '@/lib/inputSecurity';
@@ -252,7 +253,6 @@ function SettingsPageContent() {
   const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false);  
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<"tutorial" | "entry" | null>(null);
-  // Removed showLocalSaveModal - now using SuccessModal directly
   // OAuth error modal
   const [showOAuthError, setShowOAuthError] = useState(false);
   const [oauthErrorAction, setOauthErrorAction] = useState("");
@@ -267,6 +267,17 @@ function SettingsPageContent() {
   const [navigateAfterSuccess, setNavigateAfterSuccess] = useState<string | null>(null);
   const [showImportEntriesModal, setShowImportEntriesModal] = useState(false);
   const [pendingImportAccessToken, setPendingImportAccessToken] = useState<string | null>(null);
+
+  // Advanced Options modal states
+  const [showResetSettingsModal, setShowResetSettingsModal] = useState(false);
+  const [showDeleteAllDataModal, setShowDeleteAllDataModal] = useState(false);
+  const [showDeleteMetadataModal, setShowDeleteMetadataModal] = useState(false);
+
+  // "Entries only" mode - sheet has entry data but no settings (user previously reset metadata)
+  // In this mode, we just accept the sheet URL without OAuth, then OAuth on Continue/Skip Tutorial
+  const [hasEntriesOnlySheet, setHasEntriesOnlySheet] = useState(false);
+  const [pendingEntriesOnlySheetUrl, setPendingEntriesOnlySheetUrl] = useState<string | null>(null);
+  const [pendingEntriesOnlySheetName, setPendingEntriesOnlySheetName] = useState<string | null>(null);
 
   // Validation error display - only show after user attempts to submit
   const [showValidationErrors, setShowValidationErrors] = useState(false);
@@ -415,47 +426,72 @@ function SettingsPageContent() {
       const existingSettings = await checkForExistingSettings(spreadsheetId, tokenResponse.access_token);
 
       if (existingSettings) {
+        // Has settings - show recovery prompt
         setPendingSheetUrl(sheetUrl);
         setPendingSheetName(sheetName);
         setPendingAccessToken(tokenResponse.access_token);
         setShowRecoveryPrompt(true);
       } else {
-        setGoogleSheet(sheetUrl, sheetName);
-        const settingsSuccess = await saveSettingsToSheet(tokenResponse.access_token);
+        // No settings - check if there are entries (user previously reset metadata)
+        const hasEntries = await checkForExistingEntries(spreadsheetId, tokenResponse.access_token);
 
-        // Also sync any existing saved filters to the new sheet
-        await savedFiltersSyncToSheet(tokenResponse.access_token);
+        if (hasEntries) {
+          // Has entries but no settings - store sheet info locally, defer full sync to Continue/Skip buttons
+          // This enables the "entries only" passthrough mode
+          setHasEntriesOnlySheet(true);
+          setPendingEntriesOnlySheetUrl(sheetUrl);
+          setPendingEntriesOnlySheetName(sheetName);
+          setGoogleSheet(sheetUrl, sheetName);
+          setSheetUrl("");
+          setSheetName("");
+          setIsEditingSheet(false);
 
-        // Auto-sync any pending entries
-        const pendingEntries = useEntries.getState().entries.filter(
-          e => e.syncStatus === 'pending' || e.syncStatus === 'error'
-        );
-        let entriesSynced = 0;
-
-        if (pendingEntries.length > 0) {
-          const syncResult = await batchSyncEntries(tokenResponse.access_token);
-          entriesSynced = syncResult.succeeded;
-        }
-
-        // Show success modal with summary
-        if (settingsSuccess) {
-          const description = entriesSynced > 0
-            ? `Your settings and ${entriesSynced} ${entriesSynced === 1 ? 'entry have' : 'entries have'} been synced.`
-            : "Your settings have been synced to your Google Sheet.";
-
+          // Show success modal with info about entries import
           setSuccessModalConfig({
             title: "Google Sheet Connected!",
-            description,
-            secondaryText: "Your data is now backed up and will sync across devices.",
+            description: "We found existing entries in your sheet.",
+            secondaryText: "Your entries will be imported when you continue to the tutorial or skip to start logging.",
           });
           setShowSuccessModal(true);
         } else {
-          alert("Sheet connected but failed to save settings. Please try saving again.");
+          // Fresh sheet - proceed with normal flow
+          setGoogleSheet(sheetUrl, sheetName);
+          const settingsSuccess = await saveSettingsToSheet(tokenResponse.access_token);
+
+          // Also sync any existing saved filters to the new sheet
+          await savedFiltersSyncToSheet(tokenResponse.access_token);
+
+          // Auto-sync any pending entries
+          const pendingEntries = useEntries.getState().entries.filter(
+            e => e.syncStatus === 'pending' || e.syncStatus === 'error'
+          );
+          let entriesSynced = 0;
+
+          if (pendingEntries.length > 0) {
+            const syncResult = await batchSyncEntries(tokenResponse.access_token);
+            entriesSynced = syncResult.succeeded;
+          }
+
+          // Show success modal with summary
+          if (settingsSuccess) {
+            const description = entriesSynced > 0
+              ? `Your settings and ${entriesSynced} ${entriesSynced === 1 ? 'entry have' : 'entries have'} been synced.`
+              : "Your settings have been synced to your Google Sheet.";
+
+            setSuccessModalConfig({
+              title: "Google Sheet Connected!",
+              description,
+              secondaryText: "Your data is now backed up and will sync across devices.",
+            });
+            setShowSuccessModal(true);
+          } else {
+            alert("Sheet connected but failed to save settings. Please try saving again.");
+          }
+
+          setSheetUrl("");
+          setSheetName("");
+          setIsEditingSheet(false);
         }
-        
-        setSheetUrl("");
-        setSheetName("");
-        setIsEditingSheet(false);
       }
     },
     onError: () => {
@@ -506,7 +542,7 @@ function SettingsPageContent() {
     onSuccess: async (tokenResponse) => {
       const destination = pendingNavigation;
       setPendingNavigation(null);
-      
+
       // Set setupComplete BEFORE saving so the sheet has accurate data
       // Also set tutorialComplete if skipping tutorial
       completeSetup();
@@ -514,12 +550,24 @@ function SettingsPageContent() {
         // User is skipping tutorial, mark it complete
         useSettings.getState().completeTutorial();
       }
-      
+
       // Now save with the correct flags
       await saveSettingsToSheet(tokenResponse.access_token);
 
       // Also sync saved filters to sheet
       await savedFiltersSyncToSheet(tokenResponse.access_token);
+
+      // If this is an "entries only" sheet (has entries but no settings), import the entries
+      if (hasEntriesOnlySheet) {
+        const importResult = await importEntriesFromSheet(tokenResponse.access_token);
+        if (importResult.success && importResult.imported > 0) {
+          console.log(`Imported ${importResult.imported} entries from sheet`);
+        }
+        // Clear the entries-only state
+        setHasEntriesOnlySheet(false);
+        setPendingEntriesOnlySheetUrl(null);
+        setPendingEntriesOnlySheetName(null);
+      }
 
       router.push(destination === "tutorial" ? "/tutorial" : "/entry");
     },
@@ -562,8 +610,7 @@ function SettingsPageContent() {
 
       // Clear all local storage including entries cache
       clearAllCadenceStorage(true);
-      alert("All settings have been reset. You'll need to set up again.");
-      window.location.href = "/settings"; // Full reload to reinitialize stores
+      window.location.href = "/welcome"; // Redirect to welcome page
     },
     onError: () => {
       setOauthErrorAction("reset your settings");
@@ -802,6 +849,12 @@ function SettingsPageContent() {
     if (destination === "entry") {
       // User is skipping tutorial, mark it complete
       useSettings.getState().completeTutorial();
+    }
+    // Clear entries-only state if user chose not to save/sync
+    if (hasEntriesOnlySheet) {
+      setHasEntriesOnlySheet(false);
+      setPendingEntriesOnlySheetUrl(null);
+      setPendingEntriesOnlySheetName(null);
     }
     router.push(destination === "tutorial" ? "/tutorial" : "/entry");
   };
@@ -1129,8 +1182,8 @@ function SettingsPageContent() {
               </span>
               <span className="text-xs text-app-gray">
                 {isGoogleSheetConnected
-                  ? "— Data syncs to your Google Sheet"
-                  : "— Data stored locally on this device only"}
+                  ? "—> Data syncs to your Google Sheet"
+                  : "—> Data stored locally on this device only"}
               </span>
             </div>
           </div>
@@ -1234,6 +1287,23 @@ function SettingsPageContent() {
                           </p>
                           <p className="text-xs text-app-gray mt-1">
                             Click any "🔄 Sync with Google Sheets" buttons to keep your data and settings up to date in your Google Sheet.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Entries-only mode banner for onboarding users */}
+                  {!setupComplete && hasEntriesOnlySheet && (
+                    <div className="mt-4 p-3 bg-app-teal/10 border border-app-teal/20 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg">📥</span>
+                        <div>
+                          <p className="text-sm font-medium text-app-charcoal">
+                            Existing Entries Detected
+                          </p>
+                          <p className="text-xs text-app-gray mt-1">
+                            Your entries will be imported when you continue to the tutorial or skip to start logging.
                           </p>
                         </div>
                       </div>
@@ -1980,14 +2050,7 @@ function SettingsPageContent() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm(
-                        "This will reset all settings, filters, and preferences to defaults. Your entry data will NOT be deleted. Continue?"
-                      )) {
-                        clearAllCadenceStorage(false); // Keep entries cache
-                        window.location.href = "/settings"; // Full reload to reinitialize stores
-                      }
-                    }}
+                    onClick={() => setShowResetSettingsModal(true)}
                     className="px-4 py-2 rounded-lg text-sm text-app-gray border border-app-border hover:bg-app-border"
                   >
                     Reset App Settings Only
@@ -2006,18 +2069,7 @@ function SettingsPageContent() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (window.confirm(
-                          "⚠️ ARE YOU SURE?\n\nThis will PERMANENTLY DELETE:\n• All your entries\n• All your settings\n• All saved filters\n\nThis CANNOT be undone. You will lose all your data."
-                        )) {
-                          if (window.confirm(
-                            "Final confirmation: Delete ALL data and start as a new user?"
-                          )) {
-                            clearAllCadenceStorage(true); // Include entries
-                            window.location.href = "/settings"; // Full reload to reinitialize stores
-                          }
-                        }
-                      }}
+                      onClick={() => setShowDeleteAllDataModal(true)}
                       className="px-4 py-2 rounded-lg text-sm text-white bg-app-red hover:bg-red-700"
                     >
                       Delete All Data
@@ -2034,13 +2086,7 @@ function SettingsPageContent() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (window.confirm(
-                          "This will clear all local data and remove settings/filters from your Google Sheet.\n\nYour entry data in Google Sheets will NOT be deleted. Continue?"
-                        )) {
-                          resetWithSheetDelete();
-                        }
-                      }}
+                      onClick={() => setShowDeleteMetadataModal(true)}
                       className="px-4 py-2 rounded-lg text-sm text-app-red border border-app-red/30 hover:bg-app-red/10"
                     >
                       Delete Device and Sheet Metadata
@@ -2136,7 +2182,113 @@ function SettingsPageContent() {
         title={successModalConfig.title}
         description={successModalConfig.description}
         secondaryText={successModalConfig.secondaryText}
-        buttonText="Continue"
+        buttonText={navigateAfterSuccess ? "Go to Dashboard" : "Continue"}
+        secondaryButtonText={navigateAfterSuccess ? "Stay in Settings" : undefined}
+        onSecondaryClick={navigateAfterSuccess ? () => {
+          setShowSuccessModal(false);
+          setNavigateAfterSuccess(null);
+        } : undefined}
+      />
+
+      {/* Reset App Settings Modal */}
+      <AdvancedOptionsModal
+        isOpen={showResetSettingsModal}
+        onClose={() => setShowResetSettingsModal(false)}
+        onConfirm={() => {
+          setShowResetSettingsModal(false);
+          clearAllCadenceStorage(false); // Keep entries cache
+          window.location.href = "/settings"; // Full reload to reinitialize stores
+        }}
+        title="Reset App Settings?"
+        description={
+          <p className="text-center">
+            This will reset all settings, filters, and preferences to their defaults.
+            {isGoogleSheetConnected && " Your Google Sheet will be disconnected."}
+          </p>
+        }
+        affectedItems={[
+          "All app settings and preferences",
+          "Saved filters",
+          isGoogleSheetConnected ? "Google Sheet connection" : null,
+        ].filter(Boolean) as string[]}
+        preservedItems={[
+          isGoogleSheetConnected
+            ? "All entry data in your Google Sheet"
+            : "All entry data stored on this device",
+        ]}
+        confirmButtonText="Reset Settings"
+        cancelButtonText="Cancel"
+        variant="warning"
+      />
+
+      {/* Delete All Data Modal (Local Users) */}
+      <DoubleConfirmModal
+        isOpen={showDeleteAllDataModal}
+        onClose={() => setShowDeleteAllDataModal(false)}
+        onConfirm={() => {
+          setShowDeleteAllDataModal(false);
+          clearAllCadenceStorage(true); // Include entries
+          window.location.href = "/welcome"; // Redirect to welcome page
+        }}
+        firstModal={{
+          title: "Delete All Data?",
+          description: (
+            <p className="text-center">
+              This will <span className="font-semibold text-app-red">permanently delete</span> all your data from this device. This action cannot be undone.
+            </p>
+          ),
+          affectedItems: [
+            "All your health entries",
+            "All app settings and preferences",
+            "All saved filters",
+          ],
+          confirmButtonText: "Continue",
+        }}
+        secondModal={{
+          title: "Final Confirmation",
+          description: (
+            <p>
+              Are you absolutely sure? All your data will be permanently deleted and you will start fresh as a new user.
+            </p>
+          ),
+          confirmButtonText: "Yes, Delete Everything",
+        }}
+      />
+
+      {/* Delete Metadata Modal (Google Sheets Users) */}
+      <DoubleConfirmModal
+        isOpen={showDeleteMetadataModal}
+        onClose={() => setShowDeleteMetadataModal(false)}
+        onConfirm={() => {
+          setShowDeleteMetadataModal(false);
+          resetWithSheetDelete();
+        }}
+        firstModal={{
+          title: "Delete Device & Sheet Metadata?",
+          description: (
+            <p className="text-center">
+              This will delete all settings and saved filters from both this device and your Google Sheet.
+            </p>
+          ),
+          affectedItems: [
+            "All app settings and preferences (device & sheet)",
+            "All saved filters (device & sheet)",
+            "Google Sheet connection",
+          ],
+          preservedItems: [
+            "All your health entries in Google Sheets",
+          ],
+          confirmButtonText: "Continue",
+        }}
+        secondModal={{
+          title: "Final Confirmation",
+          description: (
+            <p>
+              Are you sure? Your settings and filters will be permanently deleted from both this device and your Google Sheet. Your entry data will remain safe.
+            </p>
+          ),
+          confirmButtonText: "Yes, Delete Metadata",
+        }}
       />
     </>
   );

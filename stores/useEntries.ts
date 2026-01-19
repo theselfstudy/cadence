@@ -410,10 +410,15 @@ export const useEntries = create<EntryStore>()(
             }));
           }
           
-          set({ 
+          const now = new Date().toISOString();
+          set({
             isSyncing: false,
-            lastSyncAt: new Date().toISOString(),
+            lastSyncAt: now,
           });
+
+          // Update sync tracker to reflect that we just synced entries from the sheet
+          const { useSyncTracker } = await import('./useSyncTracker');
+          useSyncTracker.getState().updateEntrySyncTime(now);
 
           return {
             success: true,

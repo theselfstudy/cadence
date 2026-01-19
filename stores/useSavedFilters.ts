@@ -222,6 +222,10 @@ export const useSavedFilters = create<SavedFiltersStore>()(
             isSyncing: false,
           });
 
+          // Update sync tracker to reflect that we just synced filters from the sheet
+          const { useSyncTracker } = await import('./useSyncTracker');
+          useSyncTracker.getState().updateFiltersSyncTime(new Date().toISOString());
+
           return true;
         } catch (error) {
           console.error("Error loading saved filters from sheet:", error);

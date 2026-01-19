@@ -92,6 +92,7 @@ const TUTORIAL_STEPS = [
     description:
       "Use the \"🔄 Sync with Google Sheets\" buttons in the app to back up your data and preferences. You'll be asked to sign in with the Google account connected to your sheet so everything stays in sync.",
     illustration: "sync-buttons",
+    condition:"sheetConnect"
   },
   {
     id: "done",
@@ -121,6 +122,9 @@ export default function TutorialPage() {
     if (step.condition === "medicineTracking") {
       return medicineTracking?.enabled && (medicineTracking?.medicines?.length ?? 0) > 0;
     }
+    if (step.condition === "sheetConnect") {
+      return isGoogleSheetConnected;
+  }
     return true;
   });
 

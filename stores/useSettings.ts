@@ -135,7 +135,7 @@ export const useSettings = create<SettingsStore>()(
       loadSettingsFromSheet: async (
         spreadsheetId: string,
         accessToken: string,
-        sheetName?: string 
+        sheetName?: string
       ): Promise<boolean> => {
         set({ isSyncing: true });
 
@@ -148,7 +148,7 @@ export const useSettings = create<SettingsStore>()(
 
         try {
           const loadedSettings = JSON.parse(settingsJson);
-          
+
           // If settings exist in a sheet, the user has clearly completed setup.
           // Force these to true to prevent re-prompting setup/tutorial on recovery.
           // This handles the case where settings were saved before these flags were set.
@@ -157,11 +157,11 @@ export const useSettings = create<SettingsStore>()(
             setupComplete: true,
             tutorialComplete: true,
           };
-          
+
           // Update the snapshot to reflect the corrected flags
           const correctedSnapshot = JSON.stringify({
             timeFormat: recoveredSettings.timeFormat,
-            weekStartDay: recoveredSettings.weekStartDay, 
+            weekStartDay: recoveredSettings.weekStartDay,
             symptoms: recoveredSettings.symptoms,
             periodTracking: recoveredSettings.periodTracking,
             stoolTracking: recoveredSettings.stoolTracking,
@@ -169,7 +169,7 @@ export const useSettings = create<SettingsStore>()(
             setupComplete: true,
             tutorialComplete: true,
           });
-          
+
           set({
             ...recoveredSettings,
             isGoogleSheetConnected: true,
@@ -182,6 +182,11 @@ export const useSettings = create<SettingsStore>()(
             hasUnsavedChanges: false,
             lastSavedSnapshot: correctedSnapshot,
           });
+
+          // Update sync tracker to reflect that we just synced settings from the sheet
+          const { useSyncTracker } = await import('./useSyncTracker');
+          useSyncTracker.getState().updateSettingsSyncTime(new Date().toISOString());
+
           return true;
         } catch (error) {
           console.error("Failed to parse settings from Google Sheet.", error);
