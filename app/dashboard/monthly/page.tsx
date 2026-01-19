@@ -962,12 +962,14 @@ function MonthCalendarFilter({
 
           {/* Legend */}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-app-border/50">
-            {/* Cycle indicators */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1 text-xs text-app-gray">
-                <span className="w-1.5 h-1.5 rounded-full bg-app-red" />
-                <span>Period</span>
-              </div>
+              {periodTrackingEnabled && (
+                <div className="flex items-center gap-1 text-xs text-app-gray">
+                  <span className="w-1.5 h-1.5 rounded-full bg-app-red" />
+                  <span>Period</span>
+                </div>
+              )}
+
               <div className="flex items-center gap-1 text-xs text-app-gray">
                 <span className="w-1.5 h-1.5 rounded-full bg-app-teal" />
                 <span>Entries</span>
