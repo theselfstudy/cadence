@@ -413,6 +413,9 @@ export default function EntryPage() {
   // Warning modal state for empty entries
   const [showEmptyWarning, setShowEmptyWarning] = useState(false);
 
+  // Warning modal state for end time earlier than start time
+  const [showTimeWarning, setShowTimeWarning] = useState(false);
+
   // Safe access to settings
   const safeSymptoms = symptoms ?? {
     selected: [],
@@ -497,6 +500,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [notesWarning, setNotesWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasCustomDosageInputError, setHasCustomDosageInputError] = useState(false);
+  const [hasStartTimeError, setHasStartTimeError] = useState(false);
+  const [hasEndTimeError, setHasEndTimeError] = useState(false);
 
   // Validation: Check if notes exceeds character limit
   const notesExceedsLimit = notes.length > 500;
@@ -550,6 +555,25 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     } else {
       setNotesWarning(null);
     }
+  };
+
+  // Helper to convert TimeValue to minutes since midnight for comparison
+  const timeToMinutes = (time: TimeValue): number => {
+    let hour = time.hour;
+    if (!is24Hour) {
+      // Convert 12-hour format to 24-hour for comparison
+      if (time.period === "AM" && hour === 12) {
+        hour = 0;
+      } else if (time.period === "PM" && hour !== 12) {
+        hour += 12;
+      }
+    }
+    return hour * 60 + time.minute;
+  };
+
+  // Helper to check if end time is earlier than start time
+  const isEndTimeBeforeStartTime = (): boolean => {
+    return timeToMinutes(endTime) < timeToMinutes(startTime);
   };
 
   // Helper to format TimeValue to string for storage
@@ -633,6 +657,12 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     // Rate limit check first - attempt to record the click
     if (!submitRateLimit.attempt()) {
       alert(`Please wait ${submitRateLimit.getFormattedTime()} before submitting again.`);
+      return;
+    }
+
+    // Check if end time is earlier than start time
+    if (isEndTimeBeforeStartTime()) {
+      setShowTimeWarning(true);
       return;
     }
 
@@ -751,6 +781,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           value={startTime}
           onChange={setStartTime}
           is24Hour={is24Hour}
+          onValidationChange={setHasStartTimeError}
         />
       </section>
 
@@ -1092,6 +1123,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           value={endTime}
           onChange={setEndTime}
           is24Hour={is24Hour}
+          onValidationChange={setHasEndTimeError}
         />
       </section>
 
@@ -1107,11 +1139,11 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isSubmitting || !!notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited}
+          disabled={isSubmitting || !!notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError}
           className={`w-full py-3 sm:py-4 rounded-lg font-semibold text-white transition-all text-sm sm:text-base ${
             isSubmitting
               ? "bg-app-teal/70 cursor-wait"
-              : notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited
+              : notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError
               ? "bg-app-gray cursor-not-allowed"
               : "bg-app-teal hover:bg-app-teal"
           }`}
@@ -1184,6 +1216,17 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       confirmButtonText="Submit Anyway"
       cancelButtonText="Go Back"
     />
+
+    {/* Time Warning Modal - End time earlier than start time */}
+    <WarningModal
+      isOpen={showTimeWarning}
+      onClose={() => setShowTimeWarning(false)}
+      onConfirm={() => setShowTimeWarning(false)}
+      title="End Time Before Start Time"
+      description="The end time you entered is earlier than the start time. Please correct the times to avoid errors in your log."
+      confirmButtonText="Fix Times"
+      cancelButtonText="Go Back"
+    />
     </>
   );
 }
@@ -1197,9 +1240,26 @@ interface TimeInputSectionProps {
   value: TimeValue;
   onChange: (value: TimeValue) => void;
   is24Hour: boolean;
+  onValidationChange?: (hasError: boolean) => void;
 }
 
-function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSectionProps) {
+function TimeInputSection({ label, value, onChange, is24Hour, onValidationChange }: TimeInputSectionProps) {
+  // Validation error states
+  const [hourError, setHourError] = useState<string | null>(null);
+  const [minuteError, setMinuteError] = useState<string | null>(null);
+
+  // Valid ranges
+  const minHour = is24Hour ? 0 : 0;
+  const maxHour = is24Hour ? 23 : 12;
+
+  // Notify parent when validation state changes
+  useEffect(() => {
+    if (onValidationChange) {
+      const hasError = !!(hourError || minuteError);
+      onValidationChange(hasError);
+    }
+  }, [hourError, minuteError, onValidationChange]);
+
   const setNow = () => {
     const now = new Date();
     let hour = now.getHours();
@@ -1212,7 +1272,47 @@ function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSection
     }
 
     onChange({ hour, minute, period });
+    setHourError(null);
+    setMinuteError(null);
   };
+
+  // Handle hour input - only allow numeric, 1-2 digits
+  const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Only allow numeric characters, limit to 2 digits
+    const numericOnly = input.replace(/[^0-9]/g, "").slice(0, 2);
+    const numValue = numericOnly === "" ? 0 : Number(numericOnly);
+    onChange({ ...value, hour: numValue });
+
+    // Validate and show error if out of range
+    if (numValue < minHour || numValue > maxHour) {
+      setHourError(
+        is24Hour
+          ? "Hour must be between 0 and 23"
+          : "Hour must be between 0 and 12"
+      );
+    } else {
+      setHourError(null);
+    }
+  };
+
+
+  // Handle minute input - only allow numeric, 1-2 digits
+  const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    // Only allow numeric characters, limit to 2 digits
+    const numericOnly = input.replace(/[^0-9]/g, "").slice(0, 2);
+    const numValue = numericOnly === "" ? 0 : Number(numericOnly);
+    onChange({ ...value, minute: numValue });
+
+    // Validate and show error if out of range
+    if (numValue < 0 || numValue > 59) {
+      setMinuteError("Minutes must be between 0 and 59");
+    } else {
+      setMinuteError(null);
+    }
+  };
+
 
   return (
     <div>
@@ -1230,11 +1330,15 @@ function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSection
         <div className="w-16 sm:w-20">
           <input
             type="number"
-            min={is24Hour ? 0 : 1}
-            max={is24Hour ? 23 : 12}
+            min={minHour}
+            max={maxHour}
             value={value.hour}
-            onChange={(e) => onChange({ ...value, hour: Number(e.target.value) })}
-            className="w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-base sm:text-lg font-medium text-app-charcoal"
+            onChange={handleHourChange}
+            className={`w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-base sm:text-lg font-medium text-app-charcoal [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-auto [&::-webkit-inner-spin-button]:appearance-auto ${
+              hourError
+                ? "border-red-500 focus:ring-red-300"
+                : "border-app-border focus:ring-app-green"
+            }`}
           />
           <p className="text-xs text-app-gray text-center mt-1">Hour</p>
         </div>
@@ -1244,9 +1348,13 @@ function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSection
             type="number"
             min={0}
             max={59}
-            value={value.minute.toString().padStart(2, "0")}
-            onChange={(e) => onChange({ ...value, minute: Number(e.target.value) })}
-            className="w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-green text-center text-base sm:text-lg font-medium text-app-charcoal"
+            value={value.minute}
+            onChange={handleMinuteChange}
+            className={`w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-base sm:text-lg font-medium text-app-charcoal [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-auto [&::-webkit-inner-spin-button]:appearance-auto ${
+              minuteError
+                ? "border-red-500 focus:ring-red-300"
+                : "border-app-border focus:ring-app-green"
+            }`}
           />
           <p className="text-xs text-app-gray text-center mt-1">Min</p>
         </div>
@@ -1264,6 +1372,17 @@ function TimeInputSection({ label, value, onChange, is24Hour }: TimeInputSection
           </div>
         )}
       </div>
+      {/* Inline validation error messages */}
+      {(hourError || minuteError) && (
+        <div className="mt-2 text-center">
+          {hourError && (
+            <p className="text-xs text-red-500">{hourError}</p>
+          )}
+          {minuteError && (
+            <p className="text-xs text-red-500">{minuteError}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -22,6 +22,10 @@ interface SyncWithGoogleSheetsButtonProps {
   showStatus?: boolean;
   /** Custom class names to apply */
   className?: string;
+  /** Disable the button (e.g., when there are input security errors) */
+  disabled?: boolean;
+  /** Message to show when disabled due to input errors */
+  disabledMessage?: string;
 }
 
 interface SyncResults {
@@ -73,6 +77,8 @@ export function SyncWithGoogleSheetsButton({
   variant = "primary",
   showStatus = false,
   className = "",
+  disabled = false,
+  disabledMessage,
 }: SyncWithGoogleSheetsButtonProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState("");
@@ -275,7 +281,7 @@ export function SyncWithGoogleSheetsButton({
 
   // Handle button click
   const handleClick = () => {
-    if (isSyncing || rateLimit.isRateLimited) return;
+    if (isSyncing || rateLimit.isRateLimited || disabled) return;
     if (!rateLimit.attempt()) return;
     googleLogin();
   };
@@ -326,15 +332,22 @@ export function SyncWithGoogleSheetsButton({
     <div className={className}>
       <button
         onClick={handleClick}
-        disabled={isSyncing || rateLimit.isRateLimited}
+        disabled={isSyncing || rateLimit.isRateLimited || disabled}
         className={buttonStyles[variant]}
-        title="Push local changes and pull updates from Google Sheets"
+        title={disabled && disabledMessage ? disabledMessage : "Push local changes and pull updates from Google Sheets"}
       >
         <span className="flex items-center gap-2">
           {SyncIcon}
           {isSyncing ? syncProgress || "Syncing..." : "Sync with Google Sheets"}
         </span>
       </button>
+
+      {/* Input security warning */}
+      {disabled && disabledMessage && (
+        <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          ⚠️ {disabledMessage}
+        </div>
+      )}
 
       {/* Rate limit warning */}
       {rateLimit.isRateLimited && (

@@ -99,7 +99,7 @@ export default function RecoverPage() {
         <div className="text-center">
             <h1 className="text-3xl font-bold text-app-charcoal">Restore Your Setup</h1>
             <p className="text-app-gray mt-2">
-            Enter your Google Sheet URL below, then connect to restore all your settings.
+            Paste your Google Sheet URL below, then connect to restore all your settings.
             </p>
         </div>
         

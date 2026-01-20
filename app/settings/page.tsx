@@ -233,6 +233,9 @@ function SettingsPageContent() {
   const [medicineNameHasFormulaInjection, setMedicineNameHasFormulaInjection] = useState(false);
   const [dosageHasFormulaInjection, setDosageHasFormulaInjection] = useState(false);
 
+  // Google Sheet URL validation error
+  const [sheetError, setSheetError] = useState<string | null>(null);
+
   const hasTextInputError =
     newSymptom.length > 60 ||
     newPeriodSymptom.length > 60 ||
@@ -245,8 +248,8 @@ function SettingsPageContent() {
     newPeriodSymptomHasFormulaInjection ||
     Object.values(customProductFormulaInjection).some(hasInjection => hasInjection) ||
     medicineNameHasFormulaInjection ||
-    dosageHasFormulaInjection;
-  const [sheetError, setSheetError] = useState<string | null>(null);
+    dosageHasFormulaInjection ||
+    !!sheetError;
   const [pendingSheetUrl, setPendingSheetUrl] = useState<string | null>(null);
   const [pendingSheetName, setPendingSheetName] = useState<string | null>(null);
   const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
@@ -634,11 +637,11 @@ function SettingsPageContent() {
       return;
     }
     if (!sheetUrl.trim()) {
-      setSheetError("Please enter a Google Sheet URL");
+      setSheetError("Please paste a Google Sheet URL");
       return;
     }
     if (!GOOGLE_SHEET_URL_PATTERN.test(sheetUrl.trim())) {
-      setSheetError("Please enter a valid Google Sheets URL");
+      setSheetError("Please paste a valid Google Sheets URL");
       return;
     }
     setSheetError(null);
@@ -1321,7 +1324,7 @@ function SettingsPageContent() {
                         setSheetError(null);
                       }}
                       label="Google Sheet URL"
-                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      placeholder="Paste your URL here, e.g.: https://docs.google.com/spreadsheets/d/..."
                       required={true}
                       errorMessage={sheetError || undefined}
                       onValidationChange={(isValid) => setSheetUrlInputError(!isValid)}
@@ -1980,14 +1983,23 @@ function SettingsPageContent() {
                 </p>
               </div>
             )}
-            
+
+            {/* Text input security warning */}
+            {hasTextInputError && (
+              <div className="p-3 mb-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  ⚠️ Please fix the highlighted fields before saving.
+                </p>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleLocalContinue}
-              disabled={!hasUnsavedChanges}
+              disabled={!hasUnsavedChanges || hasTextInputError}
               className="w-full py-3 px-6 rounded-lg bg-app-green text-white font-semibold hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {!hasUnsavedChanges ? "No Changes to Save" : "Continue"}
+              {hasTextInputError ? "Fix Input Errors to Continue" : !hasUnsavedChanges ? "No Changes to Save" : "Continue"}
             </button>
           </section>
         )}
@@ -2001,7 +2013,12 @@ function SettingsPageContent() {
                 <p className="text-sm text-app-gray mb-4">
                   Push your local changes and pull updates from your Google Sheet backup.
                 </p>
-                <SyncWithGoogleSheetsButton variant="primary" showStatus />
+                <SyncWithGoogleSheetsButton
+                  variant="primary"
+                  showStatus
+                  disabled={hasTextInputError}
+                  disabledMessage="Please fix the highlighted input fields before syncing."
+                />
               </>
             ) : (
               <>
