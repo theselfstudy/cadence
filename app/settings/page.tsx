@@ -453,7 +453,7 @@ function SettingsPageContent() {
           setSuccessModalConfig({
             title: "Google Sheet Connected!",
             description: "We found existing entries in your sheet.",
-            secondaryText: "Your entries will be imported when you continue to the tutorial or skip to start logging.",
+            secondaryText: "Your entries will be imported when you click a \"Sync with Google Sheets\" button.",
           });
           setShowSuccessModal(true);
         } else {
@@ -1309,7 +1309,7 @@ function SettingsPageContent() {
                             Existing Entries Detected
                           </p>
                           <p className="text-xs text-app-gray mt-1">
-                            Your entries will be imported when you continue to the tutorial or skip to start logging.
+                            Your entries will be imported when you click a "Sync with Google Sheets" button.
                           </p>
                         </div>
                       </div>

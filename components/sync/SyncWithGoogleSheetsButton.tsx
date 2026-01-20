@@ -207,6 +207,13 @@ export function SyncWithGoogleSheetsButton({
             accessToken,
             googleSheet.name || undefined  // Preserve user's custom sheet name
           );
+
+          // If settings sheet doesn't exist yet, push local settings to create it
+          // This handles the case where a user has entries but no settings sheet
+          if (!results.pull.settings.success) {
+            setSyncProgress("Creating settings sheet...");
+            results.push.settings.success = await saveSettingsToSheet(accessToken);
+          }
         }
 
         // 6. Pull saved filters from sheet
@@ -217,6 +224,13 @@ export function SyncWithGoogleSheetsButton({
             accessToken
           );
           results.pull.filters.success = filterResult;
+
+          // If filters sheet doesn't exist yet, push local filters to create it
+          // This handles the case where a user has entries but no filters sheet
+          if (!filterResult && !savedFilters) {
+            setSyncProgress("Creating saved filters sheet...");
+            results.push.filters.success = await syncFiltersToSheet(accessToken);
+          }
         }
 
         // ==========================================
@@ -270,6 +284,7 @@ export function SyncWithGoogleSheetsButton({
       pendingEntriesCount,
       hasUnsavedChanges,
       hasFiltersToSync,
+      savedFilters.length,
       batchSyncEntries,
       saveSettingsToSheet,
       syncFiltersToSheet,
@@ -277,6 +292,7 @@ export function SyncWithGoogleSheetsButton({
       loadSettingsFromSheet,
       loadFiltersFromSheet,
       googleSheet.url,
+      googleSheet.name,
     ]
   );
 

@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useGoogleLogin } from "@react-oauth/google";
 import { SaveFilterModal } from "./SaveFilterModal";
-import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import {
   useSavedFilters,
   MAX_SAVED_FILTERS,
@@ -33,22 +31,12 @@ export function SavedFiltersSection({
 }: SavedFiltersSectionProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [pendingFilterName, setPendingFilterName] = useState<string | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  
-  // OAuth error modal state
-  const [showOAuthError, setShowOAuthError] = useState(false);
-  const [oauthErrorAction, setOauthErrorAction] = useState("");
-  const [oauthRetryFn, setOauthRetryFn] = useState<(() => void) | null>(null);
 
   const {
     savedFilters,
     saveFilter,
     deleteFilter,
     canSaveMore,
-    syncToSheet,
-    isSyncing,
   } = useSavedFilters();
 
   // Check if user has Google Sheet connected
@@ -57,118 +45,14 @@ export function SavedFiltersSection({
   const usedSlots = savedFilters.length;
 
   // ============================================
-  // OAUTH HOOKS
-  // ============================================
-
-  // OAuth for saving a new filter
-  const saveFilterLogin = useGoogleLogin({
-    scope: "https://www.googleapis.com/auth/spreadsheets",
-    onSuccess: async (tokenResponse) => {
-      if (pendingFilterName) {
-        // Save locally first
-        const result = saveFilter(pendingFilterName, currentFilters);
-        
-        if (result) {
-          // Sync to Google Sheet
-          const synced = await syncToSheet(tokenResponse.access_token);
-          if (synced) {
-            console.log("Filter saved and synced:", result.name);
-          } else {
-            console.warn("Filter saved locally but failed to sync to sheet");
-          }
-        }
-        
-        setPendingFilterName(null);
-      }
-    },
-    onError: () => {
-      setOauthErrorAction("save your filter");
-      setOauthRetryFn(() => () => {
-        if (pendingFilterName) {
-          saveFilterLogin();
-        }
-      });
-      setShowOAuthError(true);
-      setPendingFilterName(null);
-    },
-    onNonOAuthError: () => {
-      setOauthErrorAction("save your filter");
-      setOauthRetryFn(() => () => {
-        if (pendingFilterName) {
-          saveFilterLogin();
-        }
-      });
-      setShowOAuthError(true);
-      setPendingFilterName(null);
-    },
-  });
-
-  // OAuth for deleting a filter (sync-first approach)
-  const deleteFilterLogin = useGoogleLogin({
-    scope: "https://www.googleapis.com/auth/spreadsheets",
-    onSuccess: async (tokenResponse) => {
-      if (pendingDeleteId) {
-        setIsDeleting(true);
-        
-        // Delete locally first (optimistic)
-        deleteFilter(pendingDeleteId);
-        
-        // Then sync the deletion to sheet
-        const synced = await syncToSheet(tokenResponse.access_token);
-        
-        if (synced) {
-          console.log("Filter deleted and synced");
-        } else {
-          console.warn("Filter deleted locally but failed to sync deletion to sheet");
-        }
-        
-        setIsDeleting(false);
-        setPendingDeleteId(null);
-        setShowDeleteConfirm(null);
-      }
-    },
-    onError: () => {
-      setIsDeleting(false);
-      setShowDeleteConfirm(null);
-      setOauthErrorAction("delete your filter");
-      setOauthRetryFn(() => () => {
-        if (pendingDeleteId) {
-          setShowDeleteConfirm(pendingDeleteId);
-        }
-      });
-      setShowOAuthError(true);
-      setPendingDeleteId(null);
-    },
-    onNonOAuthError: () => {
-      setIsDeleting(false);
-      setShowDeleteConfirm(null);
-      setOauthErrorAction("delete your filter");
-      setOauthRetryFn(() => () => {
-        if (pendingDeleteId) {
-          setShowDeleteConfirm(pendingDeleteId);
-        }
-      });
-      setShowOAuthError(true);
-      setPendingDeleteId(null);
-    },
-  });
-
-  // ============================================
   // HANDLERS
   // ============================================
 
-  // Handle saving a new filter
+  // Handle saving a new filter (always saves locally, syncs via "Sync with Google Sheets" button)
   const handleSave = (name: string) => {
-    if (isGoogleSheetConnected) {
-      // Store the name and trigger OAuth
-      setPendingFilterName(name);
-      saveFilterLogin();
-    } else {
-      // Anonymous mode - just save locally
-      const result = saveFilter(name, currentFilters);
-      if (result) {
-        console.log("Filter saved locally:", result.name);
-      }
+    const result = saveFilter(name, currentFilters);
+    if (result) {
+      console.log("Filter saved locally:", result.name);
     }
   };
 
@@ -182,16 +66,10 @@ export function SavedFiltersSection({
     setShowDeleteConfirm(filterId);
   };
 
+  // Handle confirming delete (always deletes locally, syncs via "Sync with Google Sheets" button)
   const handleConfirmDelete = (filterId: string) => {
-    if (isGoogleSheetConnected) {
-      // Sync-first: Store the ID, trigger OAuth, delete only on success
-      setPendingDeleteId(filterId);
-      deleteFilterLogin();
-    } else {
-      // Anonymous mode - just delete locally
-      deleteFilter(filterId);
-      setShowDeleteConfirm(null);
-    }
+    deleteFilter(filterId);
+    setShowDeleteConfirm(null);
   };
 
   // Generate tooltip for disabled save button
@@ -224,73 +102,46 @@ export function SavedFiltersSection({
         <div className="relative group">
           <button
             onClick={() => setShowSaveModal(true)}
-            disabled={!hasActiveFilters || !canSaveMore() || isSyncing}
+            disabled={!hasActiveFilters || !canSaveMore()}
             className={`
               flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
               transition-colors
-              ${hasActiveFilters && canSaveMore() && !isSyncing
+              ${hasActiveFilters && canSaveMore()
                 ? "bg-[#3F592E] text-white hover:bg-[#3F592E]/90"
                 : "bg-app-border text-app-gray cursor-not-allowed"
               }
             `}
             aria-label="Save current filters"
           >
-            {isSyncing ? (
-              <>
-                <svg
-                  className="w-4 h-4 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Saving...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Save
-              </>
-            )}
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Save
           </button>
 
           {/* Tooltip for disabled state */}
-          {(!hasActiveFilters || !canSaveMore()) && !isSyncing && (
+          {(!hasActiveFilters || !canSaveMore()) && (
             <div
-              className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-app-charcoal 
-                         text-white text-xs rounded-lg whitespace-nowrap opacity-0 
+              className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-app-charcoal
+                         text-white text-xs rounded-lg whitespace-nowrap opacity-0
                          group-hover:opacity-100 transition-opacity pointer-events-none
                          shadow-lg z-10"
             >
               {getSaveButtonTooltip()}
               <div
-                className="absolute top-full right-4 w-0 h-0 
-                           border-l-4 border-r-4 border-t-4 
-                           border-l-transparent border-r-transparent 
+                className="absolute top-full right-4 w-0 h-0
+                           border-l-4 border-r-4 border-t-4
+                           border-l-transparent border-r-transparent
                            border-t-app-charcoal"
               />
             </div>
@@ -309,83 +160,57 @@ export function SavedFiltersSection({
               {/* Filter chip */}
               <button
                 onClick={() => handleLoad(filter)}
-                disabled={isDeleting && pendingDeleteId === filter.id}
-                className={`flex items-center gap-2 px-3 py-2 bg-app-cream 
+                className="flex items-center gap-2 px-3 py-2 bg-app-cream
                          hover:bg-app-taupe/30 rounded-lg transition-colors
-                         border border-app-border
-                         ${isDeleting && pendingDeleteId === filter.id ? "opacity-50" : ""}`}
+                         border border-app-border"
               >
-                {isDeleting && pendingDeleteId === filter.id ? (
-                  <svg
-                    className="w-4 h-4 text-[#3F592E] animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-4 h-4 text-[#3F592E]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                    />
-                  </svg>
-                )}
+                <svg
+                  className="w-4 h-4 text-[#3F592E]"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                  />
+                </svg>
                 <span className="text-sm font-medium text-[#3F592E] max-w-[150px] truncate">
                   {filter.name}
                 </span>
               </button>
 
-              {/* Delete button (shows on hover, hidden during delete) */}
-              {!(isDeleting && pendingDeleteId === filter.id) && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteClick(filter.id);
-                  }}
-                  className="absolute -top-1 -right-1 w-5 h-5 bg-app-red text-white 
+              {/* Delete button (shows on hover) */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteClick(filter.id);
+                }}
+                className="absolute -top-1 -right-1 w-5 h-5 bg-app-red text-white
                            rounded-full flex items-center justify-center
                            opacity-0 group-hover:opacity-100 transition-opacity
                            hover:bg-app-red/80 shadow-sm"
-                  aria-label={`Delete ${filter.name}`}
+                aria-label={`Delete ${filter.name}`}
+              >
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
                 >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
 
               {/* Delete confirmation popover */}
-              {showDeleteConfirm === filter.id && !isDeleting && (
+              {showDeleteConfirm === filter.id && (
                 <>
                   <div
                     className="fixed inset-0 z-40"
@@ -433,17 +258,6 @@ export function SavedFiltersSection({
         onSave={handleSave}
         currentSlot={usedSlots + 1}
         totalSlots={MAX_SAVED_FILTERS}
-      />
-
-      {/* OAuth Error Modal */}
-      <OAuthErrorModal
-        isOpen={showOAuthError}
-        onClose={() => {
-          setShowOAuthError(false);
-          setOauthRetryFn(null);
-        }}
-        onRetry={oauthRetryFn || undefined}
-        actionDescription={oauthErrorAction}
       />
     </div>
   );
