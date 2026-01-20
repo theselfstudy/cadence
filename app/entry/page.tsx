@@ -503,6 +503,11 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [hasStartTimeError, setHasStartTimeError] = useState(false);
   const [hasEndTimeError, setHasEndTimeError] = useState(false);
 
+  // One-off custom symptoms (per-entry only, not persisted globally)
+  const [oneOffSymptoms, setOneOffSymptoms] = useState<string[]>([]);
+  const [oneOffSymptomInput, setOneOffSymptomInput] = useState("");
+  const [oneOffSymptomInputError, setOneOffSymptomInputError] = useState<string | null>(null);
+
   // Validation: Check if notes exceeds character limit
   const notesExceedsLimit = notes.length > 500;
 
@@ -557,6 +562,76 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     }
   };
 
+  // Handle one-off symptom input change
+  const handleOneOffSymptomInputChange = (value: string) => {
+    setOneOffSymptomInput(value);
+    // Clear error when user starts typing again
+    if (oneOffSymptomInputError) {
+      setOneOffSymptomInputError(null);
+    }
+  };
+
+  // Check if the one-off symptom input is valid for adding
+  const isOneOffInputValid = (): boolean => {
+    const trimmed = oneOffSymptomInput.trim();
+    if (!trimmed) return false;
+    if (trimmed.length > 60) return false;
+    const safetyCheck = isTextSafe(trimmed);
+    if (!safetyCheck.isSafe) return false;
+    return true;
+  };
+
+  // Add a one-off symptom
+  const handleAddOneOffSymptom = () => {
+    const trimmed = oneOffSymptomInput.trim();
+
+    // Validation checks
+    if (!trimmed) {
+      setOneOffSymptomInputError("Please enter a symptom name");
+      return;
+    }
+
+    if (trimmed.length > 60) {
+      setOneOffSymptomInputError("Symptom name must be 60 characters or less");
+      return;
+    }
+
+    const safetyCheck = isTextSafe(trimmed);
+    if (!safetyCheck.isSafe) {
+      setOneOffSymptomInputError(safetyCheck.reason || "Invalid characters detected");
+      return;
+    }
+
+    // Optional de-dupe check (case-insensitive)
+    const alreadyExists = oneOffSymptoms.some(
+      (s) => s.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (alreadyExists) {
+      setOneOffSymptomInputError("This symptom has already been added");
+      return;
+    }
+
+    // Add the symptom
+    setOneOffSymptoms([...oneOffSymptoms, trimmed]);
+    setOneOffSymptomInput("");
+    setOneOffSymptomInputError(null);
+  };
+
+  // Remove a one-off symptom
+  const handleRemoveOneOffSymptom = (symptomToRemove: string) => {
+    setOneOffSymptoms(oneOffSymptoms.filter((s) => s !== symptomToRemove));
+  };
+
+  // Handle Enter key for adding one-off symptom
+  const handleOneOffSymptomKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (isOneOffInputValid()) {
+        handleAddOneOffSymptom();
+      }
+    }
+  };
+
   // Helper to convert TimeValue to minutes since midnight for comparison
   const timeToMinutes = (time: TimeValue): number => {
     let hour = time.hour;
@@ -587,12 +662,13 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   // Helper to check if the entry is empty (no selections made)
   const isEntryEmpty = (): boolean => {
     const hasSymptoms = selectedSymptoms.length > 0;
+    const hasOneOffSymptoms = oneOffSymptoms.length > 0;
     const hasBowelData = bristolType !== null || postFeeling !== null;
     const hasPeriodData = cyclePhase !== null || flowLevel !== null || productUsage.length > 0;
     const hasMedicineData = loggedMedicines.length > 0;
     const hasNotes = notes.trim().length > 0;
 
-    return !hasSymptoms && !hasBowelData && !hasPeriodData && !hasMedicineData && !hasNotes;
+    return !hasSymptoms && !hasOneOffSymptoms && !hasBowelData && !hasPeriodData && !hasMedicineData && !hasNotes;
   };
 
   // Core submission logic (extracted to be reused from warning confirmation)
@@ -635,6 +711,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       stoolFeeling: safeStoolTracking.enabled ? postFeeling : null,
       medicineLog: allMedicineLogs,
       notes: notes ? sanitizeText(notes) : '',
+      oneOffSymptoms: oneOffSymptoms,
     };
 
     // Always save locally - no OAuth flow
@@ -723,6 +800,10 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     setNotesWarning(null);
     setProductUsage([]);
     setLoggedMedicines([]);
+    // Reset one-off symptoms
+    setOneOffSymptoms([]);
+    setOneOffSymptomInput("");
+    setOneOffSymptomInputError(null);
     // Reset to show modal again for next entry
     setSelectedLogSections(null);
   };
@@ -1075,6 +1156,66 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
             })}
           </div>
         )}
+
+        {/* Inline Custom (one-off) Symptoms Section */}
+        <div className="pt-4">
+            {/* Inline divider with label */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 border-t border-app-border"></div>
+              <span className="text-xs text-app-gray font-medium whitespace-nowrap">One-Off Symptoms</span>
+              <div className="flex-1 border-t border-app-border"></div>
+            </div>
+            <div  className="flex items-center gap-3 mb-3"> <span className="text-xs text-app-gray whitespace-nowrap">Use this area to track any non-recurring symptoms</span></div>
+            
+            {/* Input row with + Add button */}
+            <div className="flex gap-2 mb-3">
+              <div className="flex-1">
+                <SecureTextInput
+                  value={oneOffSymptomInput}
+                  onChange={handleOneOffSymptomInputChange}
+                  onKeyDown={handleOneOffSymptomKeyDown}
+                  placeholder="Enter a symptom..."
+                  showCharCount={false}
+                  className="text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleAddOneOffSymptom}
+                disabled={!isOneOffInputValid()}
+                className="px-4 py-2 rounded-lg bg-app-plumb/70 text-white text-sm font-medium hover:bg-app-plumb/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                + Add
+              </button>
+            </div>
+
+            {/* Error message */}
+            {oneOffSymptomInputError && (
+              <p className="text-xs text-app-red mb-3">{oneOffSymptomInputError}</p>
+            )}
+
+            {/* Added symptoms as pills */}
+            {oneOffSymptoms.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {oneOffSymptoms.map((symptom, index) => (
+                  <span
+                    key={`${symptom}-${index}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium border-app-plumb/30 bg-app-plumb/10 border-2 text-app-plumb"
+                  >
+                    {symptom}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveOneOffSymptom(symptom)}
+                      className="ml-1 text-app-charcoal/70 hover:text-app-charcoal transition-colors"
+                      aria-label={`Remove ${symptom}`}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       )}
 

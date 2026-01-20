@@ -279,8 +279,21 @@ function buildColumns(entries: StoredEntry[], options: ExportOptions): CSVColumn
             }
         });
     });
+
   }
-  
+
+  // ============================================
+  // One-Off Symptoms (always included, per-entry custom symptoms)
+  // Placed after general symptoms, before period columns
+  // ============================================
+  columns.push({
+    header: "One-Off Symptoms",
+    getValue: (e) => {
+      const symptoms = e.oneOffSymptoms ?? [];
+      return symptoms.length > 0 ? symptoms.join(", ") : "";
+    }
+  });
+
   // ============================================
   // Period Columns
   // ============================================

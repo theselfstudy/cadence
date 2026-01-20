@@ -448,7 +448,10 @@ export interface StoredEntry {
   
   /** Symptom intensities - key is symptom name, value is intensity (or null if no intensity tracking) */
   symptomIntensities: Record<string, number | null>;
-  
+
+  /** One-off custom symptoms for this entry only (not persisted globally) */
+  oneOffSymptoms?: string[];
+
   /** Period-related symptom intensities (tracked separately for column grouping) */
   periodSymptomIntensities: Record<string, number | null>;
   
@@ -548,7 +551,7 @@ export type EntryStore = EntryStoreState & EntryStoreActions;
  */
 export interface SheetColumn {
   header: string;
-  section: 'metadata' | 'symptoms' | 'periodSymptoms' | 'period' | 'products' | 'stool' | 'medicines' | 'closing';
+  section: 'metadata' | 'symptoms' | 'oneOffSymptoms' | 'periodSymptoms' | 'period' | 'products' | 'stool' | 'medicines' | 'closing';
   getValue: (entry: StoredEntry) => string | number;
 }
 

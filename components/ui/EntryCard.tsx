@@ -22,6 +22,7 @@ export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardP
   // Count symptoms
   const generalSymptomCount = Object.keys(entry.symptomIntensities).length;
   const periodSymptomCount = Object.keys(entry.periodSymptomIntensities).length;
+  const oneOffSymptomCount = entry.oneOffSymptoms?.length || 0;
   const medicineCount = entry.medicineLog.length;
   const productCount = entry.productUsage?.length || 0;
 
@@ -75,7 +76,14 @@ export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardP
             {generalSymptomCount} symptom{generalSymptomCount !== 1 ? "s" : ""}
           </span>
         )}
-        
+
+        {/* One-Off Symptoms - Plumb with border*/}
+        {oneOffSymptomCount > 0 && (
+          <span className="text-xs  border-app-plumb/30 bg-app-plumb/10 border-2 text-app-plumb px-2 py-1 rounded-full">
+            {oneOffSymptomCount} custom
+          </span>
+        )}
+
         {/* Bristol Type - Plumb */}
         {entry.stoolType && (
           <span className="text-xs bg-app-plumb/10 text-app-plumb px-2 py-1 rounded-full">
@@ -132,6 +140,22 @@ export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardP
                     className="text-xs bg-app-teal/10 text-app-teal px-2 py-1 rounded"
                   >
                     {symptom}{intensity !== null ? ` (${intensity})` : ""}
+                  </span>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* One-Off Symptoms Section */}
+          {oneOffSymptomCount > 0 && (
+            <Section title="One-Off Symptoms" icon="❖">
+              <div className="flex flex-wrap gap-1.5">
+                {entry.oneOffSymptoms?.map((symptom, idx) => (
+                  <span
+                    key={`oneoff-${idx}`}
+                    className="text-xs border-app-plumb/30 bg-app-plumb/10 border-2 text-app-plumb px-2 py-1 rounded"
+                  >
+                    {symptom}
                   </span>
                 ))}
               </div>

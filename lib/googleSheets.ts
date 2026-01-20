@@ -608,6 +608,19 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
   }
 
   // ─────────────────────────────────────────
+  // SECTION 4.5: One-Off Symptoms (per-entry custom symptoms)
+  // ─────────────────────────────────────────
+  // Always include this column - stores as comma-separated string
+  columns.push({
+    header: 'oneOff. Sym',
+    section: 'oneOffSymptoms',
+    getValue: (entry) => {
+      const symptoms = entry.oneOffSymptoms ?? [];
+      return symptoms.length > 0 ? symptoms.join(', ') : '';
+    },
+  });
+
+  // ─────────────────────────────────────────
   // SECTION 5: General Symptoms (append-only)
   // ─────────────────────────────────────────
   if (settings.symptoms.enabled && settings.symptoms.intensityTracking.enabled) {
@@ -829,6 +842,7 @@ export function reconcileHeaders(
     'stool',
     'period',
     'products',
+    'oneOffSymptoms',  // One-off symptoms come after products, before general symptoms
     'symptoms',
     'periodSymptoms',
     'medicines',
@@ -926,6 +940,9 @@ function inferSectionFromHeader(header: string): SheetColumn['section'] | null {
   }
   if (header.startsWith('Product:')) {
     return 'products';
+  }
+  if (header.startsWith('oneOff.') || header.startsWith('One-Off')) {
+    return 'oneOffSymptoms';
   }
   if (header.startsWith('Gen. Sym:')) {
     return 'symptoms';
@@ -1654,6 +1671,12 @@ export function parseSheetRowToEntry(
   // Parse pain scale
   const painScale = (data['Pain Scale'] || 'simple') as StoredEntry['painScale'];
 
+  // Parse one-off symptoms (comma-separated string → array)
+  const oneOffSymptomStr = data['oneOff. Sym'] || '';
+  const oneOffSymptoms = oneOffSymptomStr
+    ? oneOffSymptomStr.split(',').map(s => s.trim()).filter(s => s.length > 0)
+    : [];
+
   // Build the entry
   const entry: StoredEntry = {
     id: entryId,
@@ -1672,6 +1695,7 @@ export function parseSheetRowToEntry(
     stoolFeeling,
     medicineLog,
     notes: data['Notes'] || '',
+    oneOffSymptoms,
     syncStatus: 'synced', // Imported from sheet = already synced
   };
 

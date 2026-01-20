@@ -204,7 +204,8 @@ export function SyncWithGoogleSheetsButton({
           setSyncProgress("Pulling settings from sheet...");
           results.pull.settings.success = await loadSettingsFromSheet(
             spreadsheetId,
-            accessToken
+            accessToken,
+            googleSheet.name || undefined  // Preserve user's custom sheet name
           );
         }
 

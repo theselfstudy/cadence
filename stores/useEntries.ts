@@ -452,6 +452,16 @@ export const useEntries = create<EntryStore>()(
     {
       name: STORAGE_KEYS.entries || 'cadence-entries',
       storage: createJSONStorage(() => localStorage),
+      // Migration: Ensure backward compatibility for older entries
+      onRehydrateStorage: () => (state) => {
+        if (state?.entries) {
+          // Normalize entries to ensure oneOffSymptoms defaults to empty array
+          state.entries = state.entries.map((entry) => ({
+            ...entry,
+            oneOffSymptoms: entry.oneOffSymptoms ?? [],
+          }));
+        }
+      },
     }
   )
 );

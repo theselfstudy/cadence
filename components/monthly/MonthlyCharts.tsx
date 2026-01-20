@@ -62,13 +62,13 @@ export function MonthlyCharts({
   const chartEntries = selectedDays.length > 0 ? filteredEntries : entries;
 
   // Build chart data from appropriate entries
-  const { symptomFrequencyData, cycleData, medicineData } = useMemo(() => {
+  const { symptomFrequencyData, cycleData, medicineData, oneOffSymptomData } = useMemo(() => {
     return buildChartData(chartEntries, medicines);
   }, [chartEntries, medicines]);
 
   // Determine which charts are available based on data and settings
   const hasBristolData = bristolTrendData.some(w => w.totalBMs > 0);
-  const hasSymptomData = symptomHeatMapData.length > 0;
+  const hasSymptomData = symptomHeatMapData.length > 0 || oneOffSymptomData.length > 0;
   const hasCycleData = cycleData.phases.length > 0 || cycleData.flows.length > 0;
   const hasMedicineData = medicineData.medicines.length > 0;
 
@@ -145,9 +145,10 @@ export function MonthlyCharts({
           />
         )}
         {validActiveChart === "symptoms" && (
-          <SymptomFrequencyChart 
-            data={symptomFrequencyData} 
+          <SymptomFrequencyChart
+            data={symptomFrequencyData}
             heatMapData={symptomHeatMapData}
+            oneOffData={oneOffSymptomData}
             selectedDays={selectedDays}
             onDayClick={onDayClick}
           />
@@ -354,22 +355,29 @@ interface SymptomFrequencyData {
 }
 
 
+interface OneOffSymptomData {
+  name: string;        // Original casing for display
+  count: number;       // Frequency count
+}
+
 interface SymptomFrequencyChartProps {
   data: SymptomFrequencyData[];
   heatMapData: MonthlySymptomHeatMapData[];
+  oneOffData: OneOffSymptomData[];
   selectedDays?: number[];
   onDayClick?: (day: number) => void;
 }
 
-function SymptomFrequencyChart({ 
-  data, 
+function SymptomFrequencyChart({
+  data,
   heatMapData,
+  oneOffData,
   selectedDays = [],
   onDayClick,
 }: SymptomFrequencyChartProps) {
   const [viewMode, setViewMode] = useState<"table" | "heatmap">("heatmap");
 
-  if (data.length === 0) {
+  if (data.length === 0 && oneOffData.length === 0) {
     return (
       <div className="text-center py-8">
         <span className="text-3xl block mb-2">🏷️</span>
@@ -486,6 +494,32 @@ function SymptomFrequencyChart({
       <p className="text-xs text-app-gray mt-2 text-center">
         {data.length} symptom{data.length !== 1 ? "s" : ""} tracked this month
       </p>
+
+      {/* One-Off Symptoms Section */}
+      {oneOffData.length > 0 && (
+        <div className="mt-6 pt-4 border-t border-app-border">
+          <h4 className="text-sm font-medium text-app-charcoal mb-2 flex items-center gap-1.5">
+            <span>❖</span>
+            One-Off Symptoms
+          </h4>
+          <p className="text-xs text-app-gray mb-3">
+            Custom symptoms logged this month
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {oneOffData.map((item) => (
+              <span
+                key={item.name}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-app-teal/50 text-app-charcoal"
+              >
+                {item.name}
+                <span className="bg-app-charcoal/10 px-1.5 py-0.5 rounded-full text-xs">
+                  {item.count}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1185,6 +1219,7 @@ function buildChartData(
   symptomFrequencyData: SymptomFrequencyData[];
   cycleData: CycleData;
   medicineData: MedicineChartData;
+  oneOffSymptomData: OneOffSymptomData[];
 } {
   // ===== SYMPTOM FREQUENCY =====
   const symptomStats: Record<string, { 
@@ -1276,6 +1311,28 @@ function buildChartData(
       lowestIntensityDate: data.lowestIntensityDate,
     }))
     .sort((a, b) => b.totalCount - a.totalCount);
+
+  // ===== ONE-OFF SYMPTOM FREQUENCY =====
+  // Case-normalized counting but display original casing
+  const oneOffCounts: Map<string, { displayName: string; count: number }> = new Map();
+
+  for (const entry of entries) {
+    const symptoms = entry.oneOffSymptoms ?? [];
+    for (const symptom of symptoms) {
+      const normalizedKey = symptom.toLowerCase();
+      const existing = oneOffCounts.get(normalizedKey);
+      if (existing) {
+        existing.count++;
+      } else {
+        // Use original casing for display
+        oneOffCounts.set(normalizedKey, { displayName: symptom, count: 1 });
+      }
+    }
+  }
+
+  const oneOffSymptomData: OneOffSymptomData[] = Array.from(oneOffCounts.values())
+    .map(({ displayName, count }) => ({ name: displayName, count }))
+    .sort((a, b) => b.count - a.count);
 
   // ===== CYCLE DATA ===== Use maps to deduplicate by date (day of month)
   const dayBreakdownMap: Record<number, {
@@ -1496,7 +1553,7 @@ function buildChartData(
       .sort((a, b) => b.count - a.count),
   };
 
-  return { symptomFrequencyData, cycleData, medicineData };
+  return { symptomFrequencyData, cycleData, medicineData, oneOffSymptomData };
 }
 
 // ============================================

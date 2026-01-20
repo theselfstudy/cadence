@@ -125,7 +125,7 @@ export function SecureTextInput({
               ? 'border-app-red focus:ring-app-red/50'
               : charStatus.isWarning
               ? 'border-amber-500 focus:ring-amber-500/50'
-              : 'border-app-border focus:ring-app-green'
+              : 'border-app-border focus:ring-app-teal'
             }
             ${className}
           `}

@@ -44,12 +44,12 @@ export function WeeklyCharts({
   const [activeChart, setActiveChart] = useState<"symptoms" | "bowel" | "cycle" | "medicine">("symptoms");
 
   // Build chart data
-  const { symptomData, bristolData, cycleData, medicineData, symptomHeatMapData } = useMemo(() => {
+  const { symptomData, bristolData, cycleData, medicineData, symptomHeatMapData, oneOffSymptomData } = useMemo(() => {
     return buildChartData(entries, orderedDays, medicines);
   }, [entries, orderedDays, medicines]);
 
   // Determine which charts are available based on data and settings
-  const hasSymptomData = symptomData.length > 0;
+  const hasSymptomData = symptomData.length > 0 || oneOffSymptomData.length > 0;
   const hasBristolData = bristolData.days.some(d => d.entries.length > 0);
   const hasCycleData = cycleData.phases.length > 0 || cycleData.flows.length > 0;
   const hasMedicineData = medicineData.medicines.length > 0;
@@ -113,9 +113,10 @@ export function WeeklyCharts({
       {/* Chart Content */}
       <div className="p-4">
         {validActiveChart === "symptoms" && (
-          <SymptomFrequencyChart 
-            data={symptomData} 
+          <SymptomFrequencyChart
+            data={symptomData}
             heatMapData={symptomHeatMapData}
+            oneOffData={oneOffSymptomData}
             selectedDays={selectedDays}
             onDayClick={onDayClick}
           />
@@ -152,22 +153,29 @@ interface SymptomHeatMapData {
   days: { day: string; intensity: number | null; logged: boolean }[];
 }
 
+interface OneOffSymptomData {
+  name: string;        // Original casing for display
+  count: number;       // Frequency count
+}
+
 interface SymptomFrequencyChartProps {
   data: SymptomFrequencyData[];
   heatMapData: SymptomHeatMapData[];
+  oneOffData: OneOffSymptomData[];
   selectedDays?: string[];
   onDayClick?: (day: string) => void;
 }
 
-function SymptomFrequencyChart({ 
-  data, 
+function SymptomFrequencyChart({
+  data,
   heatMapData,
+  oneOffData,
   selectedDays = [],
   onDayClick,
 }: SymptomFrequencyChartProps) {
   const [viewMode, setViewMode] = useState<"table" | "heatmap">("heatmap");
 
-  if (data.length === 0) {
+  if (data.length === 0 && oneOffData.length === 0) {
     return (
       <div className="text-center py-8">
         <span className="text-3xl block mb-2">🏷️</span>
@@ -258,6 +266,32 @@ function SymptomFrequencyChart({
       <p className="text-xs text-app-gray mt-2 text-center">
         {data.length} symptom{data.length !== 1 ? "s" : ""} tracked this week
       </p>
+
+      {/* One-Off Symptoms Section */}
+      {oneOffData.length > 0 && (
+        <div className="mt-6 pt-4 border-t border-app-border">
+          <h4 className="text-sm font-medium text-app-charcoal mb-2 flex items-center gap-1.5">
+            <span>❖</span>
+            One-Off Symptoms
+          </h4>
+          <p className="text-xs text-app-gray mb-3">
+            Custom symptoms logged this week
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {oneOffData.map((item) => (
+              <span
+                key={item.name}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-app-teal/50 text-app-charcoal"
+              >
+                {item.name}
+                <span className="bg-app-charcoal/10 px-1.5 py-0.5 rounded-full text-xs">
+                  {item.count}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1225,6 +1259,7 @@ function buildChartData(
   cycleData: CycleData;
   medicineData: MedicineChartData;
   symptomHeatMapData: SymptomHeatMapData[];
+  oneOffSymptomData: OneOffSymptomData[];
 } {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -1275,6 +1310,28 @@ function buildChartData(
       return { name, totalCount, highestCount, highestDay, lowestCount, lowestDay };
     })
     .sort((a, b) => b.totalCount - a.totalCount);
+
+  // ===== ONE-OFF SYMPTOM FREQUENCY =====
+  // Case-normalized counting but display original casing
+  const oneOffCounts: Map<string, { displayName: string; count: number }> = new Map();
+
+  for (const entry of entries) {
+    const symptoms = entry.oneOffSymptoms ?? [];
+    for (const symptom of symptoms) {
+      const normalizedKey = symptom.toLowerCase();
+      const existing = oneOffCounts.get(normalizedKey);
+      if (existing) {
+        existing.count++;
+      } else {
+        // Use original casing for display
+        oneOffCounts.set(normalizedKey, { displayName: symptom, count: 1 });
+      }
+    }
+  }
+
+  const oneOffSymptomData: OneOffSymptomData[] = Array.from(oneOffCounts.values())
+    .map(({ displayName, count }) => ({ name: displayName, count }))
+    .sort((a, b) => b.count - a.count);
 
   // ===== BRISTOL TIMELINE DATA =====
   const bristolByDay: Record<string, Record<number, number>> = {};
@@ -1587,7 +1644,7 @@ function buildChartData(
     .sort((a, b) => b.totalLogged - a.totalLogged)
     .map(({ symptom, days }) => ({ symptom, days }));
 
-  return { symptomData, bristolData, cycleData, medicineData, symptomHeatMapData };
+  return { symptomData, bristolData, cycleData, medicineData, symptomHeatMapData, oneOffSymptomData };
 }
 
 // ============================================
