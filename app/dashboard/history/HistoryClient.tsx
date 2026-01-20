@@ -215,13 +215,13 @@ export default function HistoryPage() {
   // Handle CSV export
   const handleExport = () => {
     if (filteredEntries.length === 0) return;
-    
+
     downloadEntriesAsCSV(filteredEntries, {
       timeFormat: timeFormat,
-      includeSymptoms: true,
-      includePeriod: true,
-      includeStool: true,
-      includeMedicine: true,
+      includeSymptoms: settings.symptoms.enabled,
+      includePeriod: settings.periodTracking.enabled,
+      includeStool: settings.stoolTracking.enabled,
+      includeMedicine: settings.medicineTracking.enabled,
     });
   };
   

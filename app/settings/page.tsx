@@ -823,8 +823,9 @@ function SettingsPageContent() {
     }
 
     setShowValidationErrors(false);
-    setPendingNavigation("tutorial");
-    setShowSavePrompt(true);
+    // Settings are auto-saved to localStorage, so just navigate directly
+    completeSetup();
+    router.push("/tutorial");
   };
 
   const handleSkipTutorial = () => {
@@ -835,8 +836,10 @@ function SettingsPageContent() {
     }
 
     setShowValidationErrors(false);
-    setPendingNavigation("entry");
-    setShowSavePrompt(true);
+    // Settings are auto-saved to localStorage, so just navigate directly
+    completeSetup();
+    useSettings.getState().completeTutorial();
+    router.push("/entry");
   };
 
   const handleSaveAndContinue = () => {
@@ -2009,9 +2012,9 @@ function SettingsPageContent() {
           <section className="card border-2 border-app-teal/30 bg-app-teal/5">
             {isGoogleSheetConnected ? (
               <>
-                <h2 className="text-lg font-semibold text-app-charcoal mb-2">🔄 Sync with Google Sheets</h2>
+                <h2 className="text-lg font-semibold text-app-charcoal mb-2">🔄 Sync with Google Sheet</h2>
                 <p className="text-sm text-app-gray mb-4">
-                  Push your local changes and pull updates from your Google Sheet backup.
+                  Push changes and pull data from your Google Sheet.
                 </p>
                 <SyncWithGoogleSheetsButton
                   variant="primary"

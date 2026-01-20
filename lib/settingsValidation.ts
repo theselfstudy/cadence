@@ -144,7 +144,7 @@ export function validateSettings(state: ValidationInput): SettingsValidation {
   // Overall Validation
   // ---------------------------------------------------------------------------
   
-  const isValid = anySectionEnabled && productTrackingValid && customProductsValid && medicineTrackingValid;
+  const isValid = anySectionEnabled && productTrackingValid && customProductsValid && medicineTrackingValid && !symptomsEnabledButEmpty;
 
   // Build human-readable validation message
   let validationMessage: string | null = null;

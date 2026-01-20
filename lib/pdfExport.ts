@@ -173,10 +173,12 @@ interface SymptomStats {
     moderate: number;
     severe: number;
   };
+  oneOffSymptoms: string[];
 }
 
 function analyzeSymptoms(entries: StoredEntry[]): SymptomStats {
   const symptomCounts: Record<string, { count: number; intensities: number[] }> = {};
+  const allOneOffSymptoms: Set<string> = new Set();
 
   entries.forEach(entry => {
     // General symptoms
@@ -200,6 +202,11 @@ function analyzeSymptoms(entries: StoredEntry[]): SymptomStats {
       if (intensity !== null && intensity !== undefined) {
         symptomCounts[label].intensities.push(intensity);
       }
+    });
+
+    // One-off symptoms (collect unique values)
+    (entry.oneOffSymptoms ?? []).forEach(symptom => {
+      allOneOffSymptoms.add(symptom);
     });
   });
 
@@ -225,10 +232,12 @@ function analyzeSymptoms(entries: StoredEntry[]): SymptomStats {
   return {
     totalEntries: entries.filter(e =>
       Object.keys(e.symptomIntensities || {}).length > 0 ||
-      Object.keys(e.periodSymptomIntensities || {}).length > 0
+      Object.keys(e.periodSymptomIntensities || {}).length > 0 ||
+      (e.oneOffSymptoms ?? []).length > 0
     ).length,
     topSymptoms,
     severityBreakdown,
+    oneOffSymptoms: Array.from(allOneOffSymptoms).sort(),
   };
 }
 
@@ -558,6 +567,16 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
         addText(`• Mild (0-3): ${symptomStats.severityBreakdown.mild} reports`, 9, false, colors.text, 5);
         addText(`• Moderate (4-7): ${symptomStats.severityBreakdown.moderate} reports`, 9, false, colors.text, 5);
         addText(`• Severe (8-10): ${symptomStats.severityBreakdown.severe} reports`, 9, false, colors.text, 5);
+      }
+
+      // One-off symptoms
+      if (symptomStats.oneOffSymptoms.length > 0) {
+        yPos += 4;
+        doc.setFont("helvetica", "bold");
+        addText("One-off symptoms:", 10);
+        doc.setFont("helvetica", "normal");
+
+        addText(symptomStats.oneOffSymptoms.join(", "), 9, false, colors.text, 5);
       }
     }
 
