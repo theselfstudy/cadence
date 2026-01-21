@@ -281,10 +281,10 @@ function SymptomFrequencyChart({
             {oneOffData.map((item) => (
               <span
                 key={item.name}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-app-teal/50 text-app-charcoal"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-xs font-medium border-app-plumb/30 bg-app-plumb/10 border-2 text-app-plumb"
               >
                 {item.name}
-                <span className="bg-app-charcoal/10 px-1.5 py-0.5 rounded-full text-xs">
+                <span className="bg-app-plumb/30 px-1.5 py-0.5 rounded-full text-xs">
                   {item.count}
                 </span>
               </span>

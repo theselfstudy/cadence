@@ -942,12 +942,26 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             🌸 Cycle Log
           </h2>
-          
+
           {/* Cycle Phase Selection */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-app-charcoal mb-2">
               Where are you in your cycle?
             </label>
+            <div className="flex items-center gap-1.5 text-xs text-app-gray mb-3">
+              <span>💡</span>
+              <span>
+                Want to understand period cycles?{" "}
+                <a
+                  href="https://www.healthline.com/health/womens-health/stages-of-menstrual-cycle"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-app-teal hover:text-app-teal/80 underline"
+                >
+                  Click here to learn more →
+                </a>
+              </span>
+            </div>
             <div className="flex flex-wrap gap-2">
               {CYCLE_PHASES.map((phase) => {
                 const isSelected = cyclePhase === phase.value;

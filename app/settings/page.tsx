@@ -206,7 +206,8 @@ function SettingsPageContent() {
   // Get onboarding mode from URL params (set by welcome page)
   const searchParams = useSearchParams();
   const onboardingMode = searchParams.get("onboardingMode") as "google-sheet" | "anonymous" | null;
-  
+  const highlightSection = searchParams.get("highlight");
+
   // Track if Google Sheet section is expanded (for Anonymous mode accordion)
   const [isGoogleSheetExpanded, setIsGoogleSheetExpanded] = useState(
     // Start expanded if mode is google-sheet, or if user already has a sheet connected
@@ -393,7 +394,31 @@ function SettingsPageContent() {
       setShowValidationErrors(false);
     }
   }, [showValidationErrors, settingsValidation.isValid]);
-  
+
+  // Handle highlight query param - scroll to and highlight the section
+  useEffect(() => {
+    if (highlightSection) {
+      // Small delay to ensure the DOM is ready
+      const timer = setTimeout(() => {
+        const element = document.getElementById(highlightSection);
+        if (element) {
+          // Scroll the element into view
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+
+          // Add a highlight animation class
+          element.classList.add("highlight-pulse");
+
+          // Remove the class after animation completes
+          setTimeout(() => {
+            element.classList.remove("highlight-pulse");
+          }, 3000);
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightSection]);
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {

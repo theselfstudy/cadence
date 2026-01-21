@@ -78,6 +78,18 @@ export const useSettings = create<SettingsStore>()(
         get().clearGoogleSheet();
       },
 
+      /**
+       * Handles the case when sheet verification fails (deleted/access removed).
+       * Clears the sheet connection and returns a user-friendly message.
+       * Called when verifySheetConnection() returns failure.
+       */
+      handleSheetVerificationFailure: () => {
+        set({
+          isGoogleSheetConnected: false,
+          googleSheet: { url: null, name: null, addedAt: null },
+        });
+      },
+
       saveSettingsToSheet: async (accessToken: string): Promise<boolean> => {
         const { googleSheet, ...allSettings } = get();
 

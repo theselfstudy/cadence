@@ -10,6 +10,104 @@ import { PRODUCT_OPTIONS } from '@/lib/constants';
 export const ENTRIES_SHEET_PREFIX = "Cadence";
 
 // ============================================
+// SHEET HEALTH CHECK
+// ============================================
+
+export interface SheetVerificationResult {
+  success: boolean;
+  error?: 'deleted' | 'access_removed' | 'invalid' | 'network_error';
+  message?: string;
+}
+
+/**
+ * Verifies that the connected Google Sheet is still accessible.
+ * Should be called after OAuth succeeds but before any push/pull operations.
+ *
+ * Checks:
+ * - Sheet exists (not deleted)
+ * - User still has access
+ * - spreadsheetId is valid
+ *
+ * @param spreadsheetId - The ID of the spreadsheet to verify
+ * @param accessToken - OAuth access token
+ * @returns SheetVerificationResult indicating success or failure type
+ */
+export async function verifySheetConnection(
+  spreadsheetId: string,
+  accessToken: string
+): Promise<SheetVerificationResult> {
+  try {
+    // Request minimal metadata to verify sheet exists and is accessible
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=spreadsheetId`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (response.ok) {
+      return { success: true };
+    }
+
+    // Handle specific error codes
+    const status = response.status;
+
+    if (status === 404) {
+      // Sheet was deleted
+      return {
+        success: false,
+        error: 'deleted',
+        message: 'Sheet deleted or access removed. Please reconnect.',
+      };
+    }
+
+    if (status === 403) {
+      // Permission denied - user lost access
+      return {
+        success: false,
+        error: 'access_removed',
+        message: 'Sheet deleted or access removed. Please reconnect.',
+      };
+    }
+
+    if (status === 400) {
+      // Bad request - invalid spreadsheet ID
+      return {
+        success: false,
+        error: 'invalid',
+        message: 'Sheet deleted or access removed. Please reconnect.',
+      };
+    }
+
+    if (status === 401) {
+      // Unauthorized - token issue, but since we just got a fresh token,
+      // this likely means the sheet was deleted or access was revoked
+      return {
+        success: false,
+        error: 'access_removed',
+        message: 'Sheet deleted or access removed. Please reconnect.',
+      };
+    }
+
+    // Other errors - treat as network/temporary issues
+    return {
+      success: false,
+      error: 'network_error',
+      message: 'Unable to verify sheet connection. Please try again.',
+    };
+  } catch (error) {
+    console.error('Error verifying sheet connection:', error);
+    return {
+      success: false,
+      error: 'network_error',
+      message: 'Unable to verify sheet connection. Please try again.',
+    };
+  }
+}
+
+// ============================================
 // SHEET NAMES & CONFIGURATION
 // ============================================
 

@@ -8,6 +8,8 @@ import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useSyncTracker } from "@/stores/useSyncTracker";
 import { useButtonRateLimit } from "@/hooks/useRateLimit";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
+import { SheetDisconnectedModal } from "@/components/ui/SheetDisconnectedModal";
+import { verifySheetConnection } from "@/lib/googleSheets";
 
 // ============================================
 // Types
@@ -87,6 +89,7 @@ export function SyncWithGoogleSheetsButton({
     message: string;
   } | null>(null);
   const [showOAuthError, setShowOAuthError] = useState(false);
+  const [showSheetDisconnected, setShowSheetDisconnected] = useState(false);
 
   // Store hooks
   const { entries, batchSyncEntries, importEntriesFromSheet } = useEntries();
@@ -96,6 +99,7 @@ export function SyncWithGoogleSheetsButton({
     saveSettingsToSheet,
     loadSettingsFromSheet,
     googleSheet,
+    handleSheetVerificationFailure,
   } = useSettings();
   const {
     savedFilters,
@@ -157,6 +161,31 @@ export function SyncWithGoogleSheetsButton({
 
       try {
         // ==========================================
+        // SHEET HEALTH CHECK: Verify connection before sync
+        // ==========================================
+        const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet.url);
+
+        if (!spreadsheetId) {
+          setSyncResult({
+            success: false,
+            message: "Invalid Google Sheet URL. Please reconnect.",
+          });
+          handleSheetVerificationFailure();
+          return;
+        }
+
+        setSyncProgress("Verifying sheet connection...");
+        const verification = await verifySheetConnection(spreadsheetId, accessToken);
+
+        if (!verification.success) {
+          // Sheet is deleted or access removed - clear connection and block sync
+          handleSheetVerificationFailure();
+          // Show the disconnected modal instead of just a sync result
+          setShowSheetDisconnected(true);
+          return;
+        }
+
+        // ==========================================
         // PUSH PHASE: Local -> Google Sheets
         // ==========================================
 
@@ -199,38 +228,34 @@ export function SyncWithGoogleSheetsButton({
         };
 
         // 5. Pull settings from sheet
-        const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet.url);
-        if (spreadsheetId) {
-          setSyncProgress("Pulling settings from sheet...");
-          results.pull.settings.success = await loadSettingsFromSheet(
-            spreadsheetId,
-            accessToken,
-            googleSheet.name || undefined  // Preserve user's custom sheet name
-          );
+        // spreadsheetId already extracted and verified at the start of sync
+        setSyncProgress("Pulling settings from sheet...");
+        results.pull.settings.success = await loadSettingsFromSheet(
+          spreadsheetId,
+          accessToken,
+          googleSheet.name || undefined  // Preserve user's custom sheet name
+        );
 
-          // If settings sheet doesn't exist yet, push local settings to create it
-          // This handles the case where a user has entries but no settings sheet
-          if (!results.pull.settings.success) {
-            setSyncProgress("Creating settings sheet...");
-            results.push.settings.success = await saveSettingsToSheet(accessToken);
-          }
+        // If settings sheet doesn't exist yet, push local settings to create it
+        // This handles the case where a user has entries but no settings sheet
+        if (!results.pull.settings.success) {
+          setSyncProgress("Creating settings sheet...");
+          results.push.settings.success = await saveSettingsToSheet(accessToken);
         }
 
         // 6. Pull saved filters from sheet
-        if (spreadsheetId) {
-          setSyncProgress("Pulling saved filters from sheet...");
-          const filterResult = await loadFiltersFromSheet(
-            spreadsheetId,
-            accessToken
-          );
-          results.pull.filters.success = filterResult;
+        setSyncProgress("Pulling saved filters from sheet...");
+        const filterResult = await loadFiltersFromSheet(
+          spreadsheetId,
+          accessToken
+        );
+        results.pull.filters.success = filterResult;
 
-          // If filters sheet doesn't exist yet, push local filters to create it
-          // This handles the case where a user has entries but no filters sheet
-          if (!filterResult && !savedFilters) {
-            setSyncProgress("Creating saved filters sheet...");
-            results.push.filters.success = await syncFiltersToSheet(accessToken);
-          }
+        // If filters sheet doesn't exist yet, push local filters to create it
+        // This handles the case where a user has entries but no filters sheet
+        if (!filterResult && !savedFilters) {
+          setSyncProgress("Creating saved filters sheet...");
+          results.push.filters.success = await syncFiltersToSheet(accessToken);
         }
 
         // ==========================================
@@ -293,6 +318,7 @@ export function SyncWithGoogleSheetsButton({
       loadFiltersFromSheet,
       googleSheet.url,
       googleSheet.name,
+      handleSheetVerificationFailure,
     ]
   );
 
@@ -304,7 +330,8 @@ export function SyncWithGoogleSheetsButton({
   };
 
   // Don't render if Google Sheet is not connected
-  if (!isGoogleSheetConnected) {
+  // BUT still render if we need to show the disconnected modal
+  if (!isGoogleSheetConnected && !showSheetDisconnected) {
     return null;
   }
 
@@ -346,65 +373,76 @@ export function SyncWithGoogleSheetsButton({
   const syncStatusText = formatTimeSinceSync(lastSyncAt);
 
   return (
-    <div className={className}>
-      <button
-        onClick={handleClick}
-        disabled={isSyncing || rateLimit.isRateLimited || disabled}
-        className={buttonStyles[variant]}
-        title={disabled && disabledMessage ? disabledMessage : "Push local changes and pull updates from Google Sheets"}
-      >
-        <span className="flex items-center gap-2">
-          {SyncIcon}
-          {isSyncing ? syncProgress || "Syncing..." : "Sync with Google Sheets"}
-        </span>
-      </button>
+    <>
+      {/* Only show button and status when connected */}
+      {isGoogleSheetConnected && (
+        <div className={className}>
+          <button
+            onClick={handleClick}
+            disabled={isSyncing || rateLimit.isRateLimited || disabled}
+            className={buttonStyles[variant]}
+            title={disabled && disabledMessage ? disabledMessage : "Push local changes and pull updates from Google Sheets"}
+          >
+            <span className="flex items-center gap-2">
+              {SyncIcon}
+              {isSyncing ? syncProgress || "Syncing..." : "Sync with Google Sheets"}
+            </span>
+          </button>
 
-      {/* Input security warning */}
-      {disabled && disabledMessage && (
-        <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          ⚠️ {disabledMessage}
+          {/* Input security warning */}
+          {disabled && disabledMessage && (
+            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              ⚠️ {disabledMessage}
+            </div>
+          )}
+
+          {/* Rate limit warning */}
+          {rateLimit.isRateLimited && (
+            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              Please wait <strong>{rateLimit.getFormattedTime()}</strong> before
+              syncing again.
+            </div>
+          )}
+
+          {/* Sync result notification */}
+          {syncResult && (
+            <div
+              className={`mt-2 p-2 rounded-lg text-sm flex items-center gap-2 ${
+                syncResult.success
+                  ? "bg-app-teal/10 text-app-teal"
+                  : "bg-red-50 text-red-700"
+              }`}
+            >
+              <span>{syncResult.success ? "✓" : "✗"}</span>
+              <span>{syncResult.message}</span>
+            </div>
+          )}
+
+          {/* Sync status indicator */}
+          {showStatus && !syncResult && (
+            <div className="mt-2 text-sm text-app-gray">
+              Google Sheets: {syncStatusText}
+            </div>
+          )}
+
+          {/* OAuth Error Modal */}
+          <OAuthErrorModal
+            isOpen={showOAuthError}
+            onClose={() => setShowOAuthError(false)}
+            onRetry={() => {
+              setShowOAuthError(false);
+              googleLogin();
+            }}
+            actionDescription="sync with Google Sheets"
+          />
         </div>
       )}
 
-      {/* Rate limit warning */}
-      {rateLimit.isRateLimited && (
-        <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          Please wait <strong>{rateLimit.getFormattedTime()}</strong> before
-          syncing again.
-        </div>
-      )}
-
-      {/* Sync result notification */}
-      {syncResult && (
-        <div
-          className={`mt-2 p-2 rounded-lg text-sm flex items-center gap-2 ${
-            syncResult.success
-              ? "bg-app-teal/10 text-app-teal"
-              : "bg-red-50 text-red-700"
-          }`}
-        >
-          <span>{syncResult.success ? "✓" : "✗"}</span>
-          <span>{syncResult.message}</span>
-        </div>
-      )}
-
-      {/* Sync status indicator */}
-      {showStatus && !syncResult && (
-        <div className="mt-2 text-sm text-app-gray">
-          Google Sheets: {syncStatusText}
-        </div>
-      )}
-
-      {/* OAuth Error Modal */}
-      <OAuthErrorModal
-        isOpen={showOAuthError}
-        onClose={() => setShowOAuthError(false)}
-        onRetry={() => {
-          setShowOAuthError(false);
-          googleLogin();
-        }}
-        actionDescription="sync with Google Sheets"
+      {/* Sheet Disconnected Modal - rendered outside the connected check */}
+      <SheetDisconnectedModal
+        isOpen={showSheetDisconnected}
+        onClose={() => setShowSheetDisconnected(false)}
       />
-    </div>
+    </>
   );
 }

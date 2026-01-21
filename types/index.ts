@@ -402,10 +402,12 @@ export interface GoogleSettings {
   disconnectGoogleSheet: () => void;
   saveSettingsToSheet: (accessToken: string) => Promise<boolean>;
   loadSettingsFromSheet: (
-    spreadsheetId: string, 
+    spreadsheetId: string,
     accessToken: string,
     sheetName?: string
   ) => Promise<boolean>;
+  /** Handle sheet verification failure (deleted/access removed) - clears connection */
+  handleSheetVerificationFailure: () => void;
 }
 
 // ============================================
