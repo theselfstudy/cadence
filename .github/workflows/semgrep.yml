@@ -2,7 +2,11 @@ name: Semgrep SAST
 
 on:
   push:
+    branches:
+      - breakshit
   pull_request:
+    branches:
+      - breakshit
 
 jobs:
   semgrep:
