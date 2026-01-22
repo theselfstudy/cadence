@@ -28,8 +28,10 @@ jobs:
             --severity=WARNING
             --severity=ERROR
 
-      - name: Upload Semgrep JSON results
+      - name: Upload Semgrep artifacts
         uses: actions/upload-artifact@v4
         with:
           name: semgrep-results
-          path: semgrep.json
+          path: |
+            semgrep.json
+            semgrep.sarif
