@@ -21,9 +21,12 @@ jobs:
         uses: semgrep/semgrep-action@v1
         with:
           config: p/default
-          generateSarif: true
-        env:
-          SEMGREP_ENABLE_VERSION_CHECK: "0"
+          args: >
+            --json
+            --output=semgrep.json
+            --severity=INFO
+            --severity=WARNING
+            --severity=ERROR
 
       - name: Upload Semgrep JSON results
         uses: actions/upload-artifact@v4
