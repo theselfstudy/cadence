@@ -25,10 +25,15 @@ jobs:
       - name: Install Semgrep
         run: pip install semgrep
 
-      - name: Run Semgrep scan
+      - name: Run Semgrep JSON scan
         run: |
           semgrep --config p/default \
                   --json --output semgrep.json \
+                  --severity INFO --severity WARNING --severity ERROR
+
+      - name: Run Semgrep SARIF scan
+        run: |
+          semgrep --config p/default \
                   --sarif --sarif-output semgrep.sarif \
                   --severity INFO --severity WARNING --severity ERROR
 
