@@ -109,7 +109,7 @@ export function ConsistentPatternsSection({
       id: "medicines", 
       label: "Medicines", 
       shortLabel: "Meds",
-      activeColor: "bg-app-green/50 text-white",
+      activeColor: "bg-app-green/70 text-white",
       inactiveColor: "text-app-green hover:bg-app-green/10",
     },
   ];
