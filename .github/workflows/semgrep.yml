@@ -17,16 +17,20 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Run Semgrep
-        uses: semgrep/semgrep-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          config: p/default
-          args: >
-            --json
-            --output=semgrep.json
-            --severity=INFO
-            --severity=WARNING
-            --severity=ERROR
+          python-version: "3.x"
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep scan
+        run: |
+          semgrep --config p/default \
+                  --json --output semgrep.json \
+                  --sarif --sarif-output semgrep.sarif \
+                  --severity INFO --severity WARNING --severity ERROR
 
       - name: Upload Semgrep artifacts
         uses: actions/upload-artifact@v4
