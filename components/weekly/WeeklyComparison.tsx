@@ -22,6 +22,13 @@ interface WeeklyComparisonProps {
   thisWeekStartLabel?: string;
   /** Short label for previous week start (e.g., "Mar 3") - used in cards */
   lastWeekStartLabel?: string;
+  /** Which tracking categories are enabled */
+  enabledSections?: {
+    symptoms: boolean;
+    bowel: boolean;
+    cycle: boolean;
+    medicine: boolean;
+  };
 }
 
 export function WeeklyComparison({
@@ -31,12 +38,33 @@ export function WeeklyComparison({
   lastWeekLabel = "Last Week",
   thisWeekStartLabel,
   lastWeekStartLabel,
+  enabledSections = { symptoms: true, bowel: true, cycle: true, medicine: true },
 }: WeeklyComparisonProps) {
   // Use short labels for cards, fall back to full labels if not provided
   const cardThisWeekLabel = thisWeekStartLabel || thisWeekLabel;
   const cardLastWeekLabel = lastWeekStartLabel || lastWeekLabel;
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Calculate number of visible cards
+  const visibleCardCount =
+    (enabledSections.symptoms ? 1 : 0) +
+    (enabledSections.bowel ? 1 : 0) +
+    (enabledSections.cycle ? 1 : 0) +
+    (enabledSections.medicine ? 1 : 0);
+
+  // Determine grid column classes based on visible card count
+  const getGridClasses = () => {
+    if (visibleCardCount === 1) {
+      return "grid grid-cols-1 gap-4";
+    } else if (visibleCardCount === 2) {
+      return "grid grid-cols-1 sm:grid-cols-2 gap-4";
+    } else if (visibleCardCount === 3) {
+      return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
+    } else {
+      return "grid grid-cols-1 sm:grid-cols-2 gap-4";
+    }
+  };
 
   // If no previous week data, show a different message
   if (!hasPreviousWeekData) {
@@ -74,12 +102,13 @@ export function WeeklyComparison({
         <span className="text-app-gray text-lg">{isCollapsed ? "+" : "−"}</span>
       </button>
 
-      {/* Content - 2x2 Grid */}
+      {/* Content - Dynamic Grid */}
       {!isCollapsed && (
         <div className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Symptoms Card */}
-            <ComparisonCard
+          <div className={getGridClasses()}>
+            {/* Symptoms Card - only if symptoms enabled */}
+            {enabledSections.symptoms && (
+              <ComparisonCard
               icon="🏷️"
               title="Symptoms"
               accentColor="teal"
@@ -278,9 +307,11 @@ export function WeeklyComparison({
                 ) : undefined
               }
             />
+            )}
 
-            {/* Bowel Card */}
-            <ComparisonCard
+            {/* Bowel Card - only if bowel enabled */}
+            {enabledSections.bowel && (
+              <ComparisonCard
               icon="🧻"
               title="Bowel"
               accentColor="plumb"
@@ -543,9 +574,11 @@ export function WeeklyComparison({
                 ) : undefined
               }
             />
+            )}
 
-            {/* Cycle Card */}
-            <ComparisonCard
+            {/* Cycle Card - only if cycle enabled */}
+            {enabledSections.cycle && (
+              <ComparisonCard
               icon="🌸"
               title="Cycle"
               accentColor="red"
@@ -566,7 +599,7 @@ export function WeeklyComparison({
               }
               change={
                 <p className="text-xs text-app-gray">
-                  For deeper cycle insights, visit{" "}
+                 Want more insights? Visit {" "}
                   <Link 
                     href="/dashboard/cycleinsights" 
                     className="text-app-red hover:text-app-red/80 underline underline-offset-2"
@@ -576,9 +609,11 @@ export function WeeklyComparison({
                 </p>
               }
             />
+            )}
 
-            {/* Medicine Card */}
-            <ComparisonCard
+            {/* Medicine Card - only if medicine enabled */}
+            {enabledSections.medicine && (
+              <ComparisonCard
               icon="💊"
               title="Medicine"
               accentColor="lightgreen"
@@ -763,6 +798,7 @@ export function WeeklyComparison({
                 ) : undefined
               }
             />
+            )}
           </div>
         </div>
       )}

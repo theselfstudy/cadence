@@ -517,6 +517,7 @@ export default function WeeklyPage() {
               cycleDaysLogged={cycleData.cycleDaysLogged}
               phaseDistribution={cycleData.phaseDistribution}
               phaseRanges={cycleData.phaseRanges}
+              enabledSections={enabledSections}
             />
           </div>
         )}
@@ -566,6 +567,7 @@ export default function WeeklyPage() {
               lastWeekLabel={prevWeekRange.label}
               thisWeekStartLabel={formatWeekStart(weekRange.start)}
               lastWeekStartLabel={formatWeekStart(prevWeekRange.start)}
+              enabledSections={enabledSections}
             />
           </div>
         )}

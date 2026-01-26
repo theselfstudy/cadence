@@ -29,6 +29,13 @@ interface WeeklyStatsCardsProps {
   phaseDistribution?: Record<string, number>;
   /** Phase date ranges for display */
   phaseRanges?: { phase: string; startDate: string; endDate: string | null; days: number }[];
+  /** Which tracking categories are enabled */
+  enabledSections?: {
+    symptoms: boolean;
+    bowel: boolean;
+    cycle: boolean;
+    medicine: boolean;
+  };
 }
 
 export function WeeklyStatsCards({
@@ -42,11 +49,32 @@ export function WeeklyStatsCards({
   cycleDaysLogged = 0,
   phaseDistribution = {},
   phaseRanges = [],
+  enabledSections = { symptoms: true, bowel: true, cycle: true, medicine: true },
 }: WeeklyStatsCardsProps) {
+  // Calculate number of visible cards
+  const visibleCardCount =
+    (enabledSections.symptoms ? 2 : 0) + // Top Symptom + New This Week
+    (enabledSections.bowel ? 1 : 0) +     // Timing Patterns
+    (enabledSections.cycle ? 1 : 0);      // Cycle Phase
+
+  // Determine grid column classes based on visible card count
+  const getGridClasses = () => {
+    if (visibleCardCount === 1) {
+      return "grid grid-cols-1 gap-3";
+    } else if (visibleCardCount === 2) {
+      return "grid grid-cols-1 sm:grid-cols-2 gap-3";
+    } else if (visibleCardCount === 3) {
+      return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3";
+    } else {
+      return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3";
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      {/* Top Symptom Card */}
-      <StatCard
+    <div className={getGridClasses()}>
+      {/* Top Symptom Card - only if symptoms enabled */}
+      {enabledSections.symptoms && (
+        <StatCard
         label="Top Symptom"
         value={topSymptoms[0]?.name || "—"}
         subtext={
@@ -91,9 +119,11 @@ export function WeeklyStatsCards({
           )
         }
       />
+      )}
 
-      {/* Timing Patterns Card */}
-      <StatCard
+      {/* Timing Patterns Card - only if bowel enabled */}
+      {enabledSections.bowel && (
+        <StatCard
         label="Timing Patterns"
         value={getMostCommonTimeOfDay(stats.timeOfDayDistribution) || "—"}
         subtext={
@@ -128,9 +158,10 @@ export function WeeklyStatsCards({
           )
         }
       />
+      )}
 
-      {/* Cycle Phase Card - only if period tracking enabled */}
-      {periodTrackingEnabled && (
+      {/* Cycle Phase Card - only if cycle enabled */}
+      {enabledSections.cycle && periodTrackingEnabled && (
         <CyclePhaseCard
           currentPhase={currentCyclePhase}
           daysLogged={cycleDaysLogged}
@@ -140,13 +171,15 @@ export function WeeklyStatsCards({
         />
       )}
 
-      {/* New This Week Card */}
-      <NewThisWeekCard
-        comparison={comparison}
-        hasPreviousWeekData={hasPreviousWeekData}
-        topSymptoms={topSymptoms}
-        lastWeekTopSymptoms={lastWeekTopSymptoms}
-      />
+      {/* New This Week Card - only if symptoms enabled */}
+      {enabledSections.symptoms && (
+        <NewThisWeekCard
+          comparison={comparison}
+          hasPreviousWeekData={hasPreviousWeekData}
+          topSymptoms={topSymptoms}
+          lastWeekTopSymptoms={lastWeekTopSymptoms}
+        />
+      )}
     </div>
   );
 }

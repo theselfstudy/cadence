@@ -500,7 +500,7 @@ export function MonthlyComparison({
               }
                             change={
                 <p className="text-xs text-app-gray">
-                  For deeper cycle insights, visit{" "}
+                  Want more insights? Visit {" "}
                   <Link 
                     href="/dashboard/cycleinsights" 
                     className="text-app-red hover:text-app-red/80 underline underline-offset-2"
