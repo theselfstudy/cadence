@@ -118,7 +118,10 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/dashboard/monthly", label: "Monthly View" },
     { href: "/dashboard/history", label: "History View" },
     ...(isPeriodTrackingEnabled ? [{ href: "/dashboard/cycleinsights", label: "Cycle Insights" }] : []),
-    // { href: "/dashboard/reports", label: "Reports" }, // RE-ENABLE REPORTS HAMBURGER HERE
+  ];
+
+  const reportsItems = [
+    { href: "/dashboard/reports", label: "PDF Exports" },
   ];
 
   const settingsItems = [
@@ -214,6 +217,21 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
               </li>
             ))}
           </ul>
+
+          {/* Divider */}
+          <div className="my-3 border-t border-app-border" />
+
+          {/* Reports: PDF Exports */}
+          <p className="px-4 py-2 text-xs font-medium text-app-gray uppercase tracking-wider">
+            Reports
+          </p>
+          <ul className="space-y-1">
+            {reportsItems.map((item) => (
+              <li key={item.href}>
+                <NavLink href={item.href} label={item.label} />
+              </li>
+            ))}
+          </ul>
         </nav>
 
         {/* Settings at Bottom */}
@@ -274,10 +292,12 @@ function NavIcon({ label }: { label: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
         </svg>
       );
-    case "Reports":
+    case "PDF Exports":
       return (
         <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3v4a2 2 0 002 2h4" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 13l2 2 4-4" />
         </svg>
       );
     case "Settings Overview":

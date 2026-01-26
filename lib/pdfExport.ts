@@ -287,6 +287,305 @@ function analyzeMedications(entries: StoredEntry[]): MedicationStats {
 }
 
 // ============================================
+// Clinical Insights Generation
+// ============================================
+
+interface ClinicalInsights {
+  adherence: {
+    totalDays: number;
+    daysLogged: number;
+    adherenceRate: number;
+  };
+  topSymptoms: Array<{ name: string; count: number; avgIntensity: number | null }>;
+  dominantStoolPattern: {
+    type: number | null;
+    name: string;
+    percentage: number;
+  };
+  cycleRegularity: {
+    status: string;
+    averageLength: number | null;
+    variability: string;
+  };
+  medicationOverview: {
+    totalMedications: number;
+    mostUsed: string | null;
+  };
+  notableCorrelations: string[];
+  trends: {
+    symptoms: {
+      frequency: string;
+      variability: string;
+      direction: string;
+    };
+    bowel: {
+      frequency: string;
+      variability: string;
+      direction: string;
+    };
+    cycle: {
+      frequency: string;
+      variability: string;
+      direction: string;
+    };
+    medications: {
+      frequency: string;
+      variability: string;
+      direction: string;
+    };
+  };
+}
+
+function generateClinicalInsights(
+  entries: StoredEntry[],
+  dateRange: { start: string; end: string }
+): ClinicalInsights {
+  const totalDays = calculateDaysDifference(dateRange.start, dateRange.end) + 1;
+  const daysLogged = new Set(entries.map(e => e.date)).size;
+  const adherenceRate = Math.round((daysLogged / totalDays) * 100);
+
+  // Analyze symptoms
+  const symptomStats = analyzeSymptoms(entries);
+  const topSymptoms = symptomStats.topSymptoms.slice(0, 3);
+
+  // Analyze stool patterns
+  const stoolStats = analyzeStoolLogs(entries);
+  let dominantStoolPattern = {
+    type: null as number | null,
+    name: "No data",
+    percentage: 0,
+  };
+  if (stoolStats.mostCommonType) {
+    const bristol = BRISTOL_TYPES.find(b => b.type === stoolStats.mostCommonType);
+    const percentage = Math.round(
+      (stoolStats.distribution[stoolStats.mostCommonType] / stoolStats.totalEntries) * 100
+    );
+    dominantStoolPattern = {
+      type: stoolStats.mostCommonType,
+      name: bristol?.name || "Unknown",
+      percentage,
+    };
+  }
+
+  // Analyze cycle regularity
+  const cycleStats = analyzeCycleData(entries);
+  let cycleRegularity = {
+    status: "No data",
+    averageLength: null as number | null,
+    variability: "N/A",
+  };
+  if (cycleStats.cycleCount > 0) {
+    const avgLength = cycleStats.averageLength;
+    if (avgLength) {
+      // Calculate variability from average
+      const cycleLengths: number[] = [];
+      for (let i = 0; i < cycleStats.periodDetails.length - 1; i++) {
+        const length = cycleStats.periodDetails[i].lengthDays;
+        if (length) cycleLengths.push(length);
+      }
+
+      let variability = "Consistent";
+      if (cycleLengths.length > 1) {
+        const stdDev = Math.sqrt(
+          cycleLengths.reduce((sum, len) => sum + Math.pow(len - avgLength, 2), 0) / cycleLengths.length
+        );
+        if (stdDev > 7) variability = "Irregular";
+        else if (stdDev > 3) variability = "Variable";
+      }
+
+      cycleRegularity = {
+        status: avgLength >= 21 && avgLength <= 35 ? "Regular" : "Outside typical range",
+        averageLength: avgLength,
+        variability,
+      };
+    }
+  }
+
+  // Analyze medications
+  const medStats = analyzeMedications(entries);
+  const medicationOverview = {
+    totalMedications: medStats.medications.length,
+    mostUsed: medStats.medications[0]?.name || null,
+  };
+
+  // Detect notable correlations
+  const notableCorrelations: string[] = [];
+
+  // Check symptom-cycle correlation
+  const menstrualEntries = entries.filter(e => e.cyclePhase === "menstrual");
+  if (menstrualEntries.length > 0 && symptomStats.topSymptoms.length > 0) {
+    menstrualEntries.forEach(entry => {
+      const hasTopSymptoms = symptomStats.topSymptoms.some(
+        s => entry.symptomIntensities?.[s.name] || entry.periodSymptomIntensities?.[s.name.replace(" (period)", "")]
+      );
+      if (hasTopSymptoms) {
+        notableCorrelations.push("Top symptoms frequently occur during menstrual phase");
+      }
+    });
+  }
+
+  // Check medication-symptom correlation
+  if (medStats.medications.length > 0 && symptomStats.topSymptoms.length > 0) {
+    const medDates = new Set(
+      entries.filter(e => e.medicineLog && e.medicineLog.length > 0).map(e => e.date)
+    );
+    const symptomDates = new Set(
+      entries.filter(e =>
+        Object.keys(e.symptomIntensities || {}).length > 0 ||
+        Object.keys(e.periodSymptomIntensities || {}).length > 0
+      ).map(e => e.date)
+    );
+    const overlap = [...medDates].filter(d => symptomDates.has(d)).length;
+    const overlapRate = overlap / Math.max(medDates.size, 1);
+    if (overlapRate > 0.7) {
+      notableCorrelations.push("Medication usage often coincides with symptom reporting");
+    }
+  }
+
+  // Generate trend analysis
+  const trends = {
+    symptoms: analyzeTrend(entries, "symptoms"),
+    bowel: analyzeTrend(entries, "bowel"),
+    cycle: analyzeTrend(entries, "cycle"),
+    medications: analyzeTrend(entries, "medications"),
+  };
+
+  return {
+    adherence: {
+      totalDays,
+      daysLogged,
+      adherenceRate,
+    },
+    topSymptoms,
+    dominantStoolPattern,
+    cycleRegularity,
+    medicationOverview,
+    notableCorrelations: [...new Set(notableCorrelations)].slice(0, 3),
+    trends,
+  };
+}
+
+function analyzeTrend(
+  entries: StoredEntry[],
+  category: "symptoms" | "bowel" | "cycle" | "medications"
+): { frequency: string; variability: string; direction: string } {
+  let frequency = "Not tracked";
+  let variability = "N/A";
+  let direction = "Stable";
+
+  if (category === "symptoms") {
+    const symptomEntries = entries.filter(e =>
+      Object.keys(e.symptomIntensities || {}).length > 0 ||
+      Object.keys(e.periodSymptomIntensities || {}).length > 0
+    );
+    const rate = symptomEntries.length / Math.max(entries.length, 1);
+    frequency = rate > 0.7 ? "High" : rate > 0.4 ? "Moderate" : rate > 0 ? "Low" : "None";
+
+    // Check variability by looking at intensity changes
+    const allIntensities: number[] = [];
+    symptomEntries.forEach(e => {
+      Object.values(e.symptomIntensities || {}).forEach(i => {
+        if (i !== null && i !== undefined) allIntensities.push(i);
+      });
+      Object.values(e.periodSymptomIntensities || {}).forEach(i => {
+        if (i !== null && i !== undefined) allIntensities.push(i);
+      });
+    });
+    if (allIntensities.length > 1) {
+      const avg = allIntensities.reduce((a, b) => a + b, 0) / allIntensities.length;
+      const stdDev = Math.sqrt(
+        allIntensities.reduce((sum, i) => sum + Math.pow(i - avg, 2), 0) / allIntensities.length
+      );
+      variability = stdDev > 3 ? "High" : stdDev > 1.5 ? "Moderate" : "Low";
+
+      // Direction: compare first half vs second half
+      const midpoint = Math.floor(allIntensities.length / 2);
+      const firstHalf = allIntensities.slice(0, midpoint);
+      const secondHalf = allIntensities.slice(midpoint);
+      const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+      const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+      const diff = avgSecond - avgFirst;
+      if (Math.abs(diff) > 1) {
+        direction = diff > 0 ? "Increasing" : "Decreasing";
+      }
+    }
+  } else if (category === "bowel") {
+    const bowelEntries = entries.filter(e => e.stoolType !== null);
+    const rate = bowelEntries.length / Math.max(entries.length, 1);
+    frequency = rate > 0.7 ? "Daily" : rate > 0.4 ? "Frequent" : rate > 0 ? "Occasional" : "None";
+
+    if (bowelEntries.length > 1) {
+      const types = bowelEntries.map(e => e.stoolType!);
+      const avg = types.reduce((a, b) => a + b, 0) / types.length;
+      const stdDev = Math.sqrt(
+        types.reduce((sum, t) => sum + Math.pow(t - avg, 2), 0) / types.length
+      );
+      variability = stdDev > 1.5 ? "Variable" : stdDev > 0.7 ? "Moderate" : "Consistent";
+
+      // Direction
+      const midpoint = Math.floor(types.length / 2);
+      const avgFirst = types.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
+      const avgSecond = types.slice(midpoint).reduce((a, b) => a + b, 0) / (types.length - midpoint);
+      const diff = avgSecond - avgFirst;
+      if (Math.abs(diff) > 0.5) {
+        direction = diff > 0 ? "Trending firmer" : "Trending softer";
+      }
+    }
+  } else if (category === "cycle") {
+    const cycleStats = analyzeCycleData(entries);
+    if (cycleStats.cycleCount > 0) {
+      frequency = cycleStats.cycleCount === 1 ? "One cycle" : `${cycleStats.cycleCount} cycles`;
+      const avgLength = cycleStats.averageLength;
+      if (avgLength) {
+        const cycleLengths: number[] = [];
+        for (let i = 0; i < cycleStats.periodDetails.length - 1; i++) {
+          const length = cycleStats.periodDetails[i].lengthDays;
+          if (length) cycleLengths.push(length);
+        }
+        if (cycleLengths.length > 1) {
+          const stdDev = Math.sqrt(
+            cycleLengths.reduce((sum, len) => sum + Math.pow(len - avgLength, 2), 0) / cycleLengths.length
+          );
+          variability = stdDev > 7 ? "Irregular" : stdDev > 3 ? "Variable" : "Regular";
+
+          // Direction
+          if (cycleLengths.length >= 2) {
+            const trend = cycleLengths[cycleLengths.length - 1] - cycleLengths[0];
+            if (Math.abs(trend) > 3) {
+              direction = trend > 0 ? "Lengthening" : "Shortening";
+            }
+          }
+        }
+      }
+    }
+  } else if (category === "medications") {
+    const medEntries = entries.filter(e => e.medicineLog && e.medicineLog.length > 0);
+    const rate = medEntries.length / Math.max(entries.length, 1);
+    frequency = rate > 0.7 ? "Daily" : rate > 0.4 ? "Frequent" : rate > 0 ? "Occasional" : "None";
+
+    if (medEntries.length > 1) {
+      const counts = medEntries.map(e => e.medicineLog!.length);
+      const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+      const stdDev = Math.sqrt(
+        counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0) / counts.length
+      );
+      variability = stdDev > 1 ? "Variable" : stdDev > 0.5 ? "Moderate" : "Consistent";
+
+      // Direction
+      const midpoint = Math.floor(counts.length / 2);
+      const avgFirst = counts.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
+      const avgSecond = counts.slice(midpoint).reduce((a, b) => a + b, 0) / (counts.length - midpoint);
+      const diff = avgSecond - avgFirst;
+      if (Math.abs(diff) > 0.5) {
+        direction = diff > 0 ? "Increasing usage" : "Decreasing usage";
+      }
+    }
+  }
+
+  return { frequency, variability, direction };
+}
+
+// ============================================
 // PDF Generation
 // ============================================
 
@@ -309,6 +608,19 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
     const endDate = new Date(dateRange.end);
     return entryDate >= startDate && entryDate <= endDate;
   });
+
+  // Determine if AVS mode should be used
+  const totalDays = calculateDaysDifference(dateRange.start, dateRange.end) + 1;
+  const allCategoriesSelected = sections.length === 4 &&
+    sections.includes("symptoms") &&
+    sections.includes("bowel") &&
+    sections.includes("period") &&
+    sections.includes("medicine");
+  const isLongRange = totalDays > 180;
+  const useAVSMode = allCategoriesSelected && isLongRange;
+
+  // Generate clinical insights for AVS mode
+  const insights = useAVSMode ? generateClinicalInsights(filteredEntries, dateRange) : null;
 
   // Dynamically import jsPDF (client-side only)
   const { default: jsPDF } = await import("jspdf");
@@ -367,13 +679,17 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
   doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.text("Health Tracking Report", margin, yPos);
+  const title = useAVSMode ? "Health Summary Report" : "Health Tracking Report";
+  doc.text(title, margin, yPos);
   yPos += 10;
 
   // Generation info
   doc.setFontSize(9);
   doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
   doc.setFont("helvetica", "normal");
+  doc.text(`Report Period: ${formatDateRange(dateRange.start, dateRange.end)}`, margin, yPos);
+  yPos += 6;
+
   doc.text(`Generated: ${new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -381,38 +697,330 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
   })}`, margin, yPos);
   yPos += 6;
 
-  doc.text(`Report Period: ${formatDateRange(dateRange.start, dateRange.end)}`, margin, yPos);
-  yPos += 6;
-
-  doc.text(`Patient Data: Self-reported`, margin, yPos);
+  // Disclaimer
+  doc.setFont("helvetica", "italic");
+  doc.text(`Disclaimer: All data is self-reported and should be used only to support clinical assessment.`, margin, yPos);
   yPos += 12;
 
   // ============================================
-  // OVERVIEW SECTION
+  // EXECUTIVE SUMMARY (AVS Mode Only)
   // ============================================
 
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-  doc.text("Overview", margin, yPos);
-  yPos += 8;
+  if (useAVSMode && insights) {
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+    doc.text("Executive Summary", margin, yPos);
+    yPos += 8;
 
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
 
-  const periodDays = calculateDaysDifference(dateRange.start, dateRange.end) + 1;
-  addText(`Report period: ${periodDays} days`, 10);
-  addText(`Total entries: ${filteredEntries.length}`, 10);
+    // Days logged + adherence
+    addText(
+      `• Tracking adherence: ${insights.adherence.daysLogged} of ${insights.adherence.totalDays} days logged (${insights.adherence.adherenceRate}%)`,
+      10,
+      false,
+      colors.text,
+      5
+    );
 
-  const sectionLabels: Record<LogSection, string> = {
-    symptoms: "Symptoms",
-    bowel: "Stool logs",
-    period: "Cycle data",
-    medicine: "Medications",
-  };
-  addText(`Categories included: ${sections.map(s => sectionLabels[s]).join(", ")}`, 10);
+    // Top symptoms
+    if (insights.topSymptoms.length > 0) {
+      const symptomsList = insights.topSymptoms
+        .map(s => {
+          const intensity = s.avgIntensity ? ` (avg ${s.avgIntensity}/10)` : "";
+          return `${s.name}${intensity}`;
+        })
+        .join(", ");
+      addText(`• Top symptoms: ${symptomsList}`, 10, false, colors.text, 5);
+    } else {
+      addText(`• Top symptoms: None reported`, 10, false, colors.text, 5);
+    }
 
-  yPos += 6;
+    // Dominant stool pattern
+    if (insights.dominantStoolPattern.type) {
+      addText(
+        `• Dominant stool pattern: Type ${insights.dominantStoolPattern.type} - ${insights.dominantStoolPattern.name} (${insights.dominantStoolPattern.percentage}% of logs)`,
+        10,
+        false,
+        colors.text,
+        5
+      );
+    } else {
+      addText(`• Dominant stool pattern: No bowel movements logged`, 10, false, colors.text, 5);
+    }
+
+    // Cycle regularity
+    if (insights.cycleRegularity.averageLength) {
+      addText(
+        `• Cycle regularity: ${insights.cycleRegularity.status}, avg ${insights.cycleRegularity.averageLength} days (${insights.cycleRegularity.variability})`,
+        10,
+        false,
+        colors.text,
+        5
+      );
+    } else {
+      addText(`• Cycle regularity: No cycle data available`, 10, false, colors.text, 5);
+    }
+
+    // Medication usage
+    if (insights.medicationOverview.totalMedications > 0) {
+      const mostUsedText = insights.medicationOverview.mostUsed
+        ? `, most frequent: ${insights.medicationOverview.mostUsed}`
+        : "";
+      addText(
+        `• Medication usage: ${insights.medicationOverview.totalMedications} medication(s) tracked${mostUsedText}`,
+        10,
+        false,
+        colors.text,
+        5
+      );
+    } else {
+      addText(`• Medication usage: No medications logged`, 10, false, colors.text, 5);
+    }
+
+    // Notable correlations
+    if (insights.notableCorrelations.length > 0) {
+      addText(`• Notable correlations:`, 10, false, colors.text, 5);
+      insights.notableCorrelations.forEach(correlation => {
+        addText(`  - ${correlation}`, 9, false, colors.gray, 10);
+      });
+    } else {
+      addText(`• Notable correlations: None identified`, 10, false, colors.text, 5);
+    }
+
+    yPos += 8;
+
+    // ============================================
+    // PATTERNS & TRENDS (AVS Mode Only)
+    // ============================================
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+    doc.text("Patterns & Trends", margin, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+
+    // Symptoms trends
+    const sympTrend = insights.trends.symptoms;
+    if (sympTrend.frequency !== "Not tracked" && sympTrend.frequency !== "None") {
+      doc.setFont("helvetica", "bold");
+      addText("Symptoms:", 10, false, colors.text, 5);
+      doc.setFont("helvetica", "normal");
+      addText(
+        `• Frequency: ${sympTrend.frequency} | Variability: ${sympTrend.variability} | Direction: ${sympTrend.direction}`,
+        9,
+        false,
+        colors.gray,
+        10
+      );
+    }
+
+    // Bowel trends
+    const bowelTrend = insights.trends.bowel;
+    if (bowelTrend.frequency !== "Not tracked" && bowelTrend.frequency !== "None") {
+      doc.setFont("helvetica", "bold");
+      addText("Bowel:", 10, false, colors.text, 5);
+      doc.setFont("helvetica", "normal");
+      addText(
+        `• Frequency: ${bowelTrend.frequency} | Variability: ${bowelTrend.variability} | Direction: ${bowelTrend.direction}`,
+        9,
+        false,
+        colors.gray,
+        10
+      );
+    }
+
+    // Cycle trends
+    const cycleTrend = insights.trends.cycle;
+    if (cycleTrend.frequency !== "Not tracked") {
+      doc.setFont("helvetica", "bold");
+      addText("Cycle:", 10, false, colors.text, 5);
+      doc.setFont("helvetica", "normal");
+      addText(
+        `• Frequency: ${cycleTrend.frequency} | Variability: ${cycleTrend.variability} | Direction: ${cycleTrend.direction}`,
+        9,
+        false,
+        colors.gray,
+        10
+      );
+    }
+
+    // Medication trends
+    const medTrend = insights.trends.medications;
+    if (medTrend.frequency !== "Not tracked" && medTrend.frequency !== "None") {
+      doc.setFont("helvetica", "bold");
+      addText("Medications:", 10, false, colors.text, 5);
+      doc.setFont("helvetica", "normal");
+      addText(
+        `• Frequency: ${medTrend.frequency} | Variability: ${medTrend.variability} | Direction: ${medTrend.direction}`,
+        9,
+        false,
+        colors.gray,
+        10
+      );
+    }
+
+    yPos += 8;
+
+    // ============================================
+    // CATEGORY SUMMARIES (AVS Mode Only)
+    // ============================================
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+    doc.text("Category Summaries", margin, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+
+    // Symptoms summary
+    const symptomStats = analyzeSymptoms(filteredEntries);
+    doc.setFont("helvetica", "bold");
+    addText("Symptoms Summary:", 10, false, colors.text, 5);
+    doc.setFont("helvetica", "normal");
+    if (symptomStats.totalEntries > 0) {
+      addText(`• ${symptomStats.totalEntries} entries with symptoms logged`, 9, false, colors.gray, 10);
+      if (symptomStats.topSymptoms.length > 0) {
+        addText(
+          `• Most frequent: ${symptomStats.topSymptoms[0].name} (${symptomStats.topSymptoms[0].count} occurrences)`,
+          9,
+          false,
+          colors.gray,
+          10
+        );
+      }
+      const totalIntensities =
+        symptomStats.severityBreakdown.mild +
+        symptomStats.severityBreakdown.moderate +
+        symptomStats.severityBreakdown.severe;
+      if (totalIntensities > 0) {
+        const severePercent = Math.round(
+          (symptomStats.severityBreakdown.severe / totalIntensities) * 100
+        );
+        addText(
+          `• Severity: ${severePercent}% severe, ${Math.round((symptomStats.severityBreakdown.moderate / totalIntensities) * 100)}% moderate, ${Math.round((symptomStats.severityBreakdown.mild / totalIntensities) * 100)}% mild`,
+          9,
+          false,
+          colors.gray,
+          10
+        );
+      }
+    } else {
+      addText(`• No symptoms logged`, 9, false, colors.gray, 10);
+    }
+    yPos += 2;
+
+    // Bowel summary
+    const stoolStats = analyzeStoolLogs(filteredEntries);
+    doc.setFont("helvetica", "bold");
+    addText("Bowel Summary:", 10, false, colors.text, 5);
+    doc.setFont("helvetica", "normal");
+    if (stoolStats.totalEntries > 0) {
+      addText(`• ${stoolStats.totalEntries} bowel movements logged`, 9, false, colors.gray, 10);
+      if (stoolStats.mostCommonType) {
+        const bristol = BRISTOL_TYPES.find(b => b.type === stoolStats.mostCommonType);
+        addText(`• Most common: Type ${stoolStats.mostCommonType} - ${bristol?.name}`, 9, false, colors.gray, 10);
+      }
+      // Count abnormal types (1, 2, 6, 7)
+      const abnormal = (stoolStats.distribution[1] || 0) + (stoolStats.distribution[2] || 0) +
+        (stoolStats.distribution[6] || 0) + (stoolStats.distribution[7] || 0);
+      const abnormalPercent = Math.round((abnormal / stoolStats.totalEntries) * 100);
+      addText(`• Abnormal patterns: ${abnormalPercent}% (Types 1, 2, 6, 7)`, 9, false, colors.gray, 10);
+    } else {
+      addText(`• No bowel movements logged`, 9, false, colors.gray, 10);
+    }
+    yPos += 2;
+
+    // Cycle summary
+    const cycleStats = analyzeCycleData(filteredEntries);
+    doc.setFont("helvetica", "bold");
+    addText("Cycle Summary:", 10, false, colors.text, 5);
+    doc.setFont("helvetica", "normal");
+    if (cycleStats.cycleCount > 0) {
+      addText(`• ${cycleStats.cycleCount} cycle(s) tracked`, 9, false, colors.gray, 10);
+      if (cycleStats.averageLength) {
+        addText(`• Average length: ${cycleStats.averageLength} days`, 9, false, colors.gray, 10);
+      }
+      if (insights.cycleRegularity.variability !== "N/A") {
+        addText(`• Pattern: ${insights.cycleRegularity.variability}`, 9, false, colors.gray, 10);
+      }
+    } else {
+      addText(`• No cycle data logged`, 9, false, colors.gray, 10);
+    }
+    yPos += 2;
+
+    // Medication summary
+    const medStats = analyzeMedications(filteredEntries);
+    doc.setFont("helvetica", "bold");
+    addText("Medication Summary:", 10, false, colors.text, 5);
+    doc.setFont("helvetica", "normal");
+    if (medStats.medications.length > 0) {
+      addText(`• ${medStats.medications.length} medication(s) tracked`, 9, false, colors.gray, 10);
+      if (medStats.medications[0]) {
+        addText(
+          `• Most used: ${medStats.medications[0].name} (${medStats.medications[0].frequency} times)`,
+          9,
+          false,
+          colors.gray,
+          10
+        );
+      }
+    } else {
+      addText(`• No medications logged`, 9, false, colors.gray, 10);
+    }
+
+    yPos += 8;
+
+    // Add page break before appendix
+    doc.addPage();
+    yPos = margin;
+
+    // Add appendix header
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+    doc.text("Appendix: Detailed Logs", margin, yPos);
+    yPos += 10;
+  }
+
+  // ============================================
+  // OVERVIEW SECTION (Non-AVS Mode Only)
+  // ============================================
+
+  if (!useAVSMode) {
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+    doc.text("Overview", margin, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    const periodDays = calculateDaysDifference(dateRange.start, dateRange.end) + 1;
+    addText(`Report period: ${periodDays} days`, 10);
+    addText(`Total entries: ${filteredEntries.length}`, 10);
+
+    const sectionLabels: Record<LogSection, string> = {
+      symptoms: "Symptoms",
+      bowel: "Stool logs",
+      period: "Cycle data",
+      medicine: "Medications",
+    };
+    addText(`Categories included: ${sections.map(s => sectionLabels[s]).join(", ")}`, 10);
+
+    yPos += 6;
+  }
 
   // ============================================
   // CYCLE DATA SECTION
@@ -424,7 +1032,8 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-    doc.text("Cycle Data", margin, yPos);
+    const cycleTitle = useAVSMode ? "Appendix A: Cycle Data" : "Cycle Data";
+    doc.text(cycleTitle, margin, yPos);
     yPos += 8;
 
     const cycleStats = analyzeCycleData(filteredEntries);
@@ -473,7 +1082,8 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-    doc.text("Stool Logs", margin, yPos);
+    const stoolTitle = useAVSMode ? "Appendix B: Stool Logs" : "Stool Logs";
+    doc.text(stoolTitle, margin, yPos);
     yPos += 8;
 
     const stoolStats = analyzeStoolLogs(filteredEntries);
@@ -522,7 +1132,8 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-    doc.text("Symptoms", margin, yPos);
+    const symptomsTitle = useAVSMode ? "Appendix C: Symptoms" : "Symptoms";
+    doc.text(symptomsTitle, margin, yPos);
     yPos += 8;
 
     const symptomStats = analyzeSymptoms(filteredEntries);
@@ -593,7 +1204,8 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-    doc.text("Medications", margin, yPos);
+    const medicationsTitle = useAVSMode ? "Appendix D: Medications" : "Medications";
+    doc.text(medicationsTitle, margin, yPos);
     yPos += 8;
 
     const medStats = analyzeMedications(filteredEntries);
@@ -634,7 +1246,7 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
   doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
   doc.setFont("helvetica", "italic");
 
-  const disclaimer = "This report contains self-reported data and is intended to support clinical conversations, not replace diagnosis.";
+  const disclaimer = "This report contains self-reported data and is solely intended to support clinical conversations, not diagnose.";
   const disclaimerLines = doc.splitTextToSize(disclaimer, contentWidth);
 
   let disclaimerYPos = disclaimerY;

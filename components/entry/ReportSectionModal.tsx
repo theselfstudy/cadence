@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useEntries } from "@/stores/useEntries";
 import type { LogSection } from "@/types";
 
 interface ReportSectionModalProps {
@@ -64,22 +65,33 @@ const SECTION_OPTIONS: SectionOption[] = [
   },
 ];
 
-type QuickSelectOption = "last30" | "last90" | "custom";
+type QuickSelectOption = "last30" | "last90" | "alltime" | "custom";
 
 export function ReportSectionModal({
   availableSections,
   onConfirm,
   onCancel,
 }: ReportSectionModalProps) {
+  // Get entries to find earliest date
+  const { entries } = useEntries();
+
+  // Find the earliest entry date
+  const earliestEntryDate = useMemo(() => {
+    if (entries.length === 0) return "2000-01-01";
+
+    const sortedEntries = [...entries].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    return sortedEntries[0].date;
+  }, [entries]);
+
   // Filter to only show sections enabled in settings
   const enabledSections = SECTION_OPTIONS.filter(
     (section) => availableSections[section.settingsKey]
   );
 
-  // Track selected sections - default to all checked
-  const [selected, setSelected] = useState<LogSection[]>(
-    enabledSections.map((s) => s.id)
-  );
+  // Track selected sections - default to none selected
+  const [selected, setSelected] = useState<LogSection[]>([]);
 
   // Date range state
   const [quickSelect, setQuickSelect] = useState<QuickSelectOption>("last30");
@@ -105,6 +117,12 @@ export function ReportSectionModal({
         start: startDate.toISOString().split("T")[0],
         end: endDate,
       };
+    } else if (quickSelect === "alltime") {
+      // Use the earliest entry date to capture all user data
+      return {
+        start: earliestEntryDate,
+        end: endDate,
+      };
     } else if (quickSelect === "custom") {
       if (!customStartDate || !customEndDate) {
         return null;
@@ -128,6 +146,18 @@ export function ReportSectionModal({
         ? prev.filter((id) => id !== sectionId)
         : [...prev, sectionId]
     );
+  };
+
+  // Check if all categories are selected
+  const allSelected = selected.length === enabledSections.length;
+
+  // Toggle all categories
+  const selectAllCategories = () => {
+    if (allSelected) {
+      setSelected([]);
+    } else {
+      setSelected(enabledSections.map((s) => s.id));
+    }
   };
 
   // Handle confirm - must have at least one selection and valid date range
@@ -200,11 +230,11 @@ export function ReportSectionModal({
             </h3>
 
             {/* Quick Select Buttons */}
-            <div className="flex gap-2 mb-3">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               <button
                 type="button"
                 onClick={() => setQuickSelect("last30")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                   quickSelect === "last30"
                     ? "bg-app-teal text-white"
                     : "bg-app-cream text-app-charcoal hover:bg-app-border"
@@ -215,7 +245,7 @@ export function ReportSectionModal({
               <button
                 type="button"
                 onClick={() => setQuickSelect("last90")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                   quickSelect === "last90"
                     ? "bg-app-teal text-white"
                     : "bg-app-cream text-app-charcoal hover:bg-app-border"
@@ -225,8 +255,19 @@ export function ReportSectionModal({
               </button>
               <button
                 type="button"
+                onClick={() => setQuickSelect("alltime")}
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  quickSelect === "alltime"
+                    ? "bg-app-teal text-white"
+                    : "bg-app-cream text-app-charcoal hover:bg-app-border"
+                }`}
+              >
+                All Time
+              </button>
+              <button
+                type="button"
                 onClick={() => setQuickSelect("custom")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                   quickSelect === "custom"
                     ? "bg-app-teal text-white"
                     : "bg-app-cream text-app-charcoal hover:bg-app-border"
@@ -353,13 +394,64 @@ export function ReportSectionModal({
           </div>
         </div>
 
+        {/* All Categories Toggle */}
+        {enabledSections.length > 1 && (
+          <div className="px-6 pb-4">
+            <button
+              type="button"
+              onClick={selectAllCategories}
+              className={`w-full p-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                allSelected
+                  ? "bg-app-green text-white"
+                  : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-green"
+              }`}
+            >
+              {allSelected ? (
+                <>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  All Categories Selected
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                  All Categories
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="p-6 pt-4 border-t border-app-border space-y-3">
+        <div className="p-6 pt-4 space-y-3">
           {/* Validation message */}
           {!isValid && (
-            <p className="text-xs text-app-red text-center">
+            <p className="text-xs text-app-gray text-center">
               {selected.length === 0
-                ? "Select at least one category"
+                ? "Select at least one category to continue"
                 : "Please select a valid date range"}
             </p>
           )}
@@ -368,7 +460,7 @@ export function ReportSectionModal({
             type="button"
             onClick={handleConfirm}
             disabled={!isValid}
-            className={`w-full py-3 rounded-xl font-semibold text-white transition-all ${
+            className={`w-full py-4 rounded-xl font-semibold text-white transition-all ${
               !isValid
                 ? "bg-app-gray/50 cursor-not-allowed"
                 : "bg-app-teal hover:opacity-90"
@@ -380,9 +472,9 @@ export function ReportSectionModal({
           <button
             type="button"
             onClick={onCancel}
-            className="block w-full py-2 rounded-xl text-center font-medium text-app-gray hover:text-app-charcoal hover:bg-app-cream transition-colors"
+            className="block w-full py-3 rounded-xl text-center font-medium text-app-gray hover:text-app-charcoal hover:bg-app-cream transition-colors"
           >
-            Cancel
+            Back to Dashboard
           </button>
         </div>
       </div>
