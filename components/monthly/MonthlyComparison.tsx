@@ -18,6 +18,13 @@ interface MonthlyComparisonProps {
   currentMonthLabel?: string;
   /** Previous month label for display */
   previousMonthLabel?: string;
+  /** Enabled sections config */
+  enabledSections: {
+    symptoms: boolean;
+    bowel: boolean;
+    cycle: boolean;
+    medicine: boolean;
+  };
 }
 
 export function MonthlyComparison({
@@ -25,6 +32,7 @@ export function MonthlyComparison({
   hasPreviousMonthData,
   currentMonthLabel = "This Month",
   previousMonthLabel = "Last Month",
+  enabledSections,
 }: MonthlyComparisonProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   // If no previous month data, show message but keep navigation
@@ -64,12 +72,28 @@ export function MonthlyComparison({
         <span className="text-app-gray text-lg">{isCollapsed ? "+" : "−"}</span>
       </button>
 
-      {/* Content - 2x2 Grid */}
+      {/* Content - Dynamic Grid */}
       {!isCollapsed && (
         <div className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Symptoms Card */}
-            <ComparisonCard
+          <div className={(() => {
+            // Calculate number of visible cards to adjust grid layout
+            const visibleCards = [
+              enabledSections.symptoms,
+              enabledSections.bowel,
+              enabledSections.cycle,
+              enabledSections.medicine,
+            ].filter(Boolean).length;
+
+            // Determine grid class based on number of visible cards
+            if (visibleCards === 0) return "grid grid-cols-1";
+            if (visibleCards === 1) return "grid grid-cols-1";
+            if (visibleCards === 2) return "grid grid-cols-1 sm:grid-cols-2 gap-4";
+            if (visibleCards === 3) return "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4";
+            return "grid grid-cols-1 sm:grid-cols-2 gap-4"; // 4 cards
+          })()}>
+            {/* Symptoms Card - only if symptom tracking enabled */}
+            {enabledSections.symptoms && (
+              <ComparisonCard
               icon="🏷️"
               title="Symptoms"
               accentColor="teal"
@@ -263,10 +287,12 @@ export function MonthlyComparison({
                   </div>
                 ) : undefined
               }
-            />
+              />
+            )}
 
-            {/* Bowel Card */}
-            <ComparisonCard
+            {/* Bowel Card - only if bowel tracking enabled */}
+            {enabledSections.bowel && (
+              <ComparisonCard
               icon="🧻"
               title="Bowel"
               accentColor="plumb"
@@ -475,10 +501,12 @@ export function MonthlyComparison({
                   </div>
                 ) : undefined
               }
-            />
+              />
+            )}
 
-            {/* Cycle Card */}
-            <ComparisonCard
+            {/* Cycle Card - only if cycle tracking enabled */}
+            {enabledSections.cycle && (
+              <ComparisonCard
               icon="🌸"
               title="Cycle"
               accentColor="red"
@@ -607,10 +635,12 @@ export function MonthlyComparison({
                   </div>
                 ) : undefined
               }
-            />
+              />
+            )}
 
-            {/* Medicine Card */}
-            <ComparisonCard
+            {/* Medicine Card - only if medicine tracking enabled */}
+            {enabledSections.medicine && (
+              <ComparisonCard
               icon="💊"
               title="Medicine"
               accentColor="lightgreen"
@@ -795,7 +825,8 @@ export function MonthlyComparison({
                   </div>
                 ) : undefined
               }
-            />
+              />
+            )}
           </div>
         </div>
       )}

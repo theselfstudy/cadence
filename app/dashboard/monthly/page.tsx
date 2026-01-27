@@ -522,12 +522,12 @@ export default function MonthlyPage() {
               hasPreviousMonthData={prevMonthEntries.length > 0}
               topSymptoms={topSymptoms}
               lastMonthTopSymptoms={lastMonthTopSymptoms}
-              periodTrackingEnabled={periodTrackingEnabled}
               currentCyclePhase={cycleData.currentCyclePhase}
               cycleDaysLogged={cycleData.cycleDaysLogged}
               daysInMonth={daysInMonth}
               phaseRanges={phaseRanges}
               monthRange={monthRange}
+              enabledSections={enabledSections}
             />
           </div>
         )}
@@ -579,6 +579,7 @@ export default function MonthlyPage() {
               hasPreviousMonthData={prevMonthEntries.length > 0}
               currentMonthLabel={comparisonLabels.current}
               previousMonthLabel={comparisonLabels.previous}
+              enabledSections={enabledSections}
             />
           </div>
         )}

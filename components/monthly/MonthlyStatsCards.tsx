@@ -19,15 +19,13 @@ interface MonthlyStatsCardsProps {
   topSymptoms?: { name: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
   /** Top symptoms from last month for comparison */
   lastMonthTopSymptoms?: { name: string; count: number; avgIntensity: number | null; isPeriodRelated: boolean }[];
-  /** Whether period tracking is enabled */
-  periodTrackingEnabled?: boolean;
   /** Current cycle phase from this month's entries */
   currentCyclePhase?: string | null;
   /** Days logged with cycle data this month */
   cycleDaysLogged?: number;
   /** Total days in the current month */
   daysInMonth?: number;
-  /** Getting phase ranges per month from entries */  
+  /** Getting phase ranges per month from entries */
   phaseRanges?: { phase: string; startDate: string; endDate: string | null; days: number }[];
   /** Currently selected dates (full YYYY-MM-DD strings, can span months) */
   selectedDates?: string[];
@@ -35,6 +33,13 @@ interface MonthlyStatsCardsProps {
   selectedDaysInCurrentMonth?: number[];
   /** Current month range for date formatting */
   monthRange?: { year: number; month: number; label: string };
+  /** Enabled sections config */
+  enabledSections: {
+    symptoms: boolean;
+    bowel: boolean;
+    cycle: boolean;
+    medicine: boolean;
+  };
 }
 
 export function MonthlyStatsCards({
@@ -43,7 +48,6 @@ export function MonthlyStatsCards({
   hasPreviousMonthData,
   topSymptoms = [],
   lastMonthTopSymptoms = [],
-  periodTrackingEnabled = false,
   currentCyclePhase = null,
   cycleDaysLogged = 0,
   daysInMonth = 30,
@@ -51,6 +55,7 @@ export function MonthlyStatsCards({
   selectedDates = [],
   selectedDaysInCurrentMonth = [],
   monthRange,
+  enabledSections,
 }: MonthlyStatsCardsProps) {
 // Helper to format date range for display (supports cross-month)
   const formatDateRangeLabel = (): string | null => {
@@ -102,118 +107,143 @@ export function MonthlyStatsCards({
   const dateRangeLabel = formatDateRangeLabel();
   const hasDateFilter = selectedDates.length > 0;
 
+  // Calculate number of visible cards to adjust grid layout
+  const visibleCards = [
+    enabledSections.symptoms, // Top Symptom Card
+    enabledSections.bowel, // Timing Patterns Card
+    enabledSections.cycle, // Cycle Phase Card
+    enabledSections.symptoms, // New This Month Card
+  ].filter(Boolean).length;
+
+  // Determine grid class based on number of visible cards
+  // For 1 card: full width
+  // For 2 cards: 2 columns
+  // For 3 cards: 3 columns on medium screens, 2 on small
+  // For 4 cards: 2x2 grid
+  const getGridClass = () => {
+    if (visibleCards === 0) return "grid grid-cols-1";
+    if (visibleCards === 1) return "grid grid-cols-1";
+    if (visibleCards === 2) return "grid grid-cols-1 sm:grid-cols-2 gap-3";
+    if (visibleCards === 3) return "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3";
+    return "grid grid-cols-1 sm:grid-cols-2 gap-3"; // 4 cards
+  };
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {/* Top Symptom Card */}
-      <StatCard
-        label="Top Symptom"
-        value={topSymptoms[0]?.name || "—"}
-        subtext={
-          topSymptoms[0]
-            ? hasDateFilter && dateRangeLabel
-              ? `${topSymptoms[0].count}× (${dateRangeLabel})`
-              : `${topSymptoms[0].count}× this month`
-            : hasDateFilter 
-              ? "No symptoms in selected range"
-              : "No symptoms logged"
-        }
-        accentColor="teal"
-        valueSize="small"
-        expandedContent={
-          topSymptoms.length > 0 ? (
-            <div className="space-y-3">
-              {/* Top 5 by Count */}
-              <div>
-                <p className="text-xs text-app-gray mb-1">Most Frequent</p>
+    <div className={getGridClass()}>
+      {/* Top Symptom Card - only if symptom tracking enabled */}
+      {enabledSections.symptoms && (
+        <StatCard
+          label="Top Symptom"
+          value={topSymptoms[0]?.name || "—"}
+          subtext={
+            topSymptoms[0]
+              ? hasDateFilter && dateRangeLabel
+                ? `${topSymptoms[0].count}× (${dateRangeLabel})`
+                : `${topSymptoms[0].count}× this month`
+              : hasDateFilter
+                ? "No symptoms in selected range"
+                : "No symptoms logged"
+          }
+          accentColor="teal"
+          valueSize="small"
+          expandedContent={
+            topSymptoms.length > 0 ? (
+              <div className="space-y-3">
+                {/* Top 5 by Count */}
+                <div>
+                  <p className="text-xs text-app-gray mb-1">Most Frequent</p>
+                  <div className="bg-app-cream rounded-md overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-app-border/50">
+                          <th className="py-1.5 px-2 text-left text-app-gray font-medium">Symptom</th>
+                          <th className="py-1.5 px-2 text-right text-app-gray font-medium">Count</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topSymptoms.slice(0, 5).map((symptom) => (
+                          <tr key={symptom.name} className="border-b border-app-border/50 last:border-0">
+                            <td className="py-1.5 px-2 text-app-charcoal truncate max-w-[120px]">
+                              {symptom.name}
+                            </td>
+                            <td className="py-1.5 px-2 text-app-teal text-right font-medium">
+                              {symptom.count}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Monthly summary */}
+                <div className="pt-2 border-t border-app-border">
+                  <p className="text-xs text-app-gray">
+                    {stats.uniqueSymptoms} unique symptom{stats.uniqueSymptoms !== 1 ? "s" : ""} logged across {stats.daysWithEntries} day{stats.daysWithEntries !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-app-gray">Log symptoms to see patterns.</p>
+            )
+          }
+        />
+      )}
+
+      {/* Timing Patterns Card - only if bowel tracking enabled */}
+      {enabledSections.bowel && (
+        <StatCard
+          label="Timing Patterns"
+          value={getMostCommonTimeOfDay(stats.timeOfDayDistribution) || "—"}
+          subtext={
+            Object.keys(stats.timeOfDayDistribution).length > 0
+              ? "most common time"
+              : "No timing data"
+          }
+          accentColor="plumb"
+          expandedContent={
+            Object.keys(stats.timeOfDayDistribution).length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs text-app-gray mb-1">Distribution</p>
                 <div className="bg-app-cream rounded-md overflow-hidden">
                   <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-app-border/50">
-                        <th className="py-1.5 px-2 text-left text-app-gray font-medium">Symptom</th>
-                        <th className="py-1.5 px-2 text-right text-app-gray font-medium">Count</th>
-                      </tr>
-                    </thead>
                     <tbody>
-                      {topSymptoms.slice(0, 5).map((symptom) => (
-                        <tr key={symptom.name} className="border-b border-app-border/50 last:border-0">
-                          <td className="py-1.5 px-2 text-app-charcoal truncate max-w-[120px]">
-                            {symptom.name}
-                          </td>
-                          <td className="py-1.5 px-2 text-app-teal text-right font-medium">
-                            {symptom.count}
-                          </td>
-                        </tr>
-                      ))}
+                      {["Morning", "Afternoon", "Evening", "Night"].map((time) => {
+                        const count = stats.timeOfDayDistribution[time] || 0;
+                        if (count === 0) return null;
+                        const total = Object.values(stats.timeOfDayDistribution).reduce((sum, v) => sum + v, 0);
+                        const percent = total > 0 ? Math.round((count / total) * 100) : 0;
+                        return (
+                          <tr key={time} className="border-b border-app-border/50 last:border-0">
+                            <td className="py-1.5 px-2 text-app-charcoal">{time}</td>
+                            <td className="py-1.5 px-2 text-app-gray text-right">
+                              {count} <span className="text-app-gray/60">({percent}%)</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
-              </div>
 
-              {/* Monthly summary */}
-              <div className="pt-2 border-t border-app-border">
-                <p className="text-xs text-app-gray">
-                  {stats.uniqueSymptoms} unique symptom{stats.uniqueSymptoms !== 1 ? "s" : ""} logged across {stats.daysWithEntries} day{stats.daysWithEntries !== 1 ? "s" : ""}
-                </p>
+                {/* Most active day of week */}
+                {stats.mostActiveDay && (
+                  <div className="pt-2 border-t border-app-border">
+                    <p className="text-xs text-app-gray">
+                      Most active day: <span className="text-app-charcoal font-medium">{stats.mostActiveDay}</span>
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-          ) : (
-            <p className="text-xs text-app-gray">Log symptoms to see patterns.</p>
-          )
-        }
-      />
-
-      {/* Timing Patterns Card */}
-      <StatCard
-        label="Timing Patterns"
-        value={getMostCommonTimeOfDay(stats.timeOfDayDistribution) || "—"}
-        subtext={
-          Object.keys(stats.timeOfDayDistribution).length > 0
-            ? "most common time"
-            : "No timing data"
-        }
-        accentColor="plumb"
-        expandedContent={
-          Object.keys(stats.timeOfDayDistribution).length > 0 ? (
-            <div className="space-y-3">
-              <p className="text-xs text-app-gray mb-1">Distribution</p>
-              <div className="bg-app-cream rounded-md overflow-hidden">
-                <table className="w-full text-xs">
-                  <tbody>
-                    {["Morning", "Afternoon", "Evening", "Night"].map((time) => {
-                      const count = stats.timeOfDayDistribution[time] || 0;
-                      if (count === 0) return null;
-                      const total = Object.values(stats.timeOfDayDistribution).reduce((sum, v) => sum + v, 0);
-                      const percent = total > 0 ? Math.round((count / total) * 100) : 0;
-                      return (
-                        <tr key={time} className="border-b border-app-border/50 last:border-0">
-                          <td className="py-1.5 px-2 text-app-charcoal">{time}</td>
-                          <td className="py-1.5 px-2 text-app-gray text-right">
-                            {count} <span className="text-app-gray/60">({percent}%)</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Most active day of week */}
-              {stats.mostActiveDay && (
-                <div className="pt-2 border-t border-app-border">
-                  <p className="text-xs text-app-gray">
-                    Most active day: <span className="text-app-charcoal font-medium">{stats.mostActiveDay}</span>
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-app-gray">Log entries to see timing patterns.</p>
-          )
-        }
-      />
+            ) : (
+              <p className="text-xs text-app-gray">Log entries to see timing patterns.</p>
+            )
+          }
+        />
+      )}
 
       {/* Cycle Phase Card - only if period tracking enabled */}
-      {periodTrackingEnabled && (
+      {enabledSections.cycle && (
         <CyclePhaseCard
           currentPhase={currentCyclePhase}
           daysLogged={cycleDaysLogged}
@@ -229,14 +259,16 @@ export function MonthlyStatsCards({
         />
       )}
 
-      {/* New This Month Card */}
-      <NewThisMonthCard
-        comparison={comparison}
-        hasPreviousMonthData={hasPreviousMonthData}
-        topSymptoms={topSymptoms}
-        lastMonthTopSymptoms={lastMonthTopSymptoms}
-        hasDateFilter={hasDateFilter}
-      />
+      {/* New This Month Card - only if symptom tracking enabled */}
+      {enabledSections.symptoms && (
+        <NewThisMonthCard
+          comparison={comparison}
+          hasPreviousMonthData={hasPreviousMonthData}
+          topSymptoms={topSymptoms}
+          lastMonthTopSymptoms={lastMonthTopSymptoms}
+          hasDateFilter={hasDateFilter}
+        />
+      )}
     </div>
   );
 }
