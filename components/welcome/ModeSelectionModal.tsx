@@ -110,8 +110,11 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                     <RefreshIcon />
                   </span>
                   <p className="text-xs text-app-teal">
-                    <strong>Already set up?</strong> If you connect a sheet with existing 
-                    Cadence data, we&apos;ll offer to restore your settings and entries.
+                    <strong>Already set up?</strong> If you&apos;re connecting a sheet with existing
+                    Cadence data,{" "}
+                    <a href="/recover" className="underline font-semibold hover:text-app-teal-dark">
+                      restore your settings and entries here
+                    </a>.
                   </p>
                 </div>
               </div>

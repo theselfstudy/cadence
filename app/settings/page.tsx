@@ -20,10 +20,12 @@ import {
   MEDICINE_CATEGORIES,
 } from "@/lib/constants";
 
-import type { PainScaleType, Medicine, MedicineCategory } from "@/types";
+import type { PainScaleType, Medicine } from "@/types";
 
 import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useEntries } from "@/stores/useEntries";
+import { useSyncState } from "@/stores/useSyncState";
+import { startSync } from "@/lib/syncEngine";
 
 import {
   SymptomChip,
@@ -36,7 +38,7 @@ import {
   SavePromptModal,
   ImportEntriesModal,
 } from "@/components/settings";
-import { SyncWithGoogleSheetsButton } from "@/components/sync";
+import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
 
 
 // =============================================================================
@@ -169,7 +171,7 @@ function SettingsPageContent() {
     stoolTracking,
     googleSheet,
     medicineTracking,
-    isSyncing,
+    // isSyncing,
     isGoogleSheetConnected,
     setTimeFormat,
     setWeekStartDay,
@@ -192,8 +194,10 @@ function SettingsPageContent() {
 
   const hasUnsavedChanges = useSettings((state) => state.hasUnsavedChanges);
 
-  const batchSyncEntries = useEntries((state) => state.batchSyncEntries);
   const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
+
+  // Get sync state for disabling actions during sync
+  const { syncInProgress } = useSyncState();
 
   // Saved filters store
   const savedFiltersLoadFromSheet = useSavedFilters((state) => state.loadFromSheet);
@@ -234,8 +238,9 @@ function SettingsPageContent() {
   const [medicineNameHasFormulaInjection, setMedicineNameHasFormulaInjection] = useState(false);
   const [dosageHasFormulaInjection, setDosageHasFormulaInjection] = useState(false);
 
-  // Google Sheet URL validation error
-  const [sheetError, setSheetError] = useState<string | null>(null);
+  // Google Sheet validation errors
+  const [sheetUrlError, setSheetUrlError] = useState<string | null>(null);
+  const [sheetNameError, setSheetNameError] = useState<string | null>(null);
 
   const hasTextInputError =
     newSymptom.length > 60 ||
@@ -250,7 +255,8 @@ function SettingsPageContent() {
     Object.values(customProductFormulaInjection).some(hasInjection => hasInjection) ||
     medicineNameHasFormulaInjection ||
     dosageHasFormulaInjection ||
-    !!sheetError;
+    !!sheetUrlError ||
+    !!sheetNameError;
   const [pendingSheetUrl, setPendingSheetUrl] = useState<string | null>(null);
   const [pendingSheetName, setPendingSheetName] = useState<string | null>(null);
   const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
@@ -345,10 +351,10 @@ function SettingsPageContent() {
   });
 
   const {
-    anySectionEnabled,
-    symptomsValid,
+    // anySectionEnabled,
+    // symptomsValid,
     productTrackingValid,
-    customProductsValid,
+    // customProductsValid,
     medicineTrackingValid,
     productsMissingCustomItems,
   } = settingsValidation;
@@ -367,7 +373,6 @@ function SettingsPageContent() {
     periodSelectableSymptoms.every((s) => safePeriodTracking.periodSymptoms?.includes(s));
 
   // Check if all default symptoms are selected (for Select All / Deselect All button)
-    // Check if all default symptoms are selected (for Select All / Deselect All button)
   const allDefaultSymptomsSelected =
     DEFAULT_SYMPTOMS.length > 0 &&
     DEFAULT_SYMPTOMS.every((s) => symptoms?.selected?.includes(s));
@@ -421,13 +426,14 @@ function SettingsPageContent() {
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
+      if (syncInProgress) {
         e.preventDefault();
+        e.returnValue = 'Sync in progress. Leaving will pause and resume later.';
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  }, [syncInProgress]);
 
   // ---------------------------------------------------------------------------
   // HELPERS
@@ -447,7 +453,7 @@ function SettingsPageContent() {
     onSuccess: async (tokenResponse) => {
       const spreadsheetId = getSpreadsheetIdFromUrl(sheetUrl);
       if (!spreadsheetId) {
-        setSheetError("Could not parse spreadsheet ID from URL");
+        setSheetUrlError("Could not parse spreadsheet ID from URL");
         return;
       }
 
@@ -482,29 +488,32 @@ function SettingsPageContent() {
           });
           setShowSuccessModal(true);
         } else {
-          // Fresh sheet - proceed with normal flow
+          // Fresh sheet - connect and trigger full sync using sync engine
           setGoogleSheet(sheetUrl, sheetName);
-          const settingsSuccess = await saveSettingsToSheet(tokenResponse.access_token);
 
-          // Also sync any existing saved filters to the new sheet
-          await savedFiltersSyncToSheet(tokenResponse.access_token);
+          // Store token for sync engine
+          sessionStorage.setItem('google_oauth_token', tokenResponse.access_token);
+          sessionStorage.setItem('google_oauth_timestamp', Date.now().toString());
 
-          // Auto-sync any pending entries
-          const pendingEntries = useEntries.getState().entries.filter(
+          // Get counts of what will be synced
+          const entriesToSync = useEntries.getState().entries.filter(
             e => e.syncStatus === 'pending' || e.syncStatus === 'error'
           );
-          let entriesSynced = 0;
+          const filtersToSync = useSavedFilters.getState().savedFilters.length;
 
-          if (pendingEntries.length > 0) {
-            const syncResult = await batchSyncEntries(tokenResponse.access_token);
-            entriesSynced = syncResult.succeeded;
-          }
+          // Start full sync - will push all local data and pull any sheet data
+          try {
+            await startSync();
 
-          // Show success modal with summary
-          if (settingsSuccess) {
-            const description = entriesSynced > 0
-              ? `Your settings and ${entriesSynced} ${entriesSynced === 1 ? 'entry have' : 'entries have'} been synced.`
-              : "Your settings have been synced to your Google Sheet.";
+            // Show success modal with summary
+            let description = "Your settings have been synced to your Google Sheet.";
+            if (entriesToSync.length > 0 && filtersToSync > 0) {
+              description = `Your settings, ${entriesToSync.length} ${entriesToSync.length === 1 ? 'entry' : 'entries'}, and ${filtersToSync} ${filtersToSync === 1 ? 'filter have' : 'filters have'} been synced.`;
+            } else if (entriesToSync.length > 0) {
+              description = `Your settings and ${entriesToSync.length} ${entriesToSync.length === 1 ? 'entry have' : 'entries have'} been synced.`;
+            } else if (filtersToSync > 0) {
+              description = `Your settings and ${filtersToSync} ${filtersToSync === 1 ? 'filter have' : 'filters have'} been synced.`;
+            }
 
             setSuccessModalConfig({
               title: "Google Sheet Connected!",
@@ -512,8 +521,15 @@ function SettingsPageContent() {
               secondaryText: "Your data is now backed up and will sync across devices.",
             });
             setShowSuccessModal(true);
-          } else {
-            alert("Sheet connected but failed to save settings. Please try saving again.");
+          } catch (error) {
+            console.error("Sync error:", error);
+            // Even if sync fails, sheet is still connected - user can retry sync manually
+            setSuccessModalConfig({
+              title: "Google Sheet Connected!",
+              description: "Sheet connected successfully. Use the 'Sync with Google Sheets' button to sync your data.",
+              secondaryText: "",
+            });
+            setShowSuccessModal(true);
           }
 
           setSheetUrl("");
@@ -658,19 +674,35 @@ function SettingsPageContent() {
 
   const handleSaveGoogleSheet = () => {
     if (!sheetName.trim()) {
-      setSheetError("Please enter a name for your sheet");
+      setSheetNameError("Please enter a name for your sheet");
       return;
     }
     if (!sheetUrl.trim()) {
-      setSheetError("Please paste a Google Sheet URL");
+      setSheetUrlError("Please paste a Google Sheet URL");
       return;
     }
     if (!GOOGLE_SHEET_URL_PATTERN.test(sheetUrl.trim())) {
-      setSheetError("Please paste a valid Google Sheets URL");
+      setSheetUrlError("Please paste a valid Google Sheets URL");
       return;
     }
-    setSheetError(null);
-    connectSheetLogin();
+    setSheetUrlError(null);
+    setSheetNameError(null);
+
+    // Save sheet URL and name to localStorage without OAuth
+    setGoogleSheet(sheetUrl, sheetName);
+
+    // Clear form fields and edit mode
+    setSheetUrl("");
+    setSheetName("");
+    setIsEditingSheet(false);
+
+    // Show success modal
+    setSuccessModalConfig({
+      title: "Google Sheet Connected!",
+      description: "Sheet connected and is not yet synced",
+      secondaryText: "Find any '🔄 Sync with Google Sheets' button to push your local data and pull from the sheet.",
+    });
+    setShowSuccessModal(true);
   };
 
   const handleEditGoogleSheet = () => {
@@ -687,14 +719,16 @@ function SettingsPageContent() {
     setSheetUrl(safeGoogleSheet.url || "");
     setSheetName(safeGoogleSheet.name || "");
     setIsEditingSheet(true);
-    setSheetError(null);
+    setSheetUrlError(null);
+    setSheetNameError(null);
   };
 
   const handleCancelEdit = () => {
     setSheetUrl("");
     setSheetName("");
     setIsEditingSheet(false);
-    setSheetError(null);
+    setSheetUrlError(null);
+    setSheetNameError(null);
   };
 
   const handleRemoveGoogleSheet = () => {
@@ -713,7 +747,8 @@ function SettingsPageContent() {
       setSheetUrl("");
       setSheetName("");
       setIsEditingSheet(false);
-      setSheetError(null);
+      setSheetUrlError(null);
+      setSheetNameError(null);
     }
   };
 
@@ -804,39 +839,6 @@ function SettingsPageContent() {
   };
 
   // ---------------------------------------------------------------------------
-  // SAVE SETTINGS HANDLER
-  // ---------------------------------------------------------------------------
-
-  // const handleSaveSettings = () => {
-  //   // Rate limit check
-  //   if (saveRateLimit.isRateLimited) {
-  //     alert(`Please wait ${saveRateLimit.getFormattedTime()} before saving again.`);
-  //     return;
-  //   }
-
-  //   // Validate before allowing save
-  //   const validation = validateSettings({
-  //     symptoms,
-  //     stoolTracking: safeStoolTracking,
-  //     periodTracking: safePeriodTracking,
-  //     medicineTracking: safeMedicineTracking,
-  //   });
-
-  //   if (!validation.isValid) {
-  //     setShowValidationErrors(true);
-  //     return;
-  //   }
-
-  //   if (!saveRateLimit.attempt()) {
-  //     alert(`Rate limit reached. Please wait ${saveRateLimit.getFormattedTime()}.`);
-  //     return;
-  //   }
-
-  //   setShowValidationErrors(false);
-  //   saveLogin();
-  // };
-
-  // ---------------------------------------------------------------------------
   // NAVIGATION HANDLERS
   // ---------------------------------------------------------------------------
 
@@ -909,6 +911,7 @@ function SettingsPageContent() {
     setNavigateAfterSuccess("/dashboard");
     setShowSuccessModal(true);
   };
+
   // ---------------------------------------------------------------------------
   // SYMPTOM HANDLERS
   // ---------------------------------------------------------------------------
@@ -1124,8 +1127,6 @@ function SettingsPageContent() {
         />
       )}
 
-
-
       {showImportEntriesModal && pendingImportAccessToken && (
         <ImportEntriesModal
           onImport={handleImportEntries}
@@ -1220,7 +1221,7 @@ function SettingsPageContent() {
           </div>
         )}
 
-                {/* Google Sheet Integration */}
+        {/* Google Sheet Integration */}
         <section
           id="google-sheet-integration"
           className={`card border-2 transition-colors ${
@@ -1300,11 +1301,17 @@ function SettingsPageContent() {
                     <button
                       type="button"
                       onClick={handleRemoveGoogleSheet}
-                      disabled={disconnectRateLimit.isRateLimited}
+                      disabled={syncInProgress || disconnectRateLimit.isRateLimited}
+                      title={syncInProgress ? "Cannot disconnect during sync" : "Disconnect from Google Sheet"}
                       className="px-4 py-2 rounded-lg bg-app-red/10 text-app-red border border-app-red/20 hover:bg-app-red/20 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Disconnect
                     </button>
+                  </div>
+
+                  {/* Sync status badge */}
+                  <div className="mt-4">
+                    <SyncStatusBadge />
                   </div>
 
                   {/* Auto-sync info banner for returning users */}
@@ -1349,23 +1356,27 @@ function SettingsPageContent() {
                       value={sheetUrl}
                       onChange={(value) => {
                         setSheetUrl(value);
-                        setSheetError(null);
+                        setSheetUrlError(null);
                       }}
                       label="Google Sheet URL"
                       placeholder="Paste your URL here, e.g.: https://docs.google.com/spreadsheets/d/..."
                       required={true}
-                      errorMessage={sheetError || undefined}
+                      errorMessage={sheetUrlError || undefined}
                       onValidationChange={(isValid) => setSheetUrlInputError(!isValid)}
                     />
                   </div>
                   <div>
                     <SecureTextInput
                       value={sheetName}
-                      onChange={setSheetName}
+                      onChange={(value) => {
+                        setSheetName(value);
+                        setSheetNameError(null);
+                      }}
                       label="Sheet Name"
                       placeholder="e.g., My Health Tracker"
                       required={true}
                       showCharCount={true}
+                      errorMessage={sheetNameError || undefined}
                       onValidationChange={(isValid) => setSheetNameInputError(!isValid)}
                     />
                   </div>
@@ -1376,7 +1387,7 @@ function SettingsPageContent() {
                       disabled={sheetUrlInputError || sheetNameInputError || sheetUrl.length > 150 || sheetName.length > 60}
                       className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isEditingSheet ? "Update & Save" : "Connect & Sign In"}
+                      {isEditingSheet ? "Update Sheet Info" : "📊 Connect a Google Sheet"}
                     </button>
                     {isEditingSheet && (
                       <button
@@ -1390,8 +1401,8 @@ function SettingsPageContent() {
                   </div>
                   <div className="p-3 bg-app-cream rounded-lg border border-app-border">
                     <p className="text-xs text-app-gray">
-                      💡 <strong>Tip:</strong> You&apos;ll be asked to sign in with Google to authorize
-                      Cadence to read/write to your sheet.
+                      💡 <strong>Tip:</strong> After connecting, click any &quot;🔄 Sync with Google Sheets&quot; button
+                      to sign in with your Google account and sync your data.
                     </p>
                   </div>
                 </div>
@@ -1428,6 +1439,7 @@ function SettingsPageContent() {
             </button>
           </div>
         </section>
+
         {/* Week Start Day */}
         <section className="card border-2 border-app-taupe/50">
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">📅 Week Starts On</h2>
@@ -1721,7 +1733,7 @@ function SettingsPageContent() {
                     </div>
                   )}
 
-                                      {(safePeriodTracking.customPeriodSymptoms?.length ?? 0) > 0 && (
+                  {(safePeriodTracking.customPeriodSymptoms?.length ?? 0) > 0 && (
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-sm text-app-gray">

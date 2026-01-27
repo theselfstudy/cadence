@@ -80,13 +80,11 @@ export default function MonthlyPage() {
     goToNextMonth,
     goToPrevMonth,
     goToCurrentMonth,
-    // goToMonth,
     monthEntries,
     prevMonthEntries,
     filteredEntries,
     selectedDays,
     filters,
-    // activeFilterCount,
     categoryFilterCounts,
     availableOptions,
     hasAdvancedFilters,
@@ -109,12 +107,6 @@ export default function MonthlyPage() {
     clearAllFilters,
     clearAllFiltersAndDays,
   } = useMonthlyFilters(entries);
-
-
-  // Reset comparison offset when main month changes
-  // useEffect(() => {
-  //   setComparisonOffset(0);
-  // }, [monthOffset]);
 
   // Calculate stats for filtered entries
   const stats = useMemo(
@@ -332,7 +324,6 @@ export default function MonthlyPage() {
   }, [prevMonthEntries]);
 
   // Stats card comparison - based on current month view
-    // Stats card comparison - based on current month view
   const statsComparison = useMemo(
     () => compareMonths(monthEntries, prevMonthEntries),
     [monthEntries, prevMonthEntries]
@@ -422,7 +413,7 @@ export default function MonthlyPage() {
             <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
             <span className="text-sm text-app-charcoal">
               {isGoogleSheetConnected
-                ? `Google Sheets: ${formatTimeSinceSync(getLastSuccessfulSyncAt())}`
+                ? formatTimeSinceSync(getLastSuccessfulSyncAt())
                 : "Local storage only (Anonymous Mode)"}
             </span>
           </div>
@@ -649,7 +640,7 @@ export default function MonthlyPage() {
                 </button>
               </div>
             )}
-            <span className="text-app-gray text-xl">{showEntries ? "−" : "+"}</span>
+            <span className="text-app-gray text-xl">{showEntries ? "-" : "+"}</span>
           </div>
         </button>
 
@@ -1150,17 +1141,17 @@ function MonthlyPageSkeleton() {
 // ============================================
 
 function formatTimeSinceSync(lastSyncAt: string | null): string {
-  if (!lastSyncAt) return "Not synced";
+  if (!lastSyncAt) return "Sheet connected and is not yet synced";
 
   const ms = Date.now() - new Date(lastSyncAt).getTime();
   const minutes = Math.floor(ms / 60000);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (days > 0) return `Synced ${days}d ago`;
-  if (hours > 0) return `Synced ${hours}h ago`;
-  if (minutes > 0) return `Synced ${minutes}m ago`;
-  return "Synced just now";
+  if (days > 0) return `Last synced ${days}d ago`;
+  if (hours > 0) return `Last synced ${hours}h ago`;
+  if (minutes > 0) return `Last synced ${minutes}m ago`;
+  return "Last synced just now";
 }
 
 function formatDate(dateStr: string): string {

@@ -1,25 +1,35 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useGoogleLogin } from "@react-oauth/google";
-import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
+import { useSyncState } from "@/stores/useSyncState";
 import { useSavedFilters } from "@/stores/useSavedFilters";
-import { useSyncTracker } from "@/stores/useSyncTracker";
+import { useEntries } from "@/stores/useEntries";
 import { useButtonRateLimit } from "@/hooks/useRateLimit";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SheetDisconnectedModal } from "@/components/ui/SheetDisconnectedModal";
-import { verifySheetConnection } from "@/lib/googleSheets";
+import { startSync } from "@/lib/syncEngine";
+import {
+  isMobileDevice,
+  triggerOAuthRedirect,
+  getOAuthToken,
+  clearOAuthToken
+} from "@/lib/oauthHelpers";
 
 // ============================================
 // Types
 // ============================================
 
 type ButtonVariant = "primary" | "secondary" | "subtle";
+type ButtonMode = "sync" | "restore";
 
 interface SyncWithGoogleSheetsButtonProps {
   /** Visual variant of the button */
   variant?: ButtonVariant;
+  /** Mode: sync (default) or restore */
+  mode?: ButtonMode;
   /** Show the sync status indicator below the button */
   showStatus?: boolean;
   /** Custom class names to apply */
@@ -28,29 +38,12 @@ interface SyncWithGoogleSheetsButtonProps {
   disabled?: boolean;
   /** Message to show when disabled due to input errors */
   disabledMessage?: string;
-}
-
-interface SyncResults {
-  push: {
-    entries: { success: boolean; synced: number; failed: number };
-    settings: { success: boolean };
-    filters: { success: boolean };
-  };
-  pull: {
-    entries: { success: boolean; imported: number; skipped: number };
-    settings: { success: boolean };
-    filters: { success: boolean; count: number };
-  };
-}
-
-// ============================================
-// Helper: Extract spreadsheet ID from URL
-// ============================================
-
-function getSpreadsheetIdFromUrl(url: string | null): string | null {
-  if (!url) return null;
-  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  return match ? match[1] : null;
+  /** Sheet URL for restore mode */
+  sheetUrl?: string;
+  /** Callback when restore completes successfully */
+  onRestoreSuccess?: () => void;
+  /** Callback when restore fails */
+  onRestoreError?: (error: string) => void;
 }
 
 // ============================================
@@ -75,263 +68,156 @@ function formatTimeSinceSync(lastSyncAt: string | null): string {
 // Component
 // ============================================
 
+// Helper function to extract spreadsheet ID from URL
+function getSpreadsheetIdFromUrl(url: string): string | null {
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : null;
+}
+
 export function SyncWithGoogleSheetsButton({
   variant = "primary",
+  mode = "sync",
   showStatus = false,
   className = "",
   disabled = false,
   disabledMessage,
+  sheetUrl,
+  onRestoreSuccess,
+  onRestoreError,
 }: SyncWithGoogleSheetsButtonProps) {
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState("");
-  const [syncResult, setSyncResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
+  const router = useRouter();
   const [showOAuthError, setShowOAuthError] = useState(false);
   const [showSheetDisconnected, setShowSheetDisconnected] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   // Store hooks
-  const { entries, batchSyncEntries, importEntriesFromSheet } = useEntries();
-  const {
-    isGoogleSheetConnected,
-    hasUnsavedChanges,
-    saveSettingsToSheet,
-    loadSettingsFromSheet,
-    googleSheet,
-    handleSheetVerificationFailure,
-  } = useSettings();
-  const {
-    savedFilters,
-    syncToSheet: syncFiltersToSheet,
-    loadFromSheet: loadFiltersFromSheet,
-  } = useSavedFilters();
-  const { getLastSuccessfulSyncAt } = useSyncTracker();
+  const { isGoogleSheetConnected, loadSettingsFromSheet } = useSettings();
+  const { syncInProgress, currentPhase, lastSuccessfulSyncAt } = useSyncState();
+  const loadSavedFiltersFromSheet = useSavedFilters((state) => state.loadFromSheet);
+  const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
 
   // Rate limiting: 3 syncs per minute
   const rateLimit = useButtonRateLimit({
     maxRequests: 3,
     windowMs: 60000,
-    key: "sync-google-sheets",
+    key: mode === "restore" ? "restore-google-sheets" : "sync-google-sheets",
     storageType: "localStorage",
   });
 
-  // Get pending items counts
-  const pendingEntries = entries.filter(
-    (e) => e.syncStatus === "pending" || e.syncStatus === "error"
-  );
-  const pendingEntriesCount = pendingEntries.length;
-  const hasFiltersToSync = savedFilters.length > 0;
+  // Check for OAuth token on page load (for mobile redirect return in restore mode)
+  useEffect(() => {
+    if (mode !== "restore") return;
 
-  // OAuth login handler
+    const token = getOAuthToken();
+    const pendingSheetUrl = localStorage.getItem('restore_pending_sheet_url');
+
+    if (token && pendingSheetUrl) {
+      // We just returned from OAuth redirect, perform restore
+      performRestore(pendingSheetUrl, token);
+      localStorage.removeItem('restore_pending_sheet_url');
+    }
+  }, [mode]);
+
+  // Perform the actual restore operation
+  const performRestore = async (url: string, token: string) => {
+    setIsRestoring(true);
+
+    const spreadsheetId = getSpreadsheetIdFromUrl(url);
+    if (!spreadsheetId) {
+      onRestoreError?.("That doesn't look like a valid Google Sheet URL.");
+      setIsRestoring(false);
+      clearOAuthToken();
+      return;
+    }
+
+    console.log("Restoring settings from sheet...");
+    const success = await loadSettingsFromSheet(spreadsheetId, token);
+
+    if (success) {
+      // Also restore saved filters and entries
+      await loadSavedFiltersFromSheet(spreadsheetId, token);
+      await importEntriesFromSheet(token);
+
+      clearOAuthToken();
+      setIsRestoring(false);
+      onRestoreSuccess?.();
+      // Redirect to dashboard after successful restore
+      router.push('/dashboard');
+    } else {
+      const errorMsg = "Could not find or load settings from this sheet. Please ensure it's a valid Cadence sheet and that you have granted permission.";
+      onRestoreError?.(errorMsg);
+      setIsRestoring(false);
+      clearOAuthToken();
+    }
+  };
+
+  // OAuth login handler (for desktop popup flow)
   const googleLogin = useGoogleLogin({
     scope: "https://www.googleapis.com/auth/spreadsheets",
     onSuccess: async (tokenResponse) => {
-      setIsSyncing(true);
-      setSyncResult(null);
-      await performFullSync(tokenResponse.access_token);
-      setIsSyncing(false);
+      // Store token temporarily in sessionStorage
+      sessionStorage.setItem('google_oauth_token', tokenResponse.access_token);
+      sessionStorage.setItem('google_oauth_timestamp', Date.now().toString());
+
+      if (mode === "restore") {
+        // Perform restore
+        if (!sheetUrl) {
+          onRestoreError?.("Please enter a Google Sheet URL first.");
+          return;
+        }
+        await performRestore(sheetUrl, tokenResponse.access_token);
+      } else {
+        // Start sync using new sync engine
+        try {
+          await startSync();
+        } catch (error) {
+          console.error("Sync error:", error);
+          if ((error as Error).message?.includes('deleted') || (error as Error).message?.includes('access')) {
+            setShowSheetDisconnected(true);
+          }
+        }
+      }
     },
     onError: (error) => {
       console.error("OAuth error:", error);
       setShowOAuthError(true);
-      setIsSyncing(false);
     },
     onNonOAuthError: () => {
       setShowOAuthError(true);
-      setIsSyncing(false);
     },
   });
 
-  // Full sync: Push + Pull in one flow
-  const performFullSync = useCallback(
-    async (accessToken: string) => {
-      const results: SyncResults = {
-        push: {
-          entries: { success: true, synced: 0, failed: 0 },
-          settings: { success: true },
-          filters: { success: true },
-        },
-        pull: {
-          entries: { success: true, imported: 0, skipped: 0 },
-          settings: { success: true },
-          filters: { success: true, count: 0 },
-        },
-      };
-
-      try {
-        // ==========================================
-        // SHEET HEALTH CHECK: Verify connection before sync
-        // ==========================================
-        const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet.url);
-
-        if (!spreadsheetId) {
-          setSyncResult({
-            success: false,
-            message: "Invalid Google Sheet URL. Please reconnect.",
-          });
-          handleSheetVerificationFailure();
-          return;
-        }
-
-        setSyncProgress("Verifying sheet connection...");
-        const verification = await verifySheetConnection(spreadsheetId, accessToken);
-
-        if (!verification.success) {
-          // Sheet is deleted or access removed - clear connection and block sync
-          handleSheetVerificationFailure();
-          // Show the disconnected modal instead of just a sync result
-          setShowSheetDisconnected(true);
-          return;
-        }
-
-        // ==========================================
-        // PUSH PHASE: Local -> Google Sheets
-        // ==========================================
-
-        // 1. Push pending entries
-        if (pendingEntriesCount > 0) {
-          setSyncProgress(`Pushing ${pendingEntriesCount} entries...`);
-          const entryResult = await batchSyncEntries(accessToken, (progress) => {
-            setSyncProgress(`Pushing entries: ${progress.current}/${progress.total}`);
-          });
-          results.push.entries = {
-            success: entryResult.success,
-            synced: entryResult.succeeded,
-            failed: entryResult.failed,
-          };
-        }
-
-        // 2. Push settings if changed
-        if (hasUnsavedChanges) {
-          setSyncProgress("Pushing settings...");
-          results.push.settings.success = await saveSettingsToSheet(accessToken);
-        }
-
-        // 3. Push saved filters
-        if (hasFiltersToSync) {
-          setSyncProgress("Pushing saved filters...");
-          results.push.filters.success = await syncFiltersToSheet(accessToken);
-        }
-
-        // ==========================================
-        // PULL PHASE: Google Sheets -> Local
-        // ==========================================
-
-        // 4. Pull entries from sheet
-        setSyncProgress("Pulling entries from sheet...");
-        const importResult = await importEntriesFromSheet(accessToken);
-        results.pull.entries = {
-          success: importResult.success,
-          imported: importResult.imported,
-          skipped: importResult.skipped,
-        };
-
-        // 5. Pull settings from sheet
-        // spreadsheetId already extracted and verified at the start of sync
-        setSyncProgress("Pulling settings from sheet...");
-        results.pull.settings.success = await loadSettingsFromSheet(
-          spreadsheetId,
-          accessToken,
-          googleSheet.name || undefined  // Preserve user's custom sheet name
-        );
-
-        // If settings sheet doesn't exist yet, push local settings to create it
-        // This handles the case where a user has entries but no settings sheet
-        if (!results.pull.settings.success) {
-          setSyncProgress("Creating settings sheet...");
-          results.push.settings.success = await saveSettingsToSheet(accessToken);
-        }
-
-        // 6. Pull saved filters from sheet
-        setSyncProgress("Pulling saved filters from sheet...");
-        const filterResult = await loadFiltersFromSheet(
-          spreadsheetId,
-          accessToken
-        );
-        results.pull.filters.success = filterResult;
-
-        // If filters sheet doesn't exist yet, push local filters to create it
-        // This handles the case where a user has entries but no filters sheet
-        if (!filterResult && !savedFilters) {
-          setSyncProgress("Creating saved filters sheet...");
-          results.push.filters.success = await syncFiltersToSheet(accessToken);
-        }
-
-        // ==========================================
-        // Build result message
-        // ==========================================
-        const messages: string[] = [];
-
-        // Push results
-        if (results.push.entries.synced > 0) {
-          messages.push(`${results.push.entries.synced} entries pushed`);
-        }
-        if (results.push.entries.failed > 0) {
-          messages.push(`${results.push.entries.failed} entries failed`);
-        }
-
-        // Pull results
-        if (results.pull.entries.imported > 0) {
-          messages.push(`${results.pull.entries.imported} entries imported`);
-        }
-
-        // If nothing happened
-        if (messages.length === 0) {
-          messages.push("Up to date");
-        }
-
-        const allPushSuccess =
-          results.push.entries.success &&
-          results.push.settings.success &&
-          results.push.filters.success;
-        const allPullSuccess =
-          results.pull.entries.success &&
-          results.pull.settings.success &&
-          results.pull.filters.success;
-
-        setSyncResult({
-          success: allPushSuccess && allPullSuccess,
-          message: messages.join(" · "),
-        });
-
-        // Clear result after 5 seconds
-        setTimeout(() => setSyncResult(null), 5000);
-      } catch (error) {
-        console.error("Sync error:", error);
-        setSyncResult({
-          success: false,
-          message: error instanceof Error ? error.message : "Sync failed",
-        });
-      }
-    },
-    [
-      pendingEntriesCount,
-      hasUnsavedChanges,
-      hasFiltersToSync,
-      savedFilters.length,
-      batchSyncEntries,
-      saveSettingsToSheet,
-      syncFiltersToSheet,
-      importEntriesFromSheet,
-      loadSettingsFromSheet,
-      loadFiltersFromSheet,
-      googleSheet.url,
-      googleSheet.name,
-      handleSheetVerificationFailure,
-    ]
-  );
-
-  // Handle button click
+  // Handle button click - use hybrid OAuth approach
   const handleClick = () => {
-    if (isSyncing || rateLimit.isRateLimited || disabled) return;
+    if (syncInProgress || isRestoring || rateLimit.isRateLimited || disabled) return;
+
+    // Restore mode validation
+    if (mode === "restore") {
+      if (!sheetUrl || !sheetUrl.trim()) {
+        onRestoreError?.("Please enter your Google Sheet URL first.");
+        return;
+      }
+    }
+
     if (!rateLimit.attempt()) return;
-    googleLogin();
+
+    if (isMobileDevice()) {
+      // Mobile: use redirect OAuth
+      if (mode === "restore" && sheetUrl) {
+        // Store sheet URL for after redirect
+        localStorage.setItem('restore_pending_sheet_url', sheetUrl);
+      }
+      triggerOAuthRedirect(window.location.pathname);
+    } else {
+      // Desktop: use popup OAuth
+      googleLogin();
+    }
   };
 
   // Don't render if Google Sheet is not connected
   // BUT still render if we need to show the disconnected modal
-  if (!isGoogleSheetConnected && !showSheetDisconnected) {
+  // ALSO always render in restore mode
+  if (mode !== "restore" && !isGoogleSheetConnected && !showSheetDisconnected) {
     return null;
   }
 
@@ -352,10 +238,24 @@ export function SyncWithGoogleSheetsButton({
     `,
   };
 
-  // Sync icon
-  const SyncIcon = (
+  // Icon (sync or restore)
+  const Icon = mode === "restore" ? (
     <svg
-      className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`}
+      className={`w-4 h-4 ${isRestoring ? "animate-spin" : ""}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
+    </svg>
+  ) : (
+    <svg
+      className={`w-4 h-4 ${syncInProgress ? "animate-spin" : ""}`}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -369,23 +269,69 @@ export function SyncWithGoogleSheetsButton({
     </svg>
   );
 
-  const lastSyncAt = getLastSuccessfulSyncAt();
-  const syncStatusText = formatTimeSinceSync(lastSyncAt);
+  // Format phase label for display
+  const formatPhaseLabel = (): string => {
+    const phase = currentPhase.phase;
+    const progress = currentPhase.progress;
+
+    switch (phase) {
+      case 'verify':
+        return 'Verifying connection...';
+      case 'push-entries':
+        return progress.entriesTotal > 0
+          ? `Pushing entries (${progress.entriesSynced}/${progress.entriesTotal})`
+          : 'Pushing entries...';
+      case 'push-settings':
+        return 'Pushing settings...';
+      case 'push-filters':
+        return 'Pushing filters...';
+      case 'pull-entries':
+        return 'Pulling entries...';
+      case 'pull-settings':
+        return 'Pulling settings...';
+      case 'pull-filters':
+        return 'Pulling filters...';
+      case 'finalize':
+        return 'Finalizing sync...';
+      default:
+        return 'Syncing...';
+    }
+  };
+
+  const syncStatusText = formatTimeSinceSync(lastSuccessfulSyncAt);
+
+  // Button text based on mode and state
+  const getButtonText = () => {
+    if (mode === "restore") {
+      return isRestoring ? "Restoring..." : "Sign In with Google & Restore";
+    }
+    return syncInProgress ? formatPhaseLabel() : "Sync with Google Sheets";
+  };
+
+  const isButtonDisabled = mode === "restore"
+    ? isRestoring || rateLimit.isRateLimited || disabled
+    : syncInProgress || rateLimit.isRateLimited || disabled;
 
   return (
     <>
-      {/* Only show button and status when connected */}
-      {isGoogleSheetConnected && (
+      {/* Show button when connected (sync mode) or always (restore mode) */}
+      {(mode === "restore" || isGoogleSheetConnected) && (
         <div className={className}>
           <button
             onClick={handleClick}
-            disabled={isSyncing || rateLimit.isRateLimited || disabled}
+            disabled={isButtonDisabled}
             className={buttonStyles[variant]}
-            title={disabled && disabledMessage ? disabledMessage : "Push local changes and pull updates from Google Sheets"}
+            title={
+              disabled && disabledMessage
+                ? disabledMessage
+                : mode === "restore"
+                ? "Sign in with Google to restore your settings and entries"
+                : "Push local changes and pull updates from Google Sheets"
+            }
           >
             <span className="flex items-center gap-2">
-              {SyncIcon}
-              {isSyncing ? syncProgress || "Syncing..." : "Sync with Google Sheets"}
+              {Icon}
+              {getButtonText()}
             </span>
           </button>
 
@@ -404,22 +350,8 @@ export function SyncWithGoogleSheetsButton({
             </div>
           )}
 
-          {/* Sync result notification */}
-          {syncResult && (
-            <div
-              className={`mt-2 p-2 rounded-lg text-sm flex items-center gap-2 ${
-                syncResult.success
-                  ? "bg-app-teal/10 text-app-teal"
-                  : "bg-red-50 text-red-700"
-              }`}
-            >
-              <span>{syncResult.success ? "✓" : "✗"}</span>
-              <span>{syncResult.message}</span>
-            </div>
-          )}
-
           {/* Sync status indicator */}
-          {showStatus && !syncResult && (
+          {showStatus && !syncInProgress && (
             <div className="mt-2 text-sm text-app-gray">
               Google Sheets: {syncStatusText}
             </div>

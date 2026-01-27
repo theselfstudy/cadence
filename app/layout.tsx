@@ -1,9 +1,15 @@
 "use client";
 
+import { useEffect, useState } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import type { Viewport } from "next";
 import { Inter } from "next/font/google";
 import { AppShell } from "@/components/Layout/AppShell";
+import { GlobalSyncIndicator } from "@/components/sync/GlobalSyncIndicator";
+import { ResumeSyncModal } from "@/components/sync/ResumeSyncModal";
+import { useSyncState } from "@/stores/useSyncState";
+import { getOAuthToken } from "@/lib/oauthHelpers";
+import { resumeSync } from "@/lib/syncEngine";
 import "./globals.css";
 
 // ========================
@@ -35,14 +41,36 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const googleClientId = "7354676422-96g78e6tdfb2jp1akigsb80j9696339c.apps.googleusercontent.com"; // Use your actual Client ID here
-  
+  const googleClientId = "7354676422-96g78e6tdfb2jp1akigsb80j9696339c.apps.googleusercontent.com";
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const { shouldResumeSync, pendingOAuthRedirect } = useSyncState();
+
+  useEffect(() => {
+    // Check if we just returned from OAuth redirect
+    const token = getOAuthToken();
+
+    if (token && pendingOAuthRedirect) {
+      // Automatically resume sync after OAuth return
+      resumeSync().catch(console.error);
+      return;
+    }
+
+    // Check if there's a pending sync to resume
+    if (shouldResumeSync()) {
+      setShowResumeModal(true);
+    }
+  }, [shouldResumeSync, pendingOAuthRedirect]);
+
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} antialiased`}>
-        {/* THIS IS THE FIX: The provider must wrap your application shell */}
         <GoogleOAuthProvider clientId={googleClientId}>
+          <GlobalSyncIndicator />
           <AppShell>{children}</AppShell>
+          <ResumeSyncModal
+            isOpen={showResumeModal}
+            onClose={() => setShowResumeModal(false)}
+          />
         </GoogleOAuthProvider>
       </body>
     </html>

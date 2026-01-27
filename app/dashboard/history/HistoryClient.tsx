@@ -7,17 +7,14 @@ import { useSearchParams } from "next/navigation";
 import type { StoredEntry, TimeFormat } from "@/types";
 import { useEntries } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
-import { useSavedFilters } from "@/stores/useSavedFilters";
+// import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useSyncTracker } from "@/stores/useSyncTracker";
-// import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
 import { FilterBar } from "@/components/history";
 import { CYCLE_PHASES } from "@/lib/constants";
-// import { useGoogleLogin } from "@react-oauth/google";
 import { getLocalDateString } from '@/lib/dateUtils';
 import { EntryCard } from '@/components/ui/EntryCard';
-// import { useButtonRateLimit } from '@/hooks/useRateLimit';
 import { SyncWithGoogleSheetsButton } from '@/components/sync';
 
 
@@ -57,10 +54,10 @@ export default function HistoryPage() {
 
   const settings = useSettings();
 
-  const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
+  // const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
 
   // Saved filters store
-  const loadSavedFiltersFromSheet = useSavedFilters((state) => state.loadFromSheet);
+  // const loadSavedFiltersFromSheet = useSavedFilters((state) => state.loadFromSheet);
   
   // Filter state - initialize from URL params if present
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>(() => {
@@ -296,7 +293,7 @@ export default function HistoryPage() {
             <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
             <span className="text-sm text-app-charcoal">
               {isGoogleSheetConnected
-                ? `Google Sheets: ${formatTimeSinceSync(getLastSuccessfulSyncAt())}`
+                ? formatTimeSinceSync(getLastSuccessfulSyncAt())
                 : "Local storage only (Anonymous Mode)"}
             </span>
           </div>
@@ -1080,17 +1077,17 @@ function HistorySkeleton() {
 // ============================================
 
 function formatTimeSinceSync(lastSyncAt: string | null): string {
-  if (!lastSyncAt) return "Not synced";
+  if (!lastSyncAt) return "Sheet connected and is not yet synced";
 
   const ms = Date.now() - new Date(lastSyncAt).getTime();
   const minutes = Math.floor(ms / 60000);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (days > 0) return `Synced ${days}d ago`;
-  if (hours > 0) return `Synced ${hours}h ago`;
-  if (minutes > 0) return `Synced ${minutes}m ago`;
-  return "Synced just now";
+  if (days > 0) return `Last synced ${days}d ago`;
+  if (hours > 0) return `Last synced ${hours}h ago`;
+  if (minutes > 0) return `Last synced ${minutes}m ago`;
+  return "Last synced just now";
 }
 
 function getFilterLabel(filter: DateRangeFilter): string {

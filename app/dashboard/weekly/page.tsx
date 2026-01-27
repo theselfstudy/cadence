@@ -25,7 +25,7 @@ import {
 import { FilterBar } from "@/components/history";
 import { useWeeklyFilters } from "@/hooks/useWeeklyFilters";
 
-import { BRISTOL_TYPES, POST_BOWEL_FEELINGS, CYCLE_PHASES } from "@/lib/constants";
+// import { BRISTOL_TYPES, POST_BOWEL_FEELINGS, CYCLE_PHASES } from "@/lib/constants";
 import type { StoredEntry, TimeFormat } from "@/types";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { SyncWithGoogleSheetsButton } from "@/components/sync";
@@ -419,7 +419,7 @@ export default function WeeklyPage() {
             <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
             <span className="text-sm text-app-charcoal">
               {isGoogleSheetConnected
-                ? `Google Sheets: ${formatTimeSinceSync(getLastSuccessfulSyncAt())}`
+                ? formatTimeSinceSync(getLastSuccessfulSyncAt())
                 : "Local storage only (Anonymous Mode)"}
             </span>
           </div>
@@ -827,17 +827,17 @@ function WeeklyPageSkeleton() {
 // ============================================
 
 function formatTimeSinceSync(lastSyncAt: string | null): string {
-  if (!lastSyncAt) return "Not synced";
+  if (!lastSyncAt) return "Sheet connected and is not yet synced";
 
   const ms = Date.now() - new Date(lastSyncAt).getTime();
   const minutes = Math.floor(ms / 60000);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (days > 0) return `Synced ${days}d ago`;
-  if (hours > 0) return `Synced ${hours}h ago`;
-  if (minutes > 0) return `Synced ${minutes}m ago`;
-  return "Synced just now";
+  if (days > 0) return `Last synced ${days}d ago`;
+  if (hours > 0) return `Last synced ${hours}h ago`;
+  if (minutes > 0) return `Last synced ${minutes}m ago`;
+  return "Last synced just now";
 }
 
 function formatDate(dateStr: string): string {

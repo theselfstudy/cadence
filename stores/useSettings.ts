@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-import { existsCaseInsensitive, findSimilarItems } from "@/lib/stringUtils";
+import { existsCaseInsensitive } from "@/lib/stringUtils";
 
 import {
   getSettingsFromSheet,
@@ -21,8 +21,7 @@ import type {
 
 import {
   DEFAULT_USER_SETTINGS,
-  STORAGE_KEYS,
-  DEFAULT_SYMPTOMS,
+  STORAGE_KEYS
 } from "@/lib/constants";
 
 // ============================================================================
@@ -56,11 +55,35 @@ export const useSettings = create<SettingsStore>()(
       // GOOGLE SHEET ACTIONS
       // =======================================================================
 
-      setGoogleSheet: (url: string, name?: string) => {
+      setGoogleSheet: async (url: string, name?: string) => {
+        const currentSheetUrl = get().googleSheet.url;
+        const newSheetUrl = url.trim();
+
+        // If connecting to a different sheet URL, reset all entries to pending
+        if (currentSheetUrl !== newSheetUrl) {
+          const { useEntries } = await import('./useEntries');
+          const entriesState = useEntries.getState();
+
+          // Mark all synced entries as pending so they'll be pushed to the new sheet
+          const hasEntriesWithSyncedStatus = entriesState.entries.some(
+            entry => entry.syncStatus === 'synced'
+          );
+
+          if (hasEntriesWithSyncedStatus) {
+            useEntries.setState({
+              entries: entriesState.entries.map(entry =>
+                entry.syncStatus === 'synced'
+                  ? { ...entry, syncStatus: 'pending' as const }
+                  : entry
+              )
+            });
+          }
+        }
+
         set({
           isGoogleSheetConnected: true,
           googleSheet: {
-            url: url.trim(),
+            url: newSheetUrl,
             name: name?.trim() || null,
             addedAt: new Date().toISOString(),
           },

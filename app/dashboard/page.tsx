@@ -5,7 +5,7 @@ import { useSettings } from "@/stores/useSettings";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThisWeekGlance } from "@/components/dashboard";
-import { SyncWithGoogleSheetsButton } from "@/components/sync";
+import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
 
 // =============================================================================
 // DASHBOARD LANDING PAGE
@@ -41,9 +41,12 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-app-charcoal">Dashboard</h1>
           <p className="text-app-gray">Your health at a glance and quick navigation</p>
+          <div className="mt-2">
+            <SyncStatusBadge />
+          </div>
         </div>
         {/* Sync with Google Sheets - Positioned next to header */}
-        <SyncWithGoogleSheetsButton variant="secondary" showStatus />
+        <SyncWithGoogleSheetsButton variant="secondary" />
       </div>
 
       {/* Quick Actions */}
@@ -86,7 +89,6 @@ export default function DashboardPage() {
 
       {/* This Week at a Glance */}
       <ThisWeekGlance />
-
       {/* Quick Navigation */}
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-app-gray uppercase tracking-wide">
