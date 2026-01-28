@@ -2,6 +2,7 @@
 // Entry Store - Zustand with localStorage persistence
 // ============================================
 
+import { useState, useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
@@ -452,15 +453,21 @@ export const useEntries = create<EntryStore>()(
     {
       name: STORAGE_KEYS.entries || 'cadence-entries',
       storage: createJSONStorage(() => localStorage),
-      // Migration: Ensure backward compatibility for older entries
-      onRehydrateStorage: () => (state) => {
-        if (state?.entries) {
-          // Normalize entries to ensure oneOffSymptoms defaults to empty array
-          state.entries = state.entries.map((entry) => ({
+      // Merge persisted state with current state, normalizing entries
+      // This runs BEFORE set(), so subscribers always see normalized data
+      merge: (persistedState, currentState) => {
+        const merged = { ...currentState, ...(persistedState as object) };
+        // Normalize entries to ensure oneOffSymptoms defaults to empty array
+        if (merged.entries) {
+          merged.entries = (merged.entries as StoredEntry[]).map((entry) => ({
             ...entry,
             oneOffSymptoms: entry.oneOffSymptoms ?? [],
           }));
         }
+        return merged as EntryStore;
+      },
+      onRehydrateStorage: () => () => {
+        // Hydration complete - no-op, normalization handled by merge()
       },
     }
   )
@@ -474,6 +481,29 @@ export const useEntriesList = () => useEntries((state) => state.entries);
 export const useIsSyncing = () => useEntries((state) => state.isSyncing);
 export const usePendingEntries = () => useEntries((state) => state.getPendingEntries());
 export const useBatchSyncProgress = () => useEntries((state) => state.batchSyncProgress);
-export const useSyncableEntriesCount = () => useEntries((state) => 
+export const useSyncableEntriesCount = () => useEntries((state) =>
   state.entries.filter(e => e.syncStatus === 'pending' || e.syncStatus === 'error').length
 );
+
+// ============================================
+// HYDRATION HOOK
+// ============================================
+
+/**
+ * Hook that returns true once the entries store has finished
+ * rehydrating from localStorage. Use this to gate rendering
+ * of components that depend on entries data, preventing stale
+ * or empty state from being shown.
+ */
+export function useEntriesHydrated(): boolean {
+  const [hydrated, setHydrated] = useState(useEntries.persist.hasHydrated());
+
+  useEffect(() => {
+    const unsub = useEntries.persist.onFinishHydration(() => {
+      setHydrated(true);
+    });
+    return () => { unsub(); };
+  }, []);
+
+  return hydrated;
+}

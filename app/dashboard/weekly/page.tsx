@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
-import { useEntries } from "@/stores/useEntries";
+import { useEntries, useEntriesHydrated } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 
 import {
@@ -45,8 +45,9 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // ============================================
 
 export default function WeeklyPage() {
-  // Client-side rendering guard
+  // Client-side rendering guard - wait for both client mount AND store hydration
   const [isClient, setIsClient] = useState(false);
+  const isHydrated = useEntriesHydrated();
 
   // Store data
   const entries = useEntries((state) => state.entries);
@@ -387,7 +388,7 @@ export default function WeeklyPage() {
     medicine: medicineTrackingEnabled,
   };
 
-  if (!isClient) {
+  if (!isClient || !isHydrated) {
     return <WeeklyPageSkeleton />;
   }
 

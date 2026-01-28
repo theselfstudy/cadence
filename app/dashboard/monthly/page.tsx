@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
-import { useEntries } from "@/stores/useEntries";
+import { useEntries, useEntriesHydrated } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 
 import {
@@ -42,8 +42,9 @@ type ViewMode = "cards" | "table";
 // ============================================
 
 export default function MonthlyPage() {
-  // Client-side rendering guard
+  // Client-side rendering guard - wait for both client mount AND store hydration
   const [isClient, setIsClient] = useState(false);
+  const isHydrated = useEntriesHydrated();
 
   // Store data
   const entries = useEntries((state) => state.entries);
@@ -381,7 +382,7 @@ export default function MonthlyPage() {
     return monthRange.end.getDate();
   }, [monthRange]);
 
-  if (!isClient) {
+  if (!isClient || !isHydrated) {
     return <MonthlyPageSkeleton />;
   }
 

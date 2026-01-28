@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { useEntries } from "@/stores/useEntries";
+import { useEntries, useEntriesHydrated } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 import { useSyncTracker } from "@/stores/useSyncTracker";
 import { SyncWithGoogleSheetsButton } from "@/components/sync";
@@ -41,6 +41,7 @@ export function CycleInsightsPage() {
   // ============================================
   
   const entries = useEntries((state) => state.entries);
+  const isHydrated = useEntriesHydrated();
   const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
   const periodTracking = useSettings((state) => state.periodTracking);
   const { getLastSuccessfulSyncAt } = useSyncTracker();
@@ -137,6 +138,16 @@ const detectedCycles = useMemo(() => {
   // ============================================
   // MAIN RENDER
   // ============================================
+
+  // Wait for store hydration before rendering
+  if (!isHydrated) {
+    return (
+      <div className="p-4 space-y-4 max-w-4xl mx-auto animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-48" />
+        <div className="h-4 bg-gray-200 rounded w-72" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto">
