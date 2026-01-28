@@ -402,30 +402,42 @@ export default function HistoryPage() {
 
           {/* Advanced Filters Content */}
           {showAdvancedFilters && (
-            <div className="mt-4">
-            <FilterBar
-              filters={filters}
-              availableOptions={availableOptions}
-              categoryFilterCounts={categoryFilterCounts}
-              hasFilters={hasFilters}
-              settings={settings}
-              onLoadSavedFilter={setFilters}
-              toggleSymptom={toggleSymptom}
-              toggleCyclePhase={toggleCyclePhase}
-              toggleFlowLevel={toggleFlowLevel}
-              toggleBristolType={toggleBristolType}
-              toggleFeeling={toggleFeeling}
-              toggleMedicine={toggleMedicine}
-              selectAllSymptoms={selectAllSymptoms}
-              selectAllCycle={selectAllCycle}
-              selectAllBowel={selectAllBowel}
-              selectAllMedicine={selectAllMedicine}
-              clearCategory={clearCategory}
-              // clearAllFilters={clearAllFilters}
-            />
+            <div className="mt-4 flex flex-col gap-3">
+              <FilterBar
+                filters={filters}
+                availableOptions={availableOptions}
+                categoryFilterCounts={categoryFilterCounts}
+                hasFilters={hasFilters}
+                settings={settings}
+                onLoadSavedFilter={setFilters}
+                toggleSymptom={toggleSymptom}
+                toggleCyclePhase={toggleCyclePhase}
+                toggleFlowLevel={toggleFlowLevel}
+                toggleBristolType={toggleBristolType}
+                toggleFeeling={toggleFeeling}
+                toggleMedicine={toggleMedicine}
+                selectAllSymptoms={selectAllSymptoms}
+                selectAllCycle={selectAllCycle}
+                selectAllBowel={selectAllBowel}
+                selectAllMedicine={selectAllMedicine}
+                clearCategory={clearCategory}
+              />
+
+              {/* Clear All Button at the end */}
+              {hasFilters && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={clearAllFilters}
+                    className="px-3 py-1.5 text-sm rounded-lg font-medium bg-app-red text-white hover:bg-app-red/50 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
+
       </div>
 
       {/* Summary Statistics Panel */}
