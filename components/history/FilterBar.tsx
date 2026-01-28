@@ -310,8 +310,13 @@ export function FilterBar({
         {hasFilters && (
           <button
             onClick={clearAllFilters}
-            className="px-3 py-1.5 text-sm text-app-red hover:text-app-red/80 
-                       hover:bg-app-red/10 rounded-lg transition-colors"
+            className="
+              px-3 py-2 text-sm
+              text-app-red hover:text-app-red/80
+              hover:bg-app-red/10
+              rounded-lg transition-colors
+              shrink-0
+            "
           >
             Clear All
           </button>
