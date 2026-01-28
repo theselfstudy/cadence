@@ -9,7 +9,7 @@ import { GlobalSyncIndicator } from "@/components/sync/GlobalSyncIndicator";
 import { ResumeSyncModal } from "@/components/sync/ResumeSyncModal";
 import { useSyncState } from "@/stores/useSyncState";
 import { getOAuthToken, getMobileSyncPending, clearMobileSyncPending } from "@/lib/oauthHelpers";
-import { resumeSync } from "@/lib/syncEngine";
+import { startSync } from "@/lib/syncEngine";
 import "./globals.css";
 
 // ========================
@@ -52,16 +52,16 @@ export default function RootLayout({
 
     // Check for mobile sync pending (more reliable than Zustand for mobile OAuth flow)
     if (token && mobileSyncPending && mobileSyncPending.mode === 'sync') {
-      // Mobile sync flow - clear the pending state and start sync
+      // Mobile sync flow - clear the pending state and start a fresh sync
       clearMobileSyncPending();
-      resumeSync().catch(console.error);
+      startSync().catch(console.error);
       return;
     }
 
     // Fallback: Check Zustand store for pending OAuth redirect
     if (token && pendingOAuthRedirect) {
-      // Automatically resume sync after OAuth return
-      resumeSync().catch(console.error);
+      // Automatically start sync after OAuth return
+      startSync().catch(console.error);
       return;
     }
 
