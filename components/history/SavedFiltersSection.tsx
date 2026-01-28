@@ -152,94 +152,76 @@ export function SavedFiltersSection({
       {/* Saved filters list */}
       {savedFilters.length > 0 ? (
         <div className="flex gap-2 overflow-x-auto px-2 py-1 scrollbar-hide">
-          {savedFilters.map((filter) => (
-            <div key={filter.id} className="relative shrink-0 group">
-              {/* Filter chip */}
-              <button
-                onClick={() => handleLoad(filter)}
-                className="flex items-center gap-2 px-3 py-2 bg-app-cream
-                          hover:bg-app-taupe/30 rounded-lg transition-colors
-                          border border-app-border whitespace-nowrap"
-              >
-                <svg
-                  className="w-4 h-4 text-[#3F592E]"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                  />
-                </svg>
-                <span className="text-sm font-medium text-[#3F592E] max-w-[120px] truncate">
-                  {filter.name}
-                </span>
-              </button>
+          {savedFilters.map((filter) => {
+            const isActive = currentFilters === filter.filters; // compare by reference or create deep equality check
 
-              {/* Delete button (shows on hover / tap) */}
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDeleteClick(filter.id); }}
-                className="absolute -top-1 -right-1 w-5 h-5 bg-app-red text-white
-                          rounded-full flex items-center justify-center
-                          opacity-0 group-hover:opacity-100 transition-opacity
-                          hover:bg-app-red/80 shadow-sm"
-                aria-label={`Delete ${filter.name}`}
-              >
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+            return (
+              <div key={filter.id} className="relative shrink-0 group">
+                {/* Filter chip toggle */}
+                <button
+                  onClick={() => handleLoad(filter)}
+                  className={`
+                    flex items-center gap-2 px-3 py-2 rounded-lg border whitespace-nowrap transition-colors
+                    ${isActive
+                      ? "bg-app-teal/20 border-app-teal text-app-teal"
+                      : "bg-app-cream border border-app-border text-[#3F592E] hover:bg-app-taupe/30"
+                    }
+                  `}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                    />
+                  </svg>
+                  <span className="text-sm font-medium max-w-[120px] truncate">
+                    {filter.name}
+                  </span>
+                </button>
 
-              {/* Delete confirmation popover */}
-              {showDeleteConfirm === filter.id && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowDeleteConfirm(null)} />
-                  <div className="absolute top-full left-0 mt-2 p-3 bg-white rounded-lg 
-                                  shadow-lg border border-app-border z-50 min-w-[200px]">
-                    <p className="text-sm text-[#3F592E] mb-3">
-                      Delete &quot;{filter.name}&quot;?
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowDeleteConfirm(null)}
-                        className="flex-1 px-3 py-1.5 text-sm border border-app-border 
-                                  rounded-lg hover:bg-app-cream transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleConfirmDelete(filter.id)}
-                        className="flex-1 px-3 py-1.5 text-sm bg-app-red text-white 
-                                  rounded-lg hover:bg-app-red/90 transition-colors"
-                      >
-                        Delete
-                      </button>
+                {/* Delete button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteClick(filter.id); }}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-app-red text-white
+                            rounded-full flex items-center justify-center
+                            opacity-0 group-hover:opacity-100 transition-opacity
+                            hover:bg-app-red/80 shadow-sm"
+                  aria-label={`Delete ${filter.name}`}
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+                {/* Delete confirmation */}
+                {showDeleteConfirm === filter.id && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowDeleteConfirm(null)} />
+                    <div className="absolute top-full left-0 mt-2 p-3 bg-white rounded-lg shadow-lg border border-app-border z-50 min-w-[200px]">
+                      <p className="text-sm text-[#3F592E] mb-3">Delete &quot;{filter.name}&quot;?</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 px-3 py-1.5 text-sm border border-app-border rounded-lg hover:bg-app-cream transition-colors">Cancel</button>
+                        <button onClick={() => handleConfirmDelete(filter.id)} className="flex-1 px-3 py-1.5 text-sm bg-app-red text-white rounded-lg hover:bg-app-red/90 transition-colors">Delete</button>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className="text-sm text-app-gray italic px-2">
           0 filters set. Apply and save filters for quick access.
         </p>
       )}
-
 
       {/* Save Filter Modal */}
       <SaveFilterModal

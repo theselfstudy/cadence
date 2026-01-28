@@ -274,13 +274,32 @@ export function FilterBar({
         className="
           flex items-center gap-2
           overflow-x-auto
-          snap-x snap-mandatory
           pb-1 -mx-2 px-2
-          sm:flex-wrap sm:overflow-visible sm:snap-none"
+          sm:flex-wrap sm:overflow-visible"
       >
-        <span className="text-sm text-app-gray shrink-0">Filter by:</span>
+        {/* Label + Active Filters count / Advanced Filters summary */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-sm text-app-gray">Filter by:</span>
+          
+          {/* Clear All button (always visible, greyed out if no filters) */}
+          <button
+            onClick={clearAllFilters}
+            disabled={!hasFilters}
+            className={`
+              px-3 py-1.5 text-sm rounded-lg transition-colors
+              ${hasFilters
+                ? "text-app-red hover:text-app-red/80 hover:bg-app-red/10"
+                : "text-app-gray cursor-not-allowed bg-app-cream/50"
+              }
+            `}
+          >
+            Clear All
+          </button>
+        </div>
+
+        {/* Category buttons */}
         {enabledCategories.map(category => (
-          <div key={category.key} className="relative">
+          <div key={category.key} className="relative shrink-0">
             <FilterCategoryButton
               ref={buttonRefs[category.key]}
               label={category.label}
@@ -290,7 +309,7 @@ export function FilterBar({
               onClick={() => handleCategoryClick(category.key)}
               disabled={!categoryHasOptions(category.key)}
             />
-            
+
             {/* Desktop: Dropdown */}
             {!isMobile && (
               <FilterDropdown
@@ -305,23 +324,8 @@ export function FilterBar({
             )}
           </div>
         ))}
-
-        {/* Clear All button - shown when any filters are active */}
-        {hasFilters && (
-          <button
-            onClick={clearAllFilters}
-            className="
-              px-3 py-2 text-sm
-              text-app-red hover:text-app-red/80
-              hover:bg-app-red/10
-              rounded-lg transition-colors
-              shrink-0
-            "
-          >
-            Clear All
-          </button>
-        )}
-      </div>      
+      </div>
+   
       {/* Saved Filters Section - hidden in Weekly/Monthly views */}
       {!hideSavedFilters && (
         <SavedFiltersSection
