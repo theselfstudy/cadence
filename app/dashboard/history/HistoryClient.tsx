@@ -377,44 +377,28 @@ export default function HistoryPage() {
             </div>
           </div>
         )}
-        
-        {/* Advanced Filters Toggle + Clear All */}
-        <div className="mt-4 pt-4 border-t border-app-border flex items-center justify-between">
-        <button
-          onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-          className="flex items-center gap-2 text-sm text-app-charcoal hover:text-app-teal transition-colors"
-        >
-          <svg
-            className={`w-4 h-4 transition-transform ${showAdvancedFilters ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+
+        {/* Advanced Filters Toggle */}
+        <div className="mt-4 pt-4 border-t border-app-border">
+          <button
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="flex items-center gap-2 text-sm text-app-charcoal hover:text-app-teal transition-colors"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-          <span>Advanced Filters</span>
-          {activeFilterCount > 0 && (
-            <span className="px-1.5 py-0.5 text-xs bg-app-teal text-white rounded-full">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-
-        {/* Clear All button */}
-        <button
-          onClick={clearAllFilters}
-          disabled={activeFilterCount === 0}
-          className={`
-            px-3 py-1.5 text-sm rounded-lg transition-colors
-            ${activeFilterCount > 0
-              ? "text-app-red hover:text-app-red/80 hover:bg-app-red/10"
-              : "text-app-gray cursor-not-allowed bg-app-cream/50"
-            }
-          `}
-        >
-          Clear All
-        </button>
-
+            <svg
+              className={`w-4 h-4 transition-transform ${showAdvancedFilters ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <span>Advanced Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="px-1.5 py-0.5 text-xs bg-app-teal text-white rounded-full">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
 
           {/* Advanced Filters Content */}
           {showAdvancedFilters && (
@@ -437,7 +421,7 @@ export default function HistoryPage() {
               selectAllBowel={selectAllBowel}
               selectAllMedicine={selectAllMedicine}
               clearCategory={clearCategory}
-              clearAllFilters={clearAllFilters}
+              // clearAllFilters={clearAllFilters}
             />
             </div>
           )}
