@@ -15,7 +15,10 @@ import {
   isMobileDevice,
   triggerOAuthRedirect,
   getOAuthToken,
-  clearOAuthToken
+  clearOAuthToken,
+  setMobileSyncPending,
+  getMobileSyncPending,
+  clearMobileSyncPending
 } from "@/lib/oauthHelpers";
 
 // ============================================
@@ -104,17 +107,31 @@ export function SyncWithGoogleSheetsButton({
     storageType: "localStorage",
   });
 
-  // Check for OAuth token on page load (for mobile redirect return in restore mode)
+  // Check for OAuth token on page load (for mobile redirect return)
   useEffect(() => {
-    if (mode !== "restore") return;
-
     const token = getOAuthToken();
-    const pendingSheetUrl = localStorage.getItem('restore_pending_sheet_url');
+    const pendingSync = getMobileSyncPending();
 
-    if (token && pendingSheetUrl) {
-      // We just returned from OAuth redirect, perform restore
-      performRestore(pendingSheetUrl, token);
-      localStorage.removeItem('restore_pending_sheet_url');
+    if (!token || !pendingSync) return;
+
+    // We just returned from OAuth redirect on mobile
+    if (pendingSync.mode === "restore") {
+      // Restore mode: check for pending sheet URL
+      const pendingSheetUrl = localStorage.getItem('restore_pending_sheet_url');
+      if (pendingSheetUrl) {
+        performRestore(pendingSheetUrl, token);
+        localStorage.removeItem('restore_pending_sheet_url');
+        clearMobileSyncPending();
+      }
+    } else if (pendingSync.mode === "sync" && mode === "sync") {
+      // Sync mode: trigger the sync automatically
+      clearMobileSyncPending();
+      startSync().catch((error) => {
+        console.error("Mobile sync error:", error);
+        if ((error as Error).message?.includes('deleted') || (error as Error).message?.includes('access')) {
+          setShowSheetDisconnected(true);
+        }
+      });
     }
   }, [mode]);
 
@@ -203,6 +220,9 @@ export function SyncWithGoogleSheetsButton({
 
     if (isMobileDevice()) {
       // Mobile: use redirect OAuth
+      // Store sync intent in localStorage (avoids Zustand hydration race condition)
+      setMobileSyncPending(window.location.pathname, mode);
+
       if (mode === "restore" && sheetUrl) {
         // Store sheet URL for after redirect
         localStorage.setItem('restore_pending_sheet_url', sheetUrl);

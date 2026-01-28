@@ -7,7 +7,7 @@ import {
   verifySheetConnection,
   getSpreadsheetIdFromUrl,
 } from '@/lib/googleSheets';
-import { getOAuthToken, clearOAuthToken, triggerOAuthRedirect } from '@/lib/oauthHelpers';
+import { getOAuthToken, clearOAuthToken, triggerOAuthRedirect, setMobileSyncPending, isMobileDevice } from '@/lib/oauthHelpers';
 
 export class SyncEngine {
   private accessToken: string;
@@ -262,7 +262,10 @@ export async function startSync(): Promise<void> {
   const token = getOAuthToken();
 
   if (!token) {
-    // Trigger OAuth
+    // Trigger OAuth - store sync intent for mobile (avoids Zustand hydration race)
+    if (isMobileDevice()) {
+      setMobileSyncPending(window.location.pathname, 'sync');
+    }
     useSyncState.getState().setPendingOAuthRedirect(true, window.location.pathname);
     triggerOAuthRedirect(window.location.pathname);
     return;
@@ -281,7 +284,10 @@ export async function resumeSync(): Promise<void> {
   const token = getOAuthToken();
 
   if (!token) {
-    // Need OAuth again
+    // Need OAuth again - store sync intent for mobile (avoids Zustand hydration race)
+    if (isMobileDevice()) {
+      setMobileSyncPending(window.location.pathname, 'sync');
+    }
     useSyncState.getState().setPendingOAuthRedirect(true, window.location.pathname);
     triggerOAuthRedirect(window.location.pathname);
     return;

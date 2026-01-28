@@ -10,10 +10,11 @@ export default function OAuthCallbackPage() {
   const { oauthReturnUrl, setPendingOAuthRedirect } = useSyncState();
 
   useEffect(() => {
-    // Parse access token from URL fragment
+    // Parse access token and state from URL fragment
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
     const accessToken = params.get('access_token');
+    const stateParam = params.get('state');
     const errorParam = params.get('error');
 
     if (errorParam) {
@@ -26,11 +27,22 @@ export default function OAuthCallbackPage() {
       sessionStorage.setItem('google_oauth_token', accessToken);
       sessionStorage.setItem('google_oauth_timestamp', Date.now().toString());
 
+      // Extract returnUrl from OAuth state parameter (this is the reliable source)
+      let returnUrlFromState: string | null = null;
+      if (stateParam) {
+        try {
+          const stateData = JSON.parse(atob(stateParam));
+          returnUrlFromState = stateData.returnUrl || null;
+        } catch (e) {
+          console.warn('Failed to parse OAuth state parameter:', e);
+        }
+      }
+
       // Clear OAuth redirect flag
       setPendingOAuthRedirect(false);
 
-      // Redirect back to where sync was initiated
-      const returnUrl = oauthReturnUrl || '/settings';
+      // Use returnUrl from state parameter (most reliable), fall back to Zustand store, then /settings
+      const returnUrl = returnUrlFromState || oauthReturnUrl || '/settings';
       router.replace(returnUrl);
     } else {
       setError('OAuth failed. No access token received.');

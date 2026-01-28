@@ -8,7 +8,7 @@ import { AppShell } from "@/components/Layout/AppShell";
 import { GlobalSyncIndicator } from "@/components/sync/GlobalSyncIndicator";
 import { ResumeSyncModal } from "@/components/sync/ResumeSyncModal";
 import { useSyncState } from "@/stores/useSyncState";
-import { getOAuthToken } from "@/lib/oauthHelpers";
+import { getOAuthToken, getMobileSyncPending, clearMobileSyncPending } from "@/lib/oauthHelpers";
 import { resumeSync } from "@/lib/syncEngine";
 import "./globals.css";
 
@@ -48,7 +48,17 @@ export default function RootLayout({
   useEffect(() => {
     // Check if we just returned from OAuth redirect
     const token = getOAuthToken();
+    const mobileSyncPending = getMobileSyncPending();
 
+    // Check for mobile sync pending (more reliable than Zustand for mobile OAuth flow)
+    if (token && mobileSyncPending && mobileSyncPending.mode === 'sync') {
+      // Mobile sync flow - clear the pending state and start sync
+      clearMobileSyncPending();
+      resumeSync().catch(console.error);
+      return;
+    }
+
+    // Fallback: Check Zustand store for pending OAuth redirect
     if (token && pendingOAuthRedirect) {
       // Automatically resume sync after OAuth return
       resumeSync().catch(console.error);

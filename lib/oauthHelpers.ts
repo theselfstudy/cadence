@@ -59,6 +59,71 @@ export function clearOAuthToken(): void {
   sessionStorage.removeItem('google_oauth_timestamp');
 }
 
+// ============================================
+// Mobile Sync State Helpers
+// These use localStorage directly to avoid Zustand hydration race conditions
+// ============================================
+
+const MOBILE_SYNC_PENDING_KEY = 'mobile_sync_pending';
+
+export interface MobileSyncPendingState {
+  returnUrl: string;
+  mode: 'sync' | 'restore';
+  timestamp: number;
+}
+
+/**
+ * Store mobile sync pending state before OAuth redirect
+ * Uses localStorage directly to avoid Zustand hydration issues
+ */
+export function setMobileSyncPending(returnUrl: string, mode: 'sync' | 'restore' = 'sync'): void {
+  const state: MobileSyncPendingState = {
+    returnUrl,
+    mode,
+    timestamp: Date.now(),
+  };
+  localStorage.setItem(MOBILE_SYNC_PENDING_KEY, JSON.stringify(state));
+}
+
+/**
+ * Get mobile sync pending state
+ * Returns null if no pending state or if it's expired (10 min max)
+ */
+export function getMobileSyncPending(): MobileSyncPendingState | null {
+  const stored = localStorage.getItem(MOBILE_SYNC_PENDING_KEY);
+  if (!stored) return null;
+
+  try {
+    const state: MobileSyncPendingState = JSON.parse(stored);
+
+    // Expire after 10 minutes (OAuth tokens last longer, but user shouldn't be stuck)
+    const tenMinutes = 10 * 60 * 1000;
+    if (Date.now() - state.timestamp > tenMinutes) {
+      clearMobileSyncPending();
+      return null;
+    }
+
+    return state;
+  } catch {
+    clearMobileSyncPending();
+    return null;
+  }
+}
+
+/**
+ * Clear mobile sync pending state
+ */
+export function clearMobileSyncPending(): void {
+  localStorage.removeItem(MOBILE_SYNC_PENDING_KEY);
+}
+
+/**
+ * Check if a mobile sync is pending (after OAuth return)
+ */
+export function hasMobileSyncPending(): boolean {
+  return getMobileSyncPending() !== null;
+}
+
 /**
  * Trigger OAuth flow (redirect on mobile, popup on desktop handled by caller)
  */
