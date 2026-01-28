@@ -84,6 +84,67 @@ function clearAllCadenceStorage(includeEntries: boolean = false): void {
   });
 }
 
+/**
+ * Clears settings and filters while preserving the Google Sheet connection.
+ * Used for "Reset App Settings Only" for Google Sheet users.
+ */
+function clearSettingsPreserveGoogleSheet(): void {
+  // Read the current settings to extract Google Sheet connection info
+  const currentSettingsRaw = localStorage.getItem("cadence-settings");
+  let googleSheetInfo: { url: string | null; name: string | null; addedAt: string | null } | null = null;
+  let isConnected = false;
+
+  if (currentSettingsRaw) {
+    try {
+      const parsed = JSON.parse(currentSettingsRaw);
+      if (parsed.state?.isGoogleSheetConnected && parsed.state?.googleSheet?.url) {
+        isConnected = true;
+        googleSheetInfo = {
+          url: parsed.state.googleSheet.url,
+          name: parsed.state.googleSheet.name,
+          addedAt: parsed.state.googleSheet.addedAt,
+        };
+      }
+    } catch (e) {
+      console.error("Failed to parse settings for Google Sheet preservation:", e);
+    }
+  }
+
+  // Clear settings-related storage (but not entries)
+  const keysToRemove = [
+    "cadence-settings",
+    "cadence-saved-filters",
+    "cadence-sync-tracker",
+    "cadence-backup-prompt-dismissed",
+  ];
+
+  keysToRemove.forEach((key) => {
+    localStorage.removeItem(key);
+  });
+
+  // Clear rate limit keys
+  const allKeys = Object.keys(localStorage);
+  allKeys.forEach((key) => {
+    if (key.startsWith("cadence-rateLimit_")) {
+      localStorage.removeItem(key);
+    }
+  });
+
+  // Restore Google Sheet connection info if it existed
+  if (isConnected && googleSheetInfo) {
+    // Create a minimal settings object that just preserves the Google Sheet connection
+    // The store will merge this with defaults on hydration
+    const preservedSettings = {
+      state: {
+        isGoogleSheetConnected: true,
+        googleSheet: googleSheetInfo,
+      },
+      version: 0, // Zustand persist version
+    };
+    localStorage.setItem("cadence-settings", JSON.stringify(preservedSettings));
+  }
+}
+
 // =============================================================================
 // MAIN PAGE COMPONENT
 // =============================================================================
@@ -664,6 +725,46 @@ function SettingsPageContent() {
     onNonOAuthError: () => {
       setOauthErrorAction("reset your settings");
       setOauthRetryFn(() => () => resetWithSheetDelete());
+      setShowOAuthError(true);
+    },
+  });
+
+  // OAuth hook for resetting app settings only (preserves Google Sheet connection)
+  const resetSettingsPreserveConnection = useGoogleLogin({
+    scope: "https://www.googleapis.com/auth/spreadsheets",
+    onSuccess: async (tokenResponse) => {
+      const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet?.url || "");
+
+      if (spreadsheetId) {
+        // Delete settings sheet from Google Sheets
+        const settingsDeleted = await deleteSettingsSheet(spreadsheetId, tokenResponse.access_token);
+        if (settingsDeleted) {
+          console.log("Settings sheet deleted from Google Sheet.");
+        } else {
+          console.warn("Failed to delete settings sheet, but proceeding with local reset.");
+        }
+
+        // Delete saved filters sheet from Google Sheets
+        const filtersDeleted = await deleteSavedFiltersSheet(spreadsheetId, tokenResponse.access_token);
+        if (filtersDeleted) {
+          console.log("Saved filters sheet deleted from Google Sheet.");
+        } else {
+          console.warn("Failed to delete saved filters sheet, but proceeding with local reset.");
+        }
+      }
+
+      // Clear local storage but preserve Google Sheet connection
+      clearSettingsPreserveGoogleSheet();
+      window.location.href = "/settings"; // Reload settings page to reinitialize stores
+    },
+    onError: () => {
+      setOauthErrorAction("reset your app settings");
+      setOauthRetryFn(() => () => resetSettingsPreserveConnection());
+      setShowOAuthError(true);
+    },
+    onNonOAuthError: () => {
+      setOauthErrorAction("reset your app settings");
+      setOauthRetryFn(() => () => resetSettingsPreserveConnection());
       setShowOAuthError(true);
     },
   });
@@ -2100,7 +2201,7 @@ function SettingsPageContent() {
                 <div className="p-3 border border-app-border rounded-lg">
                   <p className="text-sm font-medium text-app-charcoal">Reset App Settings</p>
                   <p className="text-xs text-app-gray mt-1 mb-2">
-                    Clears all settings, filters, and app preferences. Your Google Sheet will disconnect but <span className="font-medium text-app-charcoal">all of your entry data will remain intact</span>
+                    Clears all settings, filters, and app preferences. <span className="font-medium text-app-charcoal">Your entry data remains safe</span>
                     {isGoogleSheetConnected
                       ? " in your connected Google Sheet."
                       : " in this device's browser storage."}
@@ -2253,26 +2354,33 @@ function SettingsPageContent() {
         onClose={() => setShowResetSettingsModal(false)}
         onConfirm={() => {
           setShowResetSettingsModal(false);
-          clearAllCadenceStorage(false); // Keep entries cache
-          window.location.href = "/settings"; // Full reload to reinitialize stores
+          if (isGoogleSheetConnected) {
+            // For Google Sheet users: delete settings/filters sheets, preserve connection
+            resetSettingsPreserveConnection();
+          } else {
+            // For local users: just clear localStorage
+            clearAllCadenceStorage(false); // Keep entries cache
+            window.location.href = "/settings"; // Full reload to reinitialize stores
+          }
         }}
         title="Reset App Settings?"
         description={
           <p className="text-center">
             This will reset all settings, filters, and preferences to their defaults.
-            {isGoogleSheetConnected && " Your Google Sheet will be disconnected."}
+            {isGoogleSheetConnected && " Your Google Sheet connection will be retained."}
           </p>
         }
         affectedItems={[
           "All app settings and preferences",
           "Saved filters",
-          isGoogleSheetConnected ? "Google Sheet connection" : null,
+          isGoogleSheetConnected ? "Settings stored in Google Sheet (.cadence-settings, .cadence-savedfilters)" : null,
         ].filter(Boolean) as string[]}
         preservedItems={[
           isGoogleSheetConnected
             ? "All entry data in your Google Sheet"
             : "All entry data stored on this device",
-        ]}
+          isGoogleSheetConnected ? "Google Sheet connection" : null,
+        ].filter(Boolean) as string[]}
         confirmButtonText="Reset Settings"
         cancelButtonText="Cancel"
         variant="warning"
