@@ -151,18 +151,15 @@ export function SavedFiltersSection({
 
       {/* Saved filters list */}
       {savedFilters.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto px-2 py-1 scrollbar-hide">
           {savedFilters.map((filter) => (
-            <div
-              key={filter.id}
-              className="relative group"
-            >
+            <div key={filter.id} className="relative shrink-0 group">
               {/* Filter chip */}
               <button
                 onClick={() => handleLoad(filter)}
                 className="flex items-center gap-2 px-3 py-2 bg-app-cream
-                         hover:bg-app-taupe/30 rounded-lg transition-colors
-                         border border-app-border"
+                          hover:bg-app-taupe/30 rounded-lg transition-colors
+                          border border-app-border whitespace-nowrap"
               >
                 <svg
                   className="w-4 h-4 text-[#3F592E]"
@@ -177,21 +174,18 @@ export function SavedFiltersSection({
                     d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                   />
                 </svg>
-                <span className="text-sm font-medium text-[#3F592E] max-w-[150px] truncate">
+                <span className="text-sm font-medium text-[#3F592E] max-w-[120px] truncate">
                   {filter.name}
                 </span>
               </button>
 
-              {/* Delete button (shows on hover) */}
+              {/* Delete button (shows on hover / tap) */}
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteClick(filter.id);
-                }}
+                onClick={(e) => { e.stopPropagation(); handleDeleteClick(filter.id); }}
                 className="absolute -top-1 -right-1 w-5 h-5 bg-app-red text-white
-                           rounded-full flex items-center justify-center
-                           opacity-0 group-hover:opacity-100 transition-opacity
-                           hover:bg-app-red/80 shadow-sm"
+                          rounded-full flex items-center justify-center
+                          opacity-0 group-hover:opacity-100 transition-opacity
+                          hover:bg-app-red/80 shadow-sm"
                 aria-label={`Delete ${filter.name}`}
               >
                 <svg
@@ -212,14 +206,9 @@ export function SavedFiltersSection({
               {/* Delete confirmation popover */}
               {showDeleteConfirm === filter.id && (
                 <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowDeleteConfirm(null)}
-                  />
-                  <div
-                    className="absolute top-full left-0 mt-2 p-3 bg-white rounded-lg 
-                             shadow-lg border border-app-border z-50 min-w-[200px]"
-                  >
+                  <div className="fixed inset-0 z-40" onClick={() => setShowDeleteConfirm(null)} />
+                  <div className="absolute top-full left-0 mt-2 p-3 bg-white rounded-lg 
+                                  shadow-lg border border-app-border z-50 min-w-[200px]">
                     <p className="text-sm text-[#3F592E] mb-3">
                       Delete &quot;{filter.name}&quot;?
                     </p>
@@ -227,14 +216,14 @@ export function SavedFiltersSection({
                       <button
                         onClick={() => setShowDeleteConfirm(null)}
                         className="flex-1 px-3 py-1.5 text-sm border border-app-border 
-                                 rounded-lg hover:bg-app-cream transition-colors"
+                                  rounded-lg hover:bg-app-cream transition-colors"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => handleConfirmDelete(filter.id)}
                         className="flex-1 px-3 py-1.5 text-sm bg-app-red text-white 
-                                 rounded-lg hover:bg-app-red/90 transition-colors"
+                                  rounded-lg hover:bg-app-red/90 transition-colors"
                       >
                         Delete
                       </button>
@@ -246,10 +235,11 @@ export function SavedFiltersSection({
           ))}
         </div>
       ) : (
-        <p className="text-sm text-app-gray italic">
+        <p className="text-sm text-app-gray italic px-2">
           0 filters set. Apply and save filters for quick access.
         </p>
       )}
+
 
       {/* Save Filter Modal */}
       <SaveFilterModal
