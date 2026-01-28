@@ -496,9 +496,14 @@ export const useSyncableEntriesCount = () => useEntries((state) =>
  * or empty state from being shown.
  */
 export function useEntriesHydrated(): boolean {
-  const [hydrated, setHydrated] = useState(useEntries.persist.hasHydrated());
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // Check if already hydrated (persist API only available client-side)
+    if (useEntries.persist?.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
     const unsub = useEntries.persist.onFinishHydration(() => {
       setHydrated(true);
     });
