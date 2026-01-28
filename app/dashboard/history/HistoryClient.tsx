@@ -240,7 +240,7 @@ export default function HistoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Link href="/dashboard" className="text-app-gray hover:text-app-charcoal">
@@ -265,9 +265,15 @@ export default function HistoryPage() {
         <button
           onClick={handleExport}
           disabled={filteredEntries.length === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-app-teal text-white rounded-lg 
-                     hover:bg-app-teal/90 disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-colors self-start sm:self-auto"
+          className="
+            flex items-center justify-center gap-2
+            px-4 py-3
+            bg-app-teal text-white rounded-lg
+            hover:bg-app-teal/90
+            disabled:opacity-50 disabled:cursor-not-allowed
+            transition-colors
+            w-full sm:w-auto
+            "
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -307,7 +313,7 @@ export default function HistoryPage() {
       <div className="card">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           {/* Date Range Filters */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1 sm:overflow-visible">
             <span className="text-sm text-app-gray mr-1">Show:</span>
             {(["7", "30", "90", "all", "custom"] as DateRangeFilter[]).map((filter) => (
               <button
@@ -328,17 +334,22 @@ export default function HistoryPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowStats(!showStats)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                showStats
+              className={`
+                flex items-center gap-2
+                px-3 py-2 text-sm rounded-lg transition-colors
+                ${showStats
                   ? "bg-app-plumb text-white"
-                  : "bg-app-cream text-app-charcoal hover:bg-app-border"
-              }`}
-              title={showStats ? "Hide Statistics" : "Show Statistics"}
+                  : "bg-app-cream text-app-charcoal hover:bg-app-border"}
+              `}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
+
+              <span className="sm:hidden">
+                {showStats ? "Hide stats" : "Show stats"}
+              </span>
             </button>
           </div>
         </div>
@@ -427,7 +438,7 @@ export default function HistoryPage() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setShowEntries(!showEntries)}
-            className="flex items-center gap-2 text-left"
+            className="flex items-center gap-3 text-left py-2"
           >
             <span className="text-app-gray text-xl">{showEntries ? "−" : "+"}</span>
             <div>
@@ -443,7 +454,7 @@ export default function HistoryPage() {
           </button>
           {/* View Toggle (only when expanded) */}
           {showEntries && (
-            <div className="flex rounded-lg overflow-hidden border border-app-border">
+            <div className="hidden sm:flex rounded-lg overflow-hidden border border-app-border">
               <button
                 onClick={() => setViewMode("cards")}
                 className={`px-2 py-1 text-xs transition-colors ${
@@ -566,7 +577,7 @@ function BackupPromptBanner({ onExport, onDismiss, entryCount }: BackupPromptBan
             </Link>{" "}
             for automatic cloud sync.
           </p>
-          <div className="flex gap-2 mt-3">
+          <div className="flex flex-col sm:flex-row gap-2 mt-3">
             <button
               onClick={onExport}
               className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
@@ -601,8 +612,9 @@ interface SummaryStatsPanelProps {
 }
 
 function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  
+  const [isCollapsed, setIsCollapsed] = useState(
+    typeof window !== "undefined" && window.innerWidth < 640
+  );  
   // Get top symptoms
   const topSymptoms = Object.entries(stats.symptomCounts)
     .sort((a, b) => b[1] - a[1])
@@ -642,7 +654,7 @@ function SummaryStatsPanel({ stats }: SummaryStatsPanelProps) {
       {/* Collapsible Content */}
       {!isCollapsed && (
         <div className="mt-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <StatCard label="Total Entries" value={stats.totalEntries} icon="📊" />
             <StatCard
               label="Date Range"
