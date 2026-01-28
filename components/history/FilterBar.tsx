@@ -270,9 +270,15 @@ export function FilterBar({
   return (
     <div className="space-y-3">
       {/* Category Buttons Row */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-app-gray">Filter by:</span>
-
+      <div
+        className="
+          flex items-center gap-2
+          overflow-x-auto
+          snap-x snap-mandatory
+          pb-1 -mx-2 px-2
+          sm:flex-wrap sm:overflow-visible sm:snap-none"
+      >
+        <span className="text-sm text-app-gray shrink-0">Filter by:</span>
         {enabledCategories.map(category => (
           <div key={category.key} className="relative">
             <FilterCategoryButton
@@ -304,8 +310,14 @@ export function FilterBar({
         {hasFilters && (
           <button
             onClick={clearAllFilters}
-            className="px-3 py-1.5 text-sm text-app-red hover:text-app-red/80 
-                       hover:bg-app-red/10 rounded-lg transition-colors"
+            className="
+              snap-start
+              px-3 py-2 text-sm
+              text-app-red hover:text-app-red/80
+              hover:bg-app-red/10
+              rounded-lg transition-colors
+              shrink-0
+            "
           >
             Clear All
           </button>
