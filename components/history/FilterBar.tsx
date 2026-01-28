@@ -270,36 +270,11 @@ export function FilterBar({
   return (
     <div className="space-y-3">
       {/* Category Buttons Row */}
-      <div
-        className="
-          flex items-center gap-2
-          overflow-x-auto
-          pb-1 -mx-2 px-2
-          sm:flex-wrap sm:overflow-visible"
-      >
-        {/* Label + Active Filters count / Advanced Filters summary */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-sm text-app-gray">Filter by:</span>
-          
-          {/* Clear All button (always visible, greyed out if no filters) */}
-          <button
-            onClick={clearAllFilters}
-            disabled={!hasFilters}
-            className={`
-              px-3 py-1.5 text-sm rounded-lg transition-colors
-              ${hasFilters
-                ? "text-app-red hover:text-app-red/80 hover:bg-app-red/10"
-                : "text-app-gray cursor-not-allowed bg-app-cream/50"
-              }
-            `}
-          >
-            Clear All
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-app-gray">Filter by:</span>
 
-        {/* Category buttons */}
         {enabledCategories.map(category => (
-          <div key={category.key} className="relative shrink-0">
+          <div key={category.key} className="relative">
             <FilterCategoryButton
               ref={buttonRefs[category.key]}
               label={category.label}
@@ -309,7 +284,6 @@ export function FilterBar({
               onClick={() => handleCategoryClick(category.key)}
               disabled={!categoryHasOptions(category.key)}
             />
-
             {/* Desktop: Dropdown */}
             {!isMobile && (
               <FilterDropdown
@@ -324,8 +298,18 @@ export function FilterBar({
             )}
           </div>
         ))}
-      </div>
-   
+
+        {/* Clear All button - shown when any filters are active */}
+        {hasFilters && (
+          <button
+            onClick={clearAllFilters}
+            className="px-3 py-1.5 text-sm text-app-red hover:text-app-red/80 
+                       hover:bg-app-red/10 rounded-lg transition-colors"
+          >
+            Clear All
+          </button>
+        )}
+      </div>      
       {/* Saved Filters Section - hidden in Weekly/Monthly views */}
       {!hideSavedFilters && (
         <SavedFiltersSection
