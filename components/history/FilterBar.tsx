@@ -311,7 +311,6 @@ export function FilterBar({
           <button
             onClick={clearAllFilters}
             className="
-              snap-start
               px-3 py-2 text-sm
               text-app-red hover:text-app-red/80
               hover:bg-app-red/10
