@@ -131,12 +131,16 @@ export function FilterBottomSheet({
         aria-labelledby="sheet-title"
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl 
                    max-h-[70vh] flex flex-col animate-slide-in-bottom"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        // onTouchStart={handleTouchStart}
+        // onTouchMove={handleTouchMove}
+        // onTouchEnd={handleTouchEnd}
       >
         {/* Drag Handle */}
-        <div className="flex justify-center pt-3 pb-2">
+        <div className="flex justify-center pt-3 pb-2 touch-pan-y"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="w-10 h-1 bg-app-border rounded-full" />
         </div>
 

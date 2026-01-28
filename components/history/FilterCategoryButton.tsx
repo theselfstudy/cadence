@@ -24,7 +24,7 @@ export const FilterCategoryButton = forwardRef<
       onClick={onClick}
       disabled={disabled}
       className={`
-        relative flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg
+        relative flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg shrink-0
         transition-colors focus:outline-none focus:ring-2 focus:ring-app-teal focus:ring-offset-1
         ${
           isOpen
@@ -33,20 +33,20 @@ export const FilterCategoryButton = forwardRef<
             ? "bg-app-teal/10 text-app-teal border border-app-teal/30"
             : "bg-app-cream text-app-charcoal hover:bg-app-border"
         }
-        ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+        ${disabled ? "opacity-50 cursor-not-allowed pointer-events-non" : "cursor-pointer"}
       `}
       aria-expanded={isOpen}
       aria-haspopup="listbox"
     >
-      <span>{icon}</span>
-      <span>{label}</span>
+      <span className="shrink-0">{icon}</span>
+      <span className="whitespace-nowrap">{label}</span>
       
       {/* Badge count */}
       {count > 0 && (
         <span
           className={`
             min-w-[18px] h-[18px] flex items-center justify-center
-            text-xs font-medium rounded-full
+            text-xs font-medium rounded-full shrink-0
             ${isOpen ? "bg-white/20 text-white" : "bg-app-teal text-white"}
           `}
         >
@@ -56,7 +56,7 @@ export const FilterCategoryButton = forwardRef<
       
       {/* Dropdown chevron */}
       <svg
-        className={`w-3.5 h-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        className={`w-3.5 h-3.5 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

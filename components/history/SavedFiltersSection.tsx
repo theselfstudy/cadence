@@ -247,7 +247,7 @@ export function SavedFiltersSection({
         </div>
       ) : (
         <p className="text-sm text-app-gray italic">
-          No saved filters yet. Apply filters and save them for quick access.
+          0 filters set. Apply and save filters for quick access.
         </p>
       )}
 
