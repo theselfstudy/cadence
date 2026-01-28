@@ -33,10 +33,8 @@ interface FilterBarProps {
   hasFilters: boolean;
   hideSavedFilters?: boolean;
   settings: UserSettings;
-  // Saved filter action
   onLoadSavedFilter: (filters: HistoryFilters) => void;
 
-  // Toggle actions
   toggleSymptom: (symptom: string) => void;
   toggleCyclePhase: (phase: CyclePhase) => void;
   toggleFlowLevel: (flow: FlowLevel) => void;
@@ -44,15 +42,12 @@ interface FilterBarProps {
   toggleFeeling: (feeling: PostBowelFeeling) => void;
   toggleMedicine: (medicine: string) => void;
 
-  // Select all actions
   selectAllSymptoms: () => void;
   selectAllCycle: () => void;
   selectAllBowel: () => void;
   selectAllMedicine: () => void;
 
-  // Clear actions
   clearCategory: (category: string) => void;
-  clearAllFilters: () => void;
 }
 
 // ============================================
@@ -81,7 +76,6 @@ export function FilterBar({
   filters,
   availableOptions,
   categoryFilterCounts,
-  hasFilters,
   hideSavedFilters,
   settings,
   onLoadSavedFilter,
@@ -96,12 +90,10 @@ export function FilterBar({
   selectAllBowel,
   selectAllMedicine,
   clearCategory,
-  clearAllFilters,
 }: FilterBarProps) {
   const [openCategory, setOpenCategory] = useState<CategoryKey | null>(null);
   const isMobile = useIsMobile();
 
-  // Filter categories based on enabled settings
   const enabledCategories = CATEGORIES.filter(category => {
     switch (category.key) {
       case "symptoms":
@@ -117,7 +109,6 @@ export function FilterBar({
     }
   });
 
-  // Refs for each category button (for focus management on desktop)
   const buttonRefs = {
     symptoms: useRef<HTMLButtonElement>(null),
     cycle: useRef<HTMLButtonElement>(null),
@@ -133,7 +124,6 @@ export function FilterBar({
     setOpenCategory(null);
   };
 
-  // Get select all function for a category
   const getSelectAllForCategory = (category: CategoryKey): (() => void) => {
     switch (category) {
       case "symptoms":
@@ -149,7 +139,6 @@ export function FilterBar({
     }
   };
 
-  // Build dropdown/sheet sections for each category
   const getFilterSections = (category: CategoryKey) => {
     switch (category) {
       case "symptoms":
@@ -164,7 +153,6 @@ export function FilterBar({
             onToggle: toggleSymptom,
           },
         ];
-
       case "cycle":
         return [
           {
@@ -191,7 +179,6 @@ export function FilterBar({
             onToggle: (value: string) => toggleFlowLevel(value as FlowLevel),
           },
         ];
-
       case "bowel":
         return [
           {
@@ -221,7 +208,6 @@ export function FilterBar({
               toggleFeeling(value as PostBowelFeeling),
           },
         ];
-
       case "medicine":
         return [
           {
@@ -234,13 +220,11 @@ export function FilterBar({
             onToggle: toggleMedicine,
           },
         ];
-
       default:
         return [];
     }
   };
 
-  // Check if a category has any available options
   const categoryHasOptions = (category: CategoryKey): boolean => {
     switch (category) {
       case "symptoms":
@@ -262,7 +246,6 @@ export function FilterBar({
     }
   };
 
-  // Get current open category info
   const openCategoryInfo = openCategory
     ? enabledCategories.find(c => c.key === openCategory)
     : null;
@@ -277,25 +260,8 @@ export function FilterBar({
           pb-1 -mx-2 px-2
           sm:flex-wrap sm:overflow-visible"
       >
-        {/* Label + Active Filters count / Advanced Filters summary */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-sm text-app-gray">Filter by:</span>
-          
-          {/* Clear All button (always visible, greyed out if no filters) */}
-          <button
-            onClick={clearAllFilters}
-            disabled={!hasFilters}
-            className={`
-              px-3 py-1.5 text-sm rounded-lg transition-colors
-              ${hasFilters
-                ? "text-app-red hover:text-app-red/80 hover:bg-app-red/10"
-                : "text-app-gray cursor-not-allowed bg-app-cream/50"
-              }
-            `}
-          >
-            Clear All
-          </button>
-        </div>
+        {/* Label */}
+        <span className="text-sm text-app-gray shrink-0">Filter by:</span>
 
         {/* Category buttons */}
         {enabledCategories.map(category => (
@@ -325,17 +291,17 @@ export function FilterBar({
           </div>
         ))}
       </div>
-   
-      {/* Saved Filters Section - hidden in Weekly/Monthly views */}
+
+      {/* Saved Filters Section */}
       {!hideSavedFilters && (
         <SavedFiltersSection
           currentFilters={filters}
           onLoadFilter={onLoadSavedFilter}
-          hasActiveFilters={hasFilters}
+          hasActiveFilters={false} // HistoryClient will handle count now
         />
       )}
 
-      {/* Mobile: Bottom Sheet (rendered once, content changes based on category) */}
+      {/* Mobile: Bottom Sheet */}
       {isMobile && openCategory && openCategoryInfo && (
         <FilterBottomSheet
           isOpen={true}
