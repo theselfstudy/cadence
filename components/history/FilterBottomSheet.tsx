@@ -70,42 +70,51 @@ export function FilterBottomSheet({
   // Handle touch drag to dismiss
   const handleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
+    dragY.current = 0;
+    isDragging.current = true;
+
+    if (sheetRef.current) {
+      sheetRef.current.style.transition = "none";
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (startY.current === null) return;
-    currentY.current = e.touches[0].clientY;
-    
-    const delta = currentY.current - startY.current;
-    
-    // Only allow dragging down
-    if (delta > 0 && sheetRef.current) {
-      sheetRef.current.style.transform = `translateY(${delta}px)`;
-    }
+    if (!isDragging.current || startY.current === null) return;
+
+    const current = e.touches[0].clientY;
+    const raw = Math.max(0, current - startY.current);
+    const delta = raw > 0 ? raw * 0.85 : 0;
+    dragY.current = delta;
+
+    requestAnimationFrame(() => {
+      if (sheetRef.current) {
+        sheetRef.current.style.transform = `translateY(${delta}px)`;
+      }
+    });
   };
 
   const handleTouchEnd = () => {
-    if (startY.current === null || currentY.current === null) {
-      startY.current = null;
-      currentY.current = null;
-      return;
-    }
+    isDragging.current = false;
 
-    const delta = currentY.current - startY.current;
-    
-    // If dragged more than 100px down, close the sheet
-    if (delta > 100) {
-      onClose();
-    }
-    
-    // Reset transform
-    if (sheetRef.current) {
-      sheetRef.current.style.transform = "";
+    if (!sheetRef.current) return;
+
+    const shouldClose = dragY.current > 120;
+
+    sheetRef.current.style.transition = "transform 200ms ease-out";
+
+    if (shouldClose) {
+      sheetRef.current.style.transform = "translateY(100%)";
+      setTimeout(onClose, 180);
+    } else {
+      sheetRef.current.style.transform = "translateY(0)";
     }
 
     startY.current = null;
-    currentY.current = null;
+    dragY.current = 0;
   };
+
+  const dragY = useRef(0);
+  const isDragging = useRef(false);
 
   // Check if there are any options
   const hasAnyOptions = sections.some(section => section.options.length > 0);
@@ -130,7 +139,7 @@ export function FilterBottomSheet({
         aria-modal="true"
         aria-labelledby="sheet-title"
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl 
-                   max-h-[70vh] flex flex-col animate-slide-in-bottom"
+                   max-h-[70vh] flex flex-col"
         // onTouchStart={handleTouchStart}
         // onTouchMove={handleTouchMove}
         // onTouchEnd={handleTouchEnd}
