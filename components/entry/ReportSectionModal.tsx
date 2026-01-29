@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useEntries, useEntriesRevision } from "@/stores/useEntries";
+import { useFreshData } from "@/hooks/useFreshData";
 import type { LogSection } from "@/types";
 
 interface ReportSectionModalProps {
@@ -75,6 +76,7 @@ export function ReportSectionModal({
   // Get entries to find earliest date
   const { entries } = useEntries();
   const revision = useEntriesRevision();
+  const renderKey = useFreshData();
 
   // Find the earliest entry date
   const earliestEntryDate = useMemo(() => {
@@ -85,7 +87,7 @@ export function ReportSectionModal({
     );
     return sortedEntries[0].date;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, revision]);
+  }, [entries, revision, renderKey]);
 
   // Filter to only show sections enabled in settings
   const enabledSections = SECTION_OPTIONS.filter(

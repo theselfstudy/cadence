@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
 import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
+import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
 
 import {
@@ -52,6 +53,7 @@ export default function WeeklyPage() {
   // Store data
   const entries = useEntries((state) => state.entries);
   const revision = useEntriesRevision();
+  const renderKey = useFreshData();
   const weekStartDay = useSettings((state) => state.weekStartDay);
   const timeFormat = useSettings((state) => state.timeFormat);
   const stoolTrackingEnabled = useSettings((state) => state.stoolTracking.enabled);
@@ -97,21 +99,21 @@ export default function WeeklyPage() {
   const dataBounds = useMemo(
     () => getDataWeekBounds(entries, weekStartDay),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries, weekStartDay, revision]
+    [entries, weekStartDay, revision, renderKey]
   );
 
   // Get entries for current week
   const weekEntries = useMemo(
     () => getEntriesForWeek(entries, weekStartDay, weekOffset),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries, weekStartDay, weekOffset, revision]
+    [entries, weekStartDay, weekOffset, revision, renderKey]
   );
 
   // Get entries for previous week (for comparison)
   const prevWeekEntries = useMemo(
     () => getEntriesForWeek(entries, weekStartDay, weekOffset - 1),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries, weekStartDay, weekOffset, revision]
+    [entries, weekStartDay, weekOffset, revision, renderKey]
   );
 
   // Calculate ordered days based on user preference

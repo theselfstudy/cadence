@@ -101,7 +101,8 @@ const defaultFilters: HistoryFilters = {
 
 export function useMonthlyFilters(
   allEntries: StoredEntry[],
-  initialMonthOffset: number = 0
+  initialMonthOffset: number = 0,
+  renderKey: number = 0
 ): UseMonthlyFiltersReturn {
   // ===== NAVIGATION STATE =====
   const [monthOffset, setMonthOffset] = useState(initialMonthOffset);
@@ -119,7 +120,8 @@ export function useMonthlyFilters(
   // ===== COMPUTED: Data Bounds =====
   const dataBounds = useMemo(
     () => getDataMonthBounds(allEntries),
-    [allEntries]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allEntries, renderKey]
   );
   
   // ===== COMPUTED: Navigation Flags =====
@@ -129,12 +131,14 @@ export function useMonthlyFilters(
   // ===== COMPUTED: Month Entries =====
   const monthEntries = useMemo(
     () => getEntriesForMonth(allEntries, monthOffset),
-    [allEntries, monthOffset]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allEntries, monthOffset, renderKey]
   );
-  
+
   const prevMonthEntries = useMemo(
     () => getEntriesForMonth(allEntries, monthOffset - 1),
-    [allEntries, monthOffset]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allEntries, monthOffset, renderKey]
   );
   
   // ===== COMPUTED: Day-Filtered Entries =====

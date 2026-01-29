@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useEntries, useEntriesRevision } from "@/stores/useEntries";
+import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
 import {
   getEntriesForCurrentWeek,
@@ -23,6 +24,7 @@ export function ThisWeekGlance() {
   
   const entries = useEntries((state) => state.entries);
   const revision = useEntriesRevision();
+  const renderKey = useFreshData();
   const weekStartDay = useSettings((state) => state.weekStartDay);
   const stoolTrackingEnabled = useSettings((state) => state.stoolTracking.enabled);
   const periodTrackingEnabled = useSettings((state) => state.periodTracking.enabled);
@@ -34,7 +36,7 @@ export function ThisWeekGlance() {
   const weekEntries = useMemo(
     () => getEntriesForCurrentWeek(entries, weekStartDay),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entries, weekStartDay, revision]
+    [entries, weekStartDay, revision, renderKey]
   );
   
   const stats = useMemo(

@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback } from "react";
 import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
+import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
 import { useSyncTracker } from "@/stores/useSyncTracker";
 import { SyncWithGoogleSheetsButton } from "@/components/sync";
@@ -42,6 +43,7 @@ export function CycleInsightsPage() {
   
   const entries = useEntries((state) => state.entries);
   const revision = useEntriesRevision();
+  const renderKey = useFreshData();
   const isHydrated = useEntriesHydrated();
   const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
   const periodTracking = useSettings((state) => state.periodTracking);
@@ -54,7 +56,7 @@ export function CycleInsightsPage() {
 const detectedCycles = useMemo(() => {
   return detectCycleBoundaries(entries);
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [entries, revision]);
+}, [entries, revision, renderKey]);
 
   const cycleComparison = useMemo(() => {
     return compareCycles(entries, detectedCycles);

@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
 import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
+import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
 
 import {
@@ -49,6 +50,7 @@ export default function MonthlyPage() {
   // Store data
   const entries = useEntries((state) => state.entries);
   const revision = useEntriesRevision();
+  const renderKey = useFreshData();
   const weekStartDay = useSettings((state) => state.weekStartDay);
   const timeFormat = useSettings((state) => state.timeFormat);
   const stoolTrackingEnabled = useSettings((state) => state.stoolTracking.enabled);
@@ -108,7 +110,7 @@ export default function MonthlyPage() {
     setFilters,
     clearAllFilters,
     clearAllFiltersAndDays,
-  } = useMonthlyFilters(entries);
+  } = useMonthlyFilters(entries, 0, renderKey);
 
   // Calculate stats for filtered entries
   const stats = useMemo(

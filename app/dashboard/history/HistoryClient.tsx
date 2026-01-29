@@ -11,6 +11,7 @@ import { useSettings } from "@/stores/useSettings";
 import { useSyncTracker } from "@/stores/useSyncTracker";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
+import { useFreshData } from "@/hooks/useFreshData";
 import { FilterBar } from "@/components/history";
 import { CYCLE_PHASES } from "@/lib/constants";
 import { getLocalDateString } from '@/lib/dateUtils';
@@ -51,6 +52,7 @@ export default function HistoryPage() {
   // Store data
   const entries = useEntries((state) => state.entries);
   const revision = useEntriesRevision();
+  const renderKey = useFreshData();
   const { isGoogleSheetConnected, timeFormat } = useSettings();
   const { getLastSuccessfulSyncAt } = useSyncTracker();
 
@@ -130,7 +132,7 @@ export default function HistoryPage() {
       .filter(entry => entry.date >= startDateStr && entry.date <= endDateStr)
       .sort((a, b) => b.date.localeCompare(a.date));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, dateRangeFilter, customRange, revision]);
+  }, [entries, dateRangeFilter, customRange, revision, renderKey]);
 
   // Advanced filters hook - operates on date-filtered entries
     const {
