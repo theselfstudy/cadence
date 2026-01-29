@@ -175,9 +175,12 @@ export function getEntriesForMonth(
 ): StoredEntry[] {
   const { startStr, endStr } = getMonthRange(monthOffset);
   
-  return entries.filter(
-    (entry) => entry.date >= startStr && entry.date <= endStr
-  );
+  return entries
+    .filter((entry) => entry.date >= startStr && entry.date <= endStr)
+    .sort((a, b) => {
+      const d = b.date.localeCompare(a.date);
+      return d !== 0 ? d : b.startTime.localeCompare(a.startTime);
+    });
 }
 
 /**

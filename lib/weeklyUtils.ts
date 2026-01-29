@@ -86,9 +86,12 @@ export function getEntriesForWeek(
 ): StoredEntry[] {
   const { startStr, endStr } = getWeekRange(weekStartDay, weekOffset);
   
-  return entries.filter(
-    (entry) => entry.date >= startStr && entry.date <= endStr
-  );
+  return entries
+    .filter((entry) => entry.date >= startStr && entry.date <= endStr)
+    .sort((a, b) => {
+      const d = b.date.localeCompare(a.date);
+      return d !== 0 ? d : b.startTime.localeCompare(a.startTime);
+    });
 }
 
 /**
