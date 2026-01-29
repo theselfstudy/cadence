@@ -473,9 +473,9 @@ export const useEntries = create<EntryStore>()(
         merged._revision = ((merged._revision as number) || 0) + 1;
         return merged as EntryStore;
       },
-      onRehydrateStorage: () => () => {
-        // Hydration complete - no-op, normalization handled by merge()
-      },
+      // onRehydrateStorage: () => () => {
+      //   // Hydration complete - no-op, normalization handled by merge()
+      // },
     }
   )
 );
@@ -503,20 +503,20 @@ export const useSyncableEntriesCount = () => useEntries((state) =>
  * of components that depend on entries data, preventing stale
  * or empty state from being shown.
  */
-export function useEntriesHydrated(): boolean {
-  const [hydrated, setHydrated] = useState(false);
+// export function useEntriesHydrated(): boolean {
+//   const [hydrated, setHydrated] = useState(false);
 
-  useEffect(() => {
-    // Check if already hydrated (persist API only available client-side)
-    if (useEntries.persist?.hasHydrated()) {
-      setHydrated(true);
-      return;
-    }
-    const unsub = useEntries.persist.onFinishHydration(() => {
-      setHydrated(true);
-    });
-    return () => { unsub(); };
-  }, []);
+//   useEffect(() => {
+//     // Check if already hydrated (persist API only available client-side)
+//     if (useEntries.persist?.hasHydrated()) {
+//       setHydrated(true);
+//       return;
+//     }
+//     const unsub = useEntries.persist.onFinishHydration(() => {
+//       setHydrated(true);
+//     });
+//     return () => { unsub(); };
+//   }, []);
 
-  return hydrated;
-}
+//   return hydrated;
+// }

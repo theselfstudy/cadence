@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
-import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
+import { useEntries, useEntriesRevision } from "@/stores/useEntries";
+// import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
 
@@ -48,7 +49,7 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export default function WeeklyPage() {
   // Client-side rendering guard - wait for both client mount AND store hydration
   const [isClient, setIsClient] = useState(false);
-  const isHydrated = useEntriesHydrated();
+  // const isHydrated = useEntriesHydrated();
 
   // Store data
   const entries = useEntries((state) => state.entries);
@@ -394,9 +395,9 @@ export default function WeeklyPage() {
     medicine: medicineTrackingEnabled,
   };
 
-  if (!isClient || !isHydrated) {
-    return <WeeklyPageSkeleton />;
-  }
+  // if (!isClient || !isHydrated) {
+  //   return <WeeklyPageSkeleton />;
+  // }
 
   return (
     <div className="space-y-6">

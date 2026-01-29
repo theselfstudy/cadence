@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
-import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
+import { useMemo } from "react";
+import { useEntries, useEntriesRevision } from "@/stores/useEntries";
+// import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
 import { useSyncTracker } from "@/stores/useSyncTracker";
@@ -44,7 +45,7 @@ export function CycleInsightsPage() {
   const entries = useEntries((state) => state.entries);
   const revision = useEntriesRevision();
   const renderKey = useFreshData();
-  const isHydrated = useEntriesHydrated();
+  // const isHydrated = useEntriesHydrated();
   const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
   const periodTracking = useSettings((state) => state.periodTracking);
   const { getLastSuccessfulSyncAt } = useSyncTracker();
@@ -150,14 +151,14 @@ const detectedCycles = useMemo(() => {
   // ============================================
 
   // Wait for store hydration before rendering
-  if (!isHydrated) {
-    return (
-      <div className="p-4 space-y-4 max-w-4xl mx-auto animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-48" />
-        <div className="h-4 bg-gray-200 rounded w-72" />
-      </div>
-    );
-  }
+  // if (!isHydrated) {
+  //   return (
+  //     <div className="p-4 space-y-4 max-w-4xl mx-auto animate-pulse">
+  //       <div className="h-8 bg-gray-200 rounded w-48" />
+  //       <div className="h-4 bg-gray-200 rounded w-72" />
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto">

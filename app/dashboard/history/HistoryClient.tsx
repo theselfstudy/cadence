@@ -5,7 +5,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
 import type { StoredEntry, TimeFormat } from "@/types";
-import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
+import { useEntries, useEntriesRevision } from "@/stores/useEntries";
+// import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 // import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useSyncTracker } from "@/stores/useSyncTracker";
@@ -44,7 +45,7 @@ const ENTRIES_PER_PAGE = 10;
 export default function HistoryPage() {
   // Client-side rendering guard - wait for both client mount AND store hydration
   const [isClient, setIsClient] = useState(false);
-  const isHydrated = useEntriesHydrated();
+  // const isHydrated = useEntriesHydrated();
 
   // URL search params for pre-filtering (e.g., from Cycle Insights)
   const searchParams = useSearchParams();
@@ -238,9 +239,9 @@ export default function HistoryPage() {
     setVisibleCount(prev => prev + ENTRIES_PER_PAGE);
   };
 
-  if (!isClient || !isHydrated) {
-    return <HistorySkeleton />;
-  }
+  // if (!isClient || !isHydrated) {
+  //   return <HistorySkeleton />;
+  // }
 
   return (
     <div className="space-y-6">
