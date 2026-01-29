@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useEntries } from "@/stores/useEntries";
+import { useEntries, useEntriesRevision } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 import {
   getEntriesForCurrentWeek,
@@ -22,6 +22,7 @@ export function ThisWeekGlance() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   
   const entries = useEntries((state) => state.entries);
+  const revision = useEntriesRevision();
   const weekStartDay = useSettings((state) => state.weekStartDay);
   const stoolTrackingEnabled = useSettings((state) => state.stoolTracking.enabled);
   const periodTrackingEnabled = useSettings((state) => state.periodTracking.enabled);
@@ -32,7 +33,8 @@ export function ThisWeekGlance() {
   // Get this week's entries and stats
   const weekEntries = useMemo(
     () => getEntriesForCurrentWeek(entries, weekStartDay),
-    [entries, weekStartDay]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [entries, weekStartDay, revision]
   );
   
   const stats = useMemo(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import { useEntries, useEntriesHydrated } from "@/stores/useEntries";
+import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 import { useSyncTracker } from "@/stores/useSyncTracker";
 import { SyncWithGoogleSheetsButton } from "@/components/sync";
@@ -41,6 +41,7 @@ export function CycleInsightsPage() {
   // ============================================
   
   const entries = useEntries((state) => state.entries);
+  const revision = useEntriesRevision();
   const isHydrated = useEntriesHydrated();
   const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
   const periodTracking = useSettings((state) => state.periodTracking);
@@ -52,15 +53,18 @@ export function CycleInsightsPage() {
 
 const detectedCycles = useMemo(() => {
   return detectCycleBoundaries(entries);
-}, [entries]);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [entries, revision]);
 
   const cycleComparison = useMemo(() => {
     return compareCycles(entries, detectedCycles);
-  }, [detectedCycles, entries]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detectedCycles, entries, revision]);
 
   const cyclePhaseHeatMapData = useMemo(() => {
     return buildCyclePhaseSymptomHeatMap(entries);
-  }, [entries]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, revision]);
 
   // ============================================
   // DERIVED DATA
@@ -79,21 +83,25 @@ const detectedCycles = useMemo(() => {
   // Calculate consistent patterns for badge count
   const consistentPatterns = useMemo(() => {
     return calculateConsistentPatterns(entries, detectedCycles);
-  }, [entries, detectedCycles]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, detectedCycles, revision]);
 
   const emergingPatterns = useMemo(() => {
     return calculateEmergingPatterns(entries, detectedCycles);
-  }, [entries, detectedCycles]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, detectedCycles, revision]);
 
   // Calculate co-occurrences for badge count
   const coOccurrences = useMemo(() => {
     return calculateCoOccurrences(entries);
-  }, [entries]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, revision]);
 
   // Calculate notable cycles for badge count
   const notableCycles = useMemo(() => {
     return calculateNotableCycles(detectedCycles, entries, consistentPatterns);
-  }, [detectedCycles, entries, consistentPatterns]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detectedCycles, entries, consistentPatterns, revision]);
 
   // ============================================
   // RENDER: NO PERIOD TRACKING

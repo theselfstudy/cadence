@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
-import { useEntries, useEntriesHydrated } from "@/stores/useEntries";
+import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 
 import {
@@ -48,6 +48,7 @@ export default function MonthlyPage() {
 
   // Store data
   const entries = useEntries((state) => state.entries);
+  const revision = useEntriesRevision();
   const weekStartDay = useSettings((state) => state.weekStartDay);
   const timeFormat = useSettings((state) => state.timeFormat);
   const stoolTrackingEnabled = useSettings((state) => state.stoolTracking.enabled);

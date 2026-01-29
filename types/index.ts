@@ -491,13 +491,17 @@ export interface StoredEntry {
 export interface EntryStoreState {
   /** All stored entries */
   entries: StoredEntry[];
-  
+
+  /** Monotonic revision counter – incremented on every entries mutation.
+   *  Use as a useMemo dependency to guarantee derived views recompute. */
+  _revision: number;
+
   /** Whether we're currently syncing with Google Sheets */
   isSyncing: boolean;
-  
+
   /** Last sync timestamp */
   lastSyncAt: string | null;
-  
+
   /** Progress state for batch sync operations */
   batchSyncProgress: BatchSyncProgress | null;
 }

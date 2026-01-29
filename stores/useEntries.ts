@@ -45,6 +45,7 @@ export const useEntries = create<EntryStore>()(
       // INITIAL STATE
       // ═══════════════════════════════════════
       entries: [],
+      _revision: 0,
       isSyncing: false,
       lastSyncAt: null,
       batchSyncProgress: null as BatchSyncProgress | null,
@@ -69,6 +70,7 @@ export const useEntries = create<EntryStore>()(
 
         set((state) => ({
           entries: [...state.entries, newEntry],
+          _revision: state._revision + 1,
         }));
 
         return newEntry;
@@ -143,6 +145,7 @@ export const useEntries = create<EntryStore>()(
               ? { ...e, syncStatus: 'synced' as const, syncError: undefined, updatedAt: new Date().toISOString() }
               : e
           ),
+          _revision: state._revision + 1,
         }));
       },
 
@@ -156,6 +159,7 @@ export const useEntries = create<EntryStore>()(
               ? { ...e, syncStatus: 'error' as const, syncError: error, updatedAt: new Date().toISOString() }
               : e
           ),
+          _revision: state._revision + 1,
         }));
       },
 
@@ -408,6 +412,7 @@ export const useEntries = create<EntryStore>()(
                 if (dateCompare !== 0) return dateCompare;
                 return b.startTime.localeCompare(a.startTime);
               }),
+              _revision: state._revision + 1,
             }));
           }
           
@@ -443,7 +448,7 @@ export const useEntries = create<EntryStore>()(
        * Clears all entries (for testing/reset).
        */
       clearEntries: () => {
-        set({ entries: [], lastSyncAt: null });
+        set((state) => ({ entries: [], lastSyncAt: null, _revision: state._revision + 1 }));
       },
     }),
 
@@ -464,6 +469,8 @@ export const useEntries = create<EntryStore>()(
             oneOffSymptoms: entry.oneOffSymptoms ?? [],
           }));
         }
+        // Bump revision so consumers recompute after rehydration
+        merged._revision = ((merged._revision as number) || 0) + 1;
         return merged as EntryStore;
       },
       onRehydrateStorage: () => () => {
@@ -478,6 +485,7 @@ export const useEntries = create<EntryStore>()(
 // ============================================
 
 export const useEntriesList = () => useEntries((state) => state.entries);
+export const useEntriesRevision = () => useEntries((state) => state._revision);
 export const useIsSyncing = () => useEntries((state) => state.isSyncing);
 export const usePendingEntries = () => useEntries((state) => state.getPendingEntries());
 export const useBatchSyncProgress = () => useEntries((state) => state.batchSyncProgress);

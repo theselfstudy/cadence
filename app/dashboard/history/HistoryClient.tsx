@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
 import type { StoredEntry, TimeFormat } from "@/types";
-import { useEntries, useEntriesHydrated } from "@/stores/useEntries";
+import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 // import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useSyncTracker } from "@/stores/useSyncTracker";
@@ -50,6 +50,7 @@ export default function HistoryPage() {
 
   // Store data
   const entries = useEntries((state) => state.entries);
+  const revision = useEntriesRevision();
   const { isGoogleSheetConnected, timeFormat } = useSettings();
   const { getLastSuccessfulSyncAt } = useSyncTracker();
 
@@ -128,7 +129,8 @@ export default function HistoryPage() {
     return entries
       .filter(entry => entry.date >= startDateStr && entry.date <= endDateStr)
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [entries, dateRangeFilter, customRange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, dateRangeFilter, customRange, revision]);
 
   // Advanced filters hook - operates on date-filtered entries
     const {
