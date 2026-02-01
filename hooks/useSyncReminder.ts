@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSyncTracker } from "@/stores/useSyncTracker";
 import { useSettings } from "@/stores/useSettings";
+import { hasMobileSyncPending } from "@/lib/oauthHelpers";
 
 /**
  * Hook to manage the 48-hour sync reminder modal
@@ -27,7 +28,8 @@ export function useSyncReminder() {
     // Only show if:
     // 1. Google Sheet is connected
     // 2. 48 hours have passed since last sync (or never synced)
-    if (isGoogleSheetConnected && shouldShowModal()) {
+    // 3. Not returning from a mobile OAuth redirect (sync is about to start)
+    if (isGoogleSheetConnected && shouldShowModal() && !hasMobileSyncPending()) {
       setShowModal(true);
     }
   }, [isGoogleSheetConnected, shouldShowModal, resetDismissal]);
