@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useSettings } from "@/stores/useSettings";
 
 // ============================================
 // Sheet Disconnected Modal
@@ -17,10 +18,12 @@ export function SheetDisconnectedModal({
   onClose,
 }: SheetDisconnectedModalProps) {
   const router = useRouter();
+  const { clearGoogleSheet } = useSettings();
 
   if (!isOpen) return null;
 
   const handleContinueLocally = () => {
+    clearGoogleSheet();
     onClose();
   };
 
