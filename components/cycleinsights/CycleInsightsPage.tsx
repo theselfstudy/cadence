@@ -161,18 +161,21 @@ const detectedCycles = useMemo(() => {
   // }
 
   return (
-    <div className="p-4 space-y-4 max-w-4xl mx-auto">
+    <div className="px-3 py-4 sm:p-4 space-y-4 sm:space-y-5 max-w-4xl mx-auto overscroll-contain">
       {/* Page Header */}
-      <div className="mb-2">
-        <h1 className="text-2xl font-bold text-app-charcoal">Cycle Insights</h1>
-        <p className="text-sm text-app-gray mt-1">
+      <div className="mb-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-app-charcoal">
+          Cycle Insights
+        </h1>
+        <p className="text-sm text-app-gray mt-1 max-w-prose">
           Patterns and observations from your logged data
         </p>
       </div>
 
+
       {/* Mode Indicator */}
       <div className="p-3 bg-app-cream rounded-lg border border-app-border">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
             <span className="text-sm text-app-charcoal">
@@ -183,7 +186,9 @@ const detectedCycles = useMemo(() => {
           </div>
 
           {/* Sync with Google Sheets button - only for connected users */}
-          <SyncWithGoogleSheetsButton variant="subtle" />
+          <div className="self-start sm:self-auto">
+            <SyncWithGoogleSheetsButton variant="subtle" />
+          </div>
         </div>
       </div>
 
@@ -199,8 +204,7 @@ const detectedCycles = useMemo(() => {
         title="This Cycle"
         icon={<CalendarCycleIcon className="w-5 h-5" />}
         helpText="Shows where you are in your current cycle based on your logged data."
-        // defaultExpanded={!isSectionCollapsed("this-cycle")}
-        // onToggle={(expanded) => handleSectionToggle("this-cycle", expanded)}
+        className="sm:rounded-xl"
       >
         <ThisCycleSection
           currentCycle={currentCycle}
@@ -213,12 +217,8 @@ const detectedCycles = useMemo(() => {
       <CollapsibleSection
         title="Your Consistent Patterns"
         icon={<PatternIcon className="w-5 h-5" />}
-        // badge={hasEnoughDataForDeepInsights && consistentPatterns.length > 0 
-        //   ? `${consistentPatterns.length} pattern${consistentPatterns.length !== 1 ? "s" : ""}` 
-        //   : undefined}
         helpText="Patterns that appear in at least 60% of your tracked cycles."
-        // defaultExpanded={!isSectionCollapsed("consistent-patterns")}
-        // onToggle={(expanded) => handleSectionToggle("consistent-patterns", expanded)}
+        defaultExpanded={false}
       >
         <ConsistentPatternsSection
           entries={entries}
@@ -235,8 +235,7 @@ const detectedCycles = useMemo(() => {
           ? `${emergingPatterns.length} pattern${emergingPatterns.length !== 1 ? "s" : ""}` 
           : undefined}
         helpText="Patterns that appear less frequently, have recently started, or are changing over time."
-        // defaultExpanded={!isSectionCollapsed("emerging-patterns")}
-        // onToggle={(expanded) => handleSectionToggle("emerging-patterns", expanded)}
+        defaultExpanded={false}
       >
         <EmergingPatternsSection
           entries={entries}
@@ -252,8 +251,7 @@ const detectedCycles = useMemo(() => {
           ? `${coOccurrences.length} pair${coOccurrences.length !== 1 ? "s" : ""}` 
           : undefined}
         helpText="Events that frequently appear on the same day in your logs."
-        // defaultExpanded={!isSectionCollapsed("co-occurrence")}
-        // onToggle={(expanded) => handleSectionToggle("co-occurrence", expanded)}
+        defaultExpanded={false}
       >
         <CoOccurrenceSection
           entries={entries}
@@ -269,8 +267,7 @@ const detectedCycles = useMemo(() => {
           ? `${notableCycles.length} noted` 
           : undefined}
         helpText="Observations about cycles that differed from your usual pattern. Cycles naturally vary."
-        // defaultExpanded={!isSectionCollapsed("notable-cycles")}
-        // onToggle={(expanded) => handleSectionToggle("notable-cycles", expanded)}
+        defaultExpanded={false}
       >
         <NotableCyclesSection
           entries={entries}
@@ -285,7 +282,6 @@ const detectedCycles = useMemo(() => {
         badge="Full details"
         helpText="Detailed breakdowns of your cycle data including cycle history."
         defaultExpanded={false}
-        // onToggle={(expanded) => handleSectionToggle("detailed-views", expanded)}
       >
         <DetailedViewsSection
           cycles={detectedCycles}
@@ -301,9 +297,10 @@ const detectedCycles = useMemo(() => {
         badge={`${entries.length} entr${entries.length !== 1 ? "ies" : "y"}`}
         helpText="All your logged entries with full details."
         defaultExpanded={false}
-        // onToggle={(expanded) => handleSectionToggle("entries", expanded)}
       >
-        <EntriesSection entries={entries} />
+        <div className="sm:contents">
+          <EntriesSection entries={entries} />
+        </div>
       </CollapsibleSection>
     </div>
   );

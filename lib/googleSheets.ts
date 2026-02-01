@@ -117,11 +117,20 @@ const SAVED_FILTERS_RANGE = `${SAVED_FILTERS_SHEET_NAME}!A1`;
 
 /**
  * Generates the sheet name for a given date's month.
- * Format: cadence-YYYY-MM
+ * Format: Cadence-YYYY-MM
+ *
+ * Accepts either a YYYY-MM-DD date string (parsed directly to avoid
+ * timezone-offset bugs with `new Date()`) or a Date object.
  */
-function getEntriesSheetName(date: Date = new Date()): string {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+function getEntriesSheetName(date?: string | Date): string {
+  if (typeof date === 'string') {
+    // Extract YYYY-MM directly from "YYYY-MM-DD" — no timezone ambiguity
+    const [year, month] = date.split('-');
+    return `${ENTRIES_SHEET_PREFIX}-${year}-${month}`;
+  }
+  const d = date ?? new Date();
+  const year = d.getFullYear();
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
   return `${ENTRIES_SHEET_PREFIX}-${year}-${month}`;
 }
 
@@ -1191,8 +1200,8 @@ export async function appendEntryToSheet(
   accessToken: string
 ): Promise<{ success: boolean; error?: string }> {
   // Determine which month's sheet to use based on entry date
-  const entryDate = new Date(entry.date);
-  const sheetName = getEntriesSheetName(entryDate);
+  // Pass the YYYY-MM-DD string directly to avoid timezone-offset bugs
+  const sheetName = getEntriesSheetName(entry.date);
   
   try {
     // Step 1: Build canonical columns based on current settings
@@ -1354,9 +1363,9 @@ export function groupEntriesByMonth(entries: StoredEntry[]): Map<string, StoredE
   const grouped = new Map<string, StoredEntry[]>();
   
   for (const entry of entries) {
-    const entryDate = new Date(entry.date);
-    const year = entryDate.getFullYear();
-    const month = (entryDate.getMonth() + 1).toString().padStart(2, '0');
+    // Extract year-month directly from the YYYY-MM-DD string to avoid
+    // timezone-offset bugs with `new Date(dateOnlyString)`
+    const [year, month] = entry.date.split('-');
     const sheetName = `${ENTRIES_SHEET_PREFIX}-${year}-${month}`;
     
     if (!grouped.has(sheetName)) {
