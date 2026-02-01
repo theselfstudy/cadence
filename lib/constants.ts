@@ -375,4 +375,5 @@ export const MEDICINE_CATEGORIES: { value: MedicineCategory; label: string; icon
 /**
  * Interval for showing the sync reminder modal (48 hours)
  */
-export const SYNC_REMINDER_INTERVAL_MS = 48 * 60 * 60 * 1000;
+// TODO: revert to 48 * 60 * 60 * 1000 after testing
+export const SYNC_REMINDER_INTERVAL_MS = 1 * 60 * 1000;
