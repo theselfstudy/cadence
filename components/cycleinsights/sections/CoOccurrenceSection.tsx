@@ -131,9 +131,10 @@ function CoOccurrenceCard({ pair }: CoOccurrenceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   
-  // On desktop: keep original hover logic
-  // On mobile: only rely on click (isExpanded)
-  const showContent = window.innerWidth >= 768 ? (isExpanded || isHovered) : isExpanded;
+  // Desktop: hover + click
+  // Mobile: only click
+  const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
+  const showContent = isDesktop ? isExpanded || isHovered : isExpanded;
 
   const getTypeIcon = (type: "symptom" | "medicine") => {
     return type === "symptom" ? "🏷️" : "💊";
@@ -225,11 +226,9 @@ function CoOccurrenceCard({ pair }: CoOccurrenceCardProps) {
 
           {/* Expanded Content */}
           <div
-            className={`overflow-hidden transition-all duration-200 ${
-              showContent
-                ? "max-h-[500px] mt-3 pt-3 border-t border-app-border"
-                : "max-h-0 mt-0 pt-0 border-0"
-            } md:mt-3 md:pt-3 md:border-t md:border-app-border`}
+              className={`overflow-hidden transition-[max-height,margin,padding] duration-300 ease-in-out
+              ${showContent ? "max-h-[1000px] mt-3 pt-3 border-t border-app-border" : "max-h-0 mt-0 pt-0 border-0"}
+              md:mt-3 md:pt-3 md:border-t md:border-app-border`}
           >
             {pair.metadata && (
               <div className="space-y-2">
