@@ -225,34 +225,31 @@ function CoOccurrenceCard({ pair }: CoOccurrenceCardProps) {
           </div>
 
           {/* Expanded Content */}
-          <div
-              className={`overflow-hidden transition-[max-height,margin,padding] duration-300 ease-in-out
-              ${showContent ? "max-h-[1000px] mt-3 pt-3 border-t border-app-border" : "max-h-0 mt-0 pt-0 border-0"}
-              md:mt-3 md:pt-3 md:border-t md:border-app-border`}
-          >
-            {pair.metadata && (
-              <div className="space-y-2">
-                {/* First / Last co-occurrence */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-app-gray">First together:</span>
-                    <p className="font-medium text-app-charcoal">
-                      {formatDate(pair.metadata.firstCoOccurrenceDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-app-gray">Last together:</span>
-                    <p className="font-medium text-app-charcoal">
-                      {formatDate(pair.metadata.lastCoOccurrenceDate)}
-                    </p>
-                  </div>
+          {showContent && pair.metadata && (
+            <div
+              className="mt-3 pt-3 border-t border-app-border/50 space-y-2 bg-app-cream/5 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg md:mx-0 md:mb-0 md:px-0 md:pb-0 md:bg-transparent"
+            >
+              {/* First / Last co-occurrence */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-app-gray">First together:</span>
+                  <p className="font-medium text-app-charcoal">
+                    {formatDate(pair.metadata.firstCoOccurrenceDate)}
+                  </p>
                 </div>
-
-                {/* Description */}
-                <p className="text-xs text-app-gray italic">{pair.description}</p>
+                <div>
+                  <span className="text-app-gray">Last together:</span>
+                  <p className="font-medium text-app-charcoal">
+                    {formatDate(pair.metadata.lastCoOccurrenceDate)}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Description */}
+              <p className="text-xs text-app-gray italic">{pair.description}</p>
+            </div>
+          )}
+
         </div>
       </button>
     </div>
