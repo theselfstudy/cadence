@@ -185,8 +185,8 @@ function NotableCycleCard({ cycle, cycleLength, avgCycleLength, dateRange }: Not
     return hasLengthChange ? "border-app-charcoal" : "border-app-teal";
   };
 
-  const displayedReasons = showContent ? cycle.reasons : cycle.reasons.slice(0, 2);
-  const hasMoreReasons = cycle.reasons.length > 2;
+  const displayedReasons = showContent ? cycle.reasons : cycle.reasons.slice(0, 1);
+  const hasMoreReasons = cycle.reasons.length > 1;
 
   return (
     <div
@@ -237,26 +237,24 @@ function NotableCycleCard({ cycle, cycleLength, avgCycleLength, dateRange }: Not
 
           {/* Observations - always show first 2 */}
           <div className="space-y-1 pt-2 border-t border-app-border/50">
-            {cycle.reasons.slice(0, 2).map((reason, idx) => (
+            {displayedReasons.map((reason, idx) => (
               <div key={idx} className="flex items-start gap-1.5">
                 <span className="text-xs flex-shrink-0 mt-0.5">{getReasonIcon(reason.type)}</span>
                 <p className="text-xs text-app-charcoal leading-tight">{reason.description}</p>
               </div>
             ))}
             {!showContent && hasMoreReasons && (
-              <p className="text-xs text-app-gray italic">+{cycle.reasons.length - 2} more</p>
+              <p className="text-xs text-app-gray italic">+{cycle.reasons.length - 1} more</p>
             )}
           </div>
-
           {/* Expanded Content */}
           {showContent && (
             <div className="mt-3 pt-3 border-t border-app-border/50 space-y-2 bg-app-cream/5 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg md:mx-0 md:mb-0 md:px-0 md:pb-0 md:bg-transparent">
-              
               {/* Additional reasons beyond first 2 */}
               {hasMoreReasons && (
                 <div className="space-y-1 mt-1">
-                  {cycle.reasons.slice(2).map((reason, idx) => (
-                    <div key={idx + 2} className="flex items-start gap-1.5">
+                  {cycle.reasons.slice(displayedReasons.length).map((reason, idx) => (
+                    <div key={idx + displayedReasons.length} className="flex items-start gap-1.5">
                       <span className="text-xs flex-shrink-0 mt-0.5">{getReasonIcon(reason.type)}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-app-charcoal leading-tight">{reason.description}</p>
@@ -268,7 +266,6 @@ function NotableCycleCard({ cycle, cycleLength, avgCycleLength, dateRange }: Not
                   ))}
                 </div>
               )}
-
               {/* Show details for first 2 reasons when expanded */}
               {cycle.reasons.slice(0, 2).some(r => r.detail) && (
                 <div className="space-y-1 mt-2 pt-2 border-t border-app-border/30">
