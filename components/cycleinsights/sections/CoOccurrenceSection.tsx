@@ -249,7 +249,6 @@ function CoOccurrenceCard({ pair }: CoOccurrenceCardProps) {
               <p className="text-xs text-app-gray italic">{pair.description}</p>
             </div>
           )}
-
         </div>
       </button>
     </div>
