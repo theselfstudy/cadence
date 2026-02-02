@@ -1,4 +1,3 @@
-// /components/cycleinsights/sections/EntriesSection.tsx
 "use client";
 
 import { useMemo, useState } from "react";

@@ -1,4 +1,3 @@
-// /components/cycleinsights/sections/MobilePhaseSymptomCards.tsx
 "use client";
 
 import { useState } from "react";

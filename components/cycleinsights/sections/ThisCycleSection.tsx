@@ -48,7 +48,7 @@ export function ThisCycleSection({
           No active cycle detected
         </p>
         <p className="text-xs text-app-gray">
-          Log period flow to start tracking a new cycle
+          Log a period flow to start tracking a new cycle
         </p>
       </div>
     );

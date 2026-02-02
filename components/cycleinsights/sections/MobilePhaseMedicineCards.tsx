@@ -1,4 +1,3 @@
-// /components/cycleinsights/sections/MobilePhaseMedicineCards.tsx
 "use client";
 
 import { useState } from "react";

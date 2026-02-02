@@ -1,4 +1,3 @@
-// /components/cycleinsights/sections/ConsistentPatternsSection.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -476,7 +475,7 @@ function PhaseSymptomView({ entries, cyclePhaseHeatMapData, cycleCount, isPhaseA
       </div>
 
       {/* Desktop Heat Map */}
-      <div className="hidden sm:block">
+      <div className="hidden min-[500px]:block">
         <div className="overflow-x-auto">
           <div className="min-w-[400px]">
             {/* Phase Headers */}
@@ -602,7 +601,7 @@ function PhaseSymptomView({ entries, cyclePhaseHeatMapData, cycleCount, isPhaseA
       </div>
 
       {/* Mobile Cards */}
-      <div className="sm:hidden">
+      <div className="min-[500px]:hidden">
         <MobilePhaseSymptomCards
           data={isPhaseAware ? sortedData : simplifiedData || []}
           isPhaseAware={isPhaseAware}
@@ -813,7 +812,7 @@ function PhaseStoolView({ entries, cycleCount, isPhaseAware }: PhaseStoolViewPro
       </div>
 
       {/* Desktop Heat Map */}
-      <div className="hidden sm:block">
+      <div className="hidden min-[500px]:block">
         <div className="overflow-x-auto">
           <div className="min-w-[400px]">
             {/* Phase Headers */}
@@ -929,7 +928,7 @@ function PhaseStoolView({ entries, cycleCount, isPhaseAware }: PhaseStoolViewPro
       </div>
 
       {/* Mobile Cards */}
-      <div className="sm:hidden">
+      <div className="min-[500px]:hidden">
         <MobilePhaseBowelCards
           phaseStoolData={phaseStoolData}
           bristolTypes={bristolTypes}
@@ -1156,7 +1155,7 @@ function PhaseMedicineView({ entries, cycleCount, isPhaseAware }: PhaseMedicineV
       </div>
 
       {/* Phase Summary Cards */}
-      <div className={`grid gap-2 ${isPhaseAware ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"}`}>
+      {/* <div className={`grid gap-2 ${isPhaseAware ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"}`}>
         {phaseTotals.map(({ phase, total }) => {
           const avgPerCycle = cycleCount > 0 ? Math.round((total / cycleCount) * 10) / 10 : null;
           return (
@@ -1184,10 +1183,10 @@ function PhaseMedicineView({ entries, cycleCount, isPhaseAware }: PhaseMedicineV
             </div>
           );
         })}
-      </div>
+      </div> */}
 
       {/* Desktop Heat Map */}
-      <div className="hidden sm:block">
+      <div className="hidden min-[500px]:block">
         <div className="overflow-x-auto">
           <div className="min-w-[400px]">
             <div className="flex mb-2">
@@ -1310,7 +1309,7 @@ function PhaseMedicineView({ entries, cycleCount, isPhaseAware }: PhaseMedicineV
       </div>
 
       {/* Mobile Cards */}
-      <div className="sm:hidden">
+      <div className="min-[500px]:hidden">
         <MobilePhaseMedicineCards
           phaseMedicineData={phaseMedicineData}
           allMedicines={allMedicines}

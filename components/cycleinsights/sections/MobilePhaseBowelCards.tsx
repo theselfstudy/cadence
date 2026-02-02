@@ -1,4 +1,3 @@
-// /components/cycleinsights/sections/MobilePhaseBowelCards.tsx
 "use client";
 
 import { useState } from "react";

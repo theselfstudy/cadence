@@ -1,4 +1,3 @@
-// /components/cycleinsights/sections/DetailedViewsSection.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -143,7 +142,7 @@ function CycleHistoryTab({
           No cycles detected yet
         </p>
         <p className="text-xs text-app-gray">
-          Log period/flow data to start tracking your cycles.
+          To begin to see detailed data, enter period or flow data to start tracking your cycles.
         </p>
       </div>
     );
@@ -214,42 +213,44 @@ function CycleHistoryTab({
       {/* Cycle List */}
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-app-charcoal">All Cycles</h4>
-        
-        {/* Ongoing cycle */}
-        {ongoingCycle && (
-          <CycleCard
-            cycle={ongoingCycle}
-            cycleNumber={cycles.length}
-            entries={getEntriesForCycle(ongoingCycle)}
-            isExpanded={expandedCycleIndex === cycles.length}
-            onToggle={() => setExpandedCycleIndex(
-              expandedCycleIndex === cycles.length ? null : cycles.length
-            )}
-            formatDate={formatDate}
-            getMonthLabel={getMonthLabel}
-            customProducts={customProducts}
-          />
-        )}
 
-        {/* Complete cycles (most recent first) */}
-        {[...completeCycles].reverse().map((cycle, reverseIndex) => {
-          const cycleNumber = completeCycles.length - reverseIndex;
-          return (
+        <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
+          {/* Ongoing cycle */}
+          {ongoingCycle && (
             <CycleCard
-              key={cycle.startDate}
-              cycle={cycle}
-              cycleNumber={cycleNumber}
-              entries={getEntriesForCycle(cycle)}
-              isExpanded={expandedCycleIndex === cycleNumber}
+              cycle={ongoingCycle}
+              cycleNumber={cycles.length}
+              entries={getEntriesForCycle(ongoingCycle)}
+              isExpanded={expandedCycleIndex === cycles.length}
               onToggle={() => setExpandedCycleIndex(
-                expandedCycleIndex === cycleNumber ? null : cycleNumber
+                expandedCycleIndex === cycles.length ? null : cycles.length
               )}
               formatDate={formatDate}
               getMonthLabel={getMonthLabel}
               customProducts={customProducts}
             />
-          );
-        })}
+          )}
+
+          {/* Complete cycles (most recent first) */}
+          {[...completeCycles].reverse().map((cycle, reverseIndex) => {
+            const cycleNumber = completeCycles.length - reverseIndex;
+            return (
+              <CycleCard
+                key={cycle.startDate}
+                cycle={cycle}
+                cycleNumber={cycleNumber}
+                entries={getEntriesForCycle(cycle)}
+                isExpanded={expandedCycleIndex === cycleNumber}
+                onToggle={() => setExpandedCycleIndex(
+                  expandedCycleIndex === cycleNumber ? null : cycleNumber
+                )}
+                formatDate={formatDate}
+                getMonthLabel={getMonthLabel}
+                customProducts={customProducts}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -542,7 +543,7 @@ function CycleCard({
                       phase === "menstrual" ? "bg-app-red/10 text-app-red" : "bg-app-teal/10 text-app-teal"
                     }`}
                   >
-                    {formatPhase(phase)} ({count})
+                    {formatPhase(phase)}
                   </span>
                 ))}
               </div>
@@ -559,7 +560,7 @@ function CycleCard({
                     key={s.name}
                     className="px-2 py-0.5 text-xs rounded bg-app-teal/10 text-app-teal"
                   >
-                    {s.name} ({s.count})
+                    {s.name}
                   </span>
                 ))}
               </div>
@@ -576,7 +577,7 @@ function CycleCard({
                     key={m.name}
                     className="px-2 py-0.5 text-xs rounded bg-app-green/10 text-app-green"
                   >
-                    {m.name} ({m.count})
+                    {m.name}
                   </span>
                 ))}
               </div>

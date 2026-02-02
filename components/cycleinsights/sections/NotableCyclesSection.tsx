@@ -48,8 +48,8 @@ export function NotableCyclesSection({ entries, cycles }: NotableCyclesSectionPr
         <span className="text-2xl block mb-2">📌</span>
         <p className="text-sm text-app-charcoal font-medium mb-1">More data needed</p>
         <p className="text-xs text-app-gray">
-          Log {2 - completeCycles.length} more complete cycle
-          {2 - completeCycles.length !== 1 ? "s" : ""} to see notable observations
+          Keep logging! Any notable observations will appear after {2 - completeCycles.length}+ complete cycle{2 - completeCycles.length !== 1 ? "s" : ""}
+          {/* {2 - completeCycles.length !== 1 ? "s" : ""} to see notable observations */}
         </p>
 
         <div className="flex items-center justify-center gap-1 mt-3">
