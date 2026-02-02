@@ -152,7 +152,10 @@ function NotableCycleCard({ cycle, cycleLength, avgCycleLength, dateRange }: Not
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const showContent = isExpanded || isHovered;
+  // Desktop: hover + click
+  // Mobile: only click
+  const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
+  const showContent = isDesktop ? isExpanded || isHovered : isExpanded;
 
   const getReasonIcon = (type: NotableReason["type"]) => {
     switch (type) {
@@ -249,8 +252,14 @@ function NotableCycleCard({ cycle, cycleLength, avgCycleLength, dateRange }: Not
           </div>
           {/* Expanded Content */}
           {showContent && (
-            <div className="mt-3 pt-3 border-t border-app-border/50 space-y-2 bg-app-cream/5 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg md:mx-0 md:mb-0 md:px-0 md:pb-0 md:bg-transparent">
-              {/* Additional reasons beyond first 2 */}
+            <div
+              className={`overflow-hidden transition-[max-height,margin,padding] duration-300 ease-in-out
+                ${showContent
+                  ? "max-h-[1000px] mt-3 pt-3 border-t border-app-border"
+                  : "max-h-0 mt-0 pt-0 border-0"
+                } bg-app-cream/5 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg md:mx-0 md:mb-0 md:px-0 md:pb-0 md:bg-transparent`}
+            >
+              {/* Additional reasons */}
               {hasMoreReasons && (
                 <div className="space-y-1 mt-1">
                   {cycle.reasons.slice(displayedReasons.length).map((reason, idx) => (
@@ -266,16 +275,13 @@ function NotableCycleCard({ cycle, cycleLength, avgCycleLength, dateRange }: Not
                   ))}
                 </div>
               )}
-              {/* Show details for first 2 reasons when expanded */}
-              {cycle.reasons.slice(0, 2).some(r => r.detail) && (
+
+              {/* Show details for first reason if any */}
+              {cycle.reasons[0].detail && (
                 <div className="space-y-1 mt-2 pt-2 border-t border-app-border/30">
-                  {cycle.reasons.slice(0, 2).map((reason, idx) => 
-                    reason.detail ? (
-                      <p key={`detail-${idx}`} className="text-xs text-app-gray">
-                        {getReasonIcon(reason.type)} {reason.detail}
-                      </p>
-                    ) : null
-                  )}
+                  <p className="text-xs text-app-gray">
+                    {getReasonIcon(cycle.reasons[0].type)} {cycle.reasons[0].detail}
+                  </p>
                 </div>
               )}
 
@@ -291,8 +297,8 @@ function NotableCycleCard({ cycle, cycleLength, avgCycleLength, dateRange }: Not
                   </div>
                 </div>
               )}
-
             </div>
+
           )}
 
         </div>
