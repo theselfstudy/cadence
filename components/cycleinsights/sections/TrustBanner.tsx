@@ -217,10 +217,7 @@ export function TrustBanner({
       {/* Main message */}
       <div className="bg-app-white/70 rounded-lg p-4 mb-4">
         <p className="text-sm text-app-charcoal leading-relaxed">
-          All insights come from your logged entries only.{" "}
-          {/* <span className="text-app-gray">
-            Nothing is predicted, shared, or sent anywhere.
-          </span> */}
+          Insights only come from your logged entries.{" "}
         </p>
       </div>
 

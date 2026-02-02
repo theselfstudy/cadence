@@ -5,6 +5,9 @@ import { useMemo, useState } from "react";
 import type { StoredEntry } from "@/types";
 import type { DetectedCycle, CyclePhaseSymptomData } from "@/lib/monthlyUtils";
 import { PhasePill } from "../shared/PhasePill";
+import { MobilePhaseSymptomCards } from "./MobilePhaseSymptomCards";
+import { MobilePhaseBowelCards } from "./MobilePhaseBowelCards";
+import { MobilePhaseMedicineCards } from "./MobilePhaseMedicineCards";
 
 // ============================================
 // CONSISTENT PATTERNS SECTION
@@ -24,19 +27,19 @@ type PatternTab = "symptoms" | "bowel" | "medicines";
 const phases = ["menstrual", "follicular", "ovulation", "luteal"] as const;
 const simplifiedPhases = ["menstrual", "other"] as const;
 
-const phaseConfig: Record<string, { 
-  label: string; 
-  description: string; 
+export const phaseConfig: Record<string, {
+  label: string;
+  description: string;
   dayRange: string;
 }> = {
   menstrual: { 
     label: "Period", 
     description: "During period",
-    dayRange: "During period",
+    dayRange: "Active bleeding",
   },
   follicular: { 
     label: "Follicular", 
-    description: "After period ends",
+    description: "Post-period",
     dayRange: "After period ends",
   },
   ovulation: { 
@@ -46,7 +49,7 @@ const phaseConfig: Record<string, {
   },
   luteal: { 
     label: "Luteal", 
-    description: "Before period starts",
+    description: "Pre-period",
     dayRange: "Before period starts",
   },
   other: {
@@ -200,7 +203,7 @@ export function ConsistentPatternsSection({
 // Shows details for clicked cell below heat map
 // ============================================
 
-interface SelectedCellInfo {
+export interface SelectedCellInfo {
   name: string;
   phase: string;
   count: number;
@@ -216,14 +219,14 @@ interface InfoPanelProps {
   colorScheme: "teal" | "plumb" | "green";
 }
 
-function InfoPanel({ info, onClose, colorScheme }: InfoPanelProps) {
+export function InfoPanel({ info, onClose, colorScheme }: InfoPanelProps) {
   if (!info) return null;
 
   const colorClasses = {
     teal: {
-      bg: info.phase === "menstrual" || info.isPeriodRelated ? "bg-app-red/10" : "bg-app-teal/10",
-      text: info.phase === "menstrual" || info.isPeriodRelated ? "text-app-red" : "text-app-teal",
-      border: info.phase === "menstrual" || info.isPeriodRelated ? "border-app-red/20" : "border-app-teal/20",
+      bg: info.phase === "menstrual" ? "bg-app-red/10" : "bg-app-teal/10",
+      text: info.phase === "menstrual" ? "text-app-red" : "text-app-teal",
+      border: info.phase === "menstrual" ? "border-app-red/20" : "border-app-teal/20",
     },
     plumb: {
       bg: info.phase === "menstrual" ? "bg-app-red/10" : "bg-app-plumb/10",
@@ -458,142 +461,153 @@ function PhaseSymptomView({ entries, cyclePhaseHeatMapData, cycleCount, isPhaseA
     <div className="space-y-4">
       <div>
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-medium text-app-charcoal">Symptom Patterns by Phase</h4>
+          <h4 className="text-sm font-medium text-app-charcoal">Symptoms by Phase</h4>
           <span className="text-xs text-app-gray bg-app-cream/50 px-2 py-0.5 rounded-full">
             {cycleCount > 0 
-              ? `Includes data from ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
+              ? `${cycleCount} cycle${cycleCount !== 1 ? "s analyzed" : " analyzed"}`
+              // ? `Includes data from ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
               : "Based on all logged data"
             }
           </span>
         </div>
         <p className="text-xs text-app-gray mt-0.5">
-          Tap any cell to see details. Sorted by highest overall intensity.
+          Tap any cell to see details.
         </p>
       </div>
 
-      {/* Heat Map */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[400px]">
-          {/* Phase Headers */}
-          <div className="flex mb-2">
-            <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
-            {(isPhaseAware ? phases : simplifiedPhases).map((phase) => (
-              <div 
-                key={phase} 
-                className={`flex-1 min-w-[70px] text-center ${
-                  phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
-                }`}
-              >
-                <p className={`text-xs font-medium ${
-                  phase === "menstrual" ? "text-app-red" : "text-app-teal"
-                }`}>
-                  {phaseConfig[phase].label}
-                </p>
-                <p className="text-[10px] text-app-gray">
-                  {phaseConfig[phase].dayRange}
-                </p>
-              </div>
-            ))}
-          </div>
+      {/* Desktop Heat Map */}
+      <div className="hidden sm:block">
+        <div className="overflow-x-auto">
+          <div className="min-w-[400px]">
+            {/* Phase Headers */}
+            <div className="flex mb-2">
+              <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
+              {(isPhaseAware ? phases : simplifiedPhases).map((phase) => (
+                <div
+                  key={phase}
+                  className={`flex-1 min-w-[70px] text-center ${
+                    phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
+                  }`}
+                >
+                  <p className={`text-xs font-medium ${
+                    phase === "menstrual" ? "text-app-red" : "text-app-teal"
+                  }`}>
+                    {phaseConfig[phase].label}
+                  </p>
+                  <p className="text-[10px] text-app-gray">
+                    {phaseConfig[phase].dayRange}
+                  </p>
+                </div>
+              ))}
+            </div>
 
-          {/* Symptom Rows */}
-          <div className="space-y-1 max-h-80 overflow-y-auto">
-            {(isPhaseAware ? sortedData : simplifiedData || []).slice(0, 15).map((symptom) => {
-              const isSelected = selectedCell?.name === symptom.symptom;
-              const activePhases = isPhaseAware ? phases : simplifiedPhases;
-              
-              return (
-                <div key={symptom.symptom} className="flex items-center">
-                  {/* Sticky symptom name column */}
-                  <div className="w-32 shrink-0 pr-2 sticky left-0 bg-app-white z-10">
-                    <p 
-                      className={`text-xs truncate ${
-                        symptom.isPeriodRelated ? "text-app-red" : "text-app-charcoal"
-                      } ${isSelected ? "font-semibold" : ""}`}
-                      title={symptom.symptom}
-                    >
-                      {symptom.symptom}
-                    </p>
-                  </div>
+            {/* Symptom Rows */}
+            <div className="space-y-1 max-h-80 overflow-y-auto">
+              {(isPhaseAware ? sortedData : simplifiedData || []).slice(0, 15).map((symptom) => {
+                const isSelected = selectedCell?.name === symptom.symptom;
+                const activePhases = isPhaseAware ? phases : simplifiedPhases;
 
-                  {activePhases.map((phase) => {
-                    const data = symptom.phases[phase];
-                    const hasData = data && data.count > 0;
-                    const intensity = data?.avgIntensity ?? 0;
-                    const isCellSelected = selectedCell?.name === symptom.symptom && selectedCell?.phase === phase;
-
-                    return (
-                      <div 
-                        key={phase} 
-                        className={`flex-1 min-w-[70px] px-1 ${
-                          phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
-                        }`}
+                return (
+                  <div key={symptom.symptom} className="flex items-center">
+                    {/* Sticky symptom name column */}
+                    <div className="w-32 shrink-0 pr-2 sticky left-0 bg-app-white z-10">
+                      <p
+                        className={`text-xs truncate ${
+                          symptom.isPeriodRelated ? "text-app-red" : "text-app-charcoal"
+                        } ${isSelected ? "font-semibold" : ""}`}
+                        title={symptom.symptom}
                       >
-                        <button
-                          type="button"
-                          onClick={() => handleCellClick(symptom, phase)}
-                          disabled={!hasData}
-                          className={`w-full h-10 rounded-lg transition-all flex items-center justify-center ${
-                            hasData
-                              ? getPhaseIntensityStyle(intensity, maxIntensity, symptom.isPeriodRelated, phase)
-                              : "bg-app-border/30"
-                          } ${isCellSelected ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
-                            hasData ? "cursor-pointer" : "cursor-default"
+                        {symptom.symptom}
+                      </p>
+                    </div>
+
+                    {activePhases.map((phase) => {
+                      const data = symptom.phases[phase];
+                      const hasData = data && data.count > 0;
+                      const intensity = data?.avgIntensity ?? 0;
+                      const isCellSelected = selectedCell?.name === symptom.symptom && selectedCell?.phase === phase;
+
+                      return (
+                        <div
+                          key={phase}
+                          className={`flex-1 min-w-[70px] px-1 ${
+                            phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
                           }`}
                         >
-                          {hasData && (
-                            <span className="text-xs font-medium">
-                              {data.avgIntensity !== null ? data.avgIntensity.toFixed(1) : data.count}
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCellClick(symptom, phase)}
+                            disabled={!hasData}
+                            className={`w-full h-10 rounded-lg transition-all flex items-center justify-center ${
+                              hasData
+                                ? getPhaseIntensityStyle(intensity, maxIntensity, symptom.isPeriodRelated, phase)
+                                : "bg-app-border/30"
+                            } ${isCellSelected ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
+                              hasData ? "cursor-pointer" : "cursor-default"
+                            }`}
+                          >
+                            {hasData && (
+                              <span className="text-xs font-medium">
+                                {data.avgIntensity !== null ? data.avgIntensity.toFixed(1) : data.count}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
 
-          {/* Bottom border for period column */}
-          <div className="flex">
-            <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
-            {(isPhaseAware ? phases : simplifiedPhases).map((phase) => (
-              <div 
-                key={phase} 
-                className={`flex-1 min-w-[70px] ${
-                  phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
-                }`}
-              />
-            ))}
-          </div>
+            {/* Bottom border for period column */}
+            <div className="flex">
+              <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
+              {(isPhaseAware ? phases : simplifiedPhases).map((phase) => (
+                <div
+                  key={phase}
+                  className={`flex-1 min-w-[70px] ${
+                    phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
+                  }`}
+                />
+              ))}
+            </div>
 
-          {(isPhaseAware ? sortedData : simplifiedData || []).length > 15 && (
-            <p className="text-xs text-app-gray text-center mt-2">
-              Showing top 15 of {(isPhaseAware ? sortedData : simplifiedData || []).length} symptoms
-            </p>
-          )}
+            {(isPhaseAware ? sortedData : simplifiedData || []).length > 15 && (
+              <p className="text-xs text-app-gray text-center mt-2">
+                Showing top 15 of {(isPhaseAware ? sortedData : simplifiedData || []).length} symptoms
+              </p>
+            )}
+          </div>
         </div>
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 text-xs text-app-gray mt-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-app-red" />
+            <span>Period symptoms</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-app-teal" />
+            <span>Other symptoms</span>
+          </div>
+        </div>
+
+        {/* Selected Cell Info Panel */}
+        <InfoPanel
+          info={selectedCell}
+          onClose={() => setSelectedCell(null)}
+          colorScheme="teal"
+        />
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 text-xs text-app-gray">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-app-red" />
-          <span>Period symptoms</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-app-teal" />
-          <span>Other symptoms</span>
-        </div>
+      {/* Mobile Cards */}
+      <div className="sm:hidden">
+        <MobilePhaseSymptomCards
+          data={isPhaseAware ? sortedData : simplifiedData || []}
+          isPhaseAware={isPhaseAware}
+        />
       </div>
-
-      {/* Selected Cell Info Panel */}
-      <InfoPanel 
-        info={selectedCell} 
-        onClose={() => setSelectedCell(null)}
-        colorScheme="teal"
-      />
 
       {/* Key Patterns */}
       <SymptomInsights data={sortedData} />
@@ -654,15 +668,15 @@ function SymptomInsights({ data }: SymptomInsightsProps) {
             <span className={insight.isPeriodRelated ? "text-app-red font-medium" : "text-app-teal font-medium"}>
               {insight.symptom}
             </span>
-            <span className="text-app-gray">tends to peak</span>
+            <span className="text-app-gray">peaks</span>
             <span className={`font-medium ${
               insight.phase === "menstrual" ? "text-app-red" : "text-app-teal"
             }`}>
               {insight.phase === "menstrual" 
-                ? "during your period" 
+                ? "during period" 
                 : insight.phase === "other"
                   ? "outside of your period"
-                  : `during the ${phaseConfig[insight.phase]?.label.toLowerCase()} phase`}
+                  : `in ${phaseConfig[insight.phase]?.label.toLowerCase()}`}
             </span>
             {insight.phase !== "menstrual" && insight.phase !== "other" && (
               <span className="text-xs text-app-gray">
@@ -784,132 +798,144 @@ function PhaseStoolView({ entries, cycleCount, isPhaseAware }: PhaseStoolViewPro
     <div className="space-y-4">
       <div>
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-medium text-app-charcoal">Bowel Patterns by Phase</h4>
+          <h4 className="text-sm font-medium text-app-charcoal">Bowel by Phase</h4>
           <span className="text-xs text-app-gray bg-app-cream/50 px-2 py-0.5 rounded-full">
             {cycleCount > 0 
-              ? `Includes data from ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
+              // ? `Includes data from ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
+              ? `${cycleCount} cycle${cycleCount !== 1 ? "s analyzed" : " analyzed"}`
               : "Based on all logged data"
             }
           </span>
         </div>
         <p className="text-xs text-app-gray mt-0.5">
-          Tap any cell to see details. Sorted by Bristol Type.
+          Tap any cell to see details.
         </p>
       </div>
 
-      {/* Heat Map */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[400px]">
-          {/* Phase Headers */}
-          <div className="flex mb-2">
-            <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
-            {(isPhaseAware ? phases : simplifiedPhases).map((phase) => (
-              <div 
-                key={phase} 
-                className={`flex-1 min-w-[70px] text-center ${
-                  phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
-                }`}
-              >
-                <p className={`text-xs font-medium ${
-                  phase === "menstrual" ? "text-app-red" : "text-app-plumb"
-                }`}>
-                  {phaseConfig[phase].label}
-                </p>
-                <p className="text-[10px] text-app-gray">
-                  {phaseConfig[phase].dayRange}
-                </p>
-              </div>
-            ))}
-          </div>
+      {/* Desktop Heat Map */}
+      <div className="hidden sm:block">
+        <div className="overflow-x-auto">
+          <div className="min-w-[400px]">
+            {/* Phase Headers */}
+            <div className="flex mb-2">
+              <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
+              {(isPhaseAware ? phases : simplifiedPhases).map((phase) => (
+                <div
+                  key={phase}
+                  className={`flex-1 min-w-[70px] text-center ${
+                    phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
+                  }`}
+                >
+                  <p className={`text-xs font-medium ${
+                    phase === "menstrual" ? "text-app-red" : "text-app-plumb"
+                  }`}>
+                    {phaseConfig[phase].label}
+                  </p>
+                  <p className="text-[10px] text-app-gray">
+                    {phaseConfig[phase].dayRange}
+                  </p>
+                </div>
+              ))}
+            </div>
 
-          {/* Bristol Type Rows */}
-          <div className="space-y-1">
-            {bristolTypes.map((type) => {
-              const isSelected = selectedCell?.name.includes(bristolLabels[type]);
-              const activePhases = isPhaseAware ? phases : simplifiedPhases;
-              
-              return (
-                <div key={type} className="flex items-center">
-                  {/* Sticky Bristol type column */}
-                  <div className="w-32 shrink-0 pr-2 sticky left-0 bg-app-white z-10">
-                    <p className={`text-xs text-app-charcoal font-medium ${isSelected ? "text-app-plumb" : ""}`}>
-                      {bristolLabels[type]}
-                    </p>
-                    <p className="text-xs text-app-gray truncate" title={bristolDescriptions[type]}>
-                      {bristolDescriptions[type]}
-                    </p>
-                  </div>
+            {/* Bristol Type Rows */}
+            <div className="space-y-1">
+              {bristolTypes.map((type) => {
+                const isSelected = selectedCell?.name.includes(bristolLabels[type]);
+                const activePhases = isPhaseAware ? phases : simplifiedPhases;
 
-                  {activePhases.map((phase) => {
-                    const data = phaseStoolData[phase]?.[type];
-                    const hasData = data && data.count > 0;
-                    const count = data?.count || 0;
-                    const isCellSelected = selectedCell?.name.includes(bristolLabels[type]) && selectedCell?.phase === phase;
+                return (
+                  <div key={type} className="flex items-center">
+                    {/* Sticky Bristol type column */}
+                    <div className="w-32 shrink-0 pr-2 sticky left-0 bg-app-white z-10">
+                      <p className={`text-xs text-app-charcoal font-medium ${isSelected ? "text-app-plumb" : ""}`}>
+                        {bristolLabels[type]}
+                      </p>
+                      <p className="text-xs text-app-gray truncate" title={bristolDescriptions[type]}>
+                        {bristolDescriptions[type]}
+                      </p>
+                    </div>
 
-                    return (
-                      <div 
-                        key={phase} 
-                        className={`flex-1 min-w-[70px] px-1 ${
-                          phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleCellClick(type, phase)}
-                          disabled={!hasData}
-                          className={`w-full h-10 rounded-lg transition-all flex items-center justify-center ${
-                            hasData
-                              ? getStoolIntensityStyle(count, maxCount, phase)
-                              : "bg-app-border/30"
-                          } ${isCellSelected ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
-                            hasData ? "cursor-pointer" : "cursor-default"
+                    {activePhases.map((phase) => {
+                      const data = phaseStoolData[phase]?.[type];
+                      const hasData = data && data.count > 0;
+                      const count = data?.count || 0;
+                      const isCellSelected = selectedCell?.name.includes(bristolLabels[type]) && selectedCell?.phase === phase;
+
+                      return (
+                        <div
+                          key={phase}
+                          className={`flex-1 min-w-[70px] px-1 ${
+                            phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
                           }`}
                         >
-                          {hasData && (
-                            <span className="text-xs font-medium">{count}</span>
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCellClick(type, phase)}
+                            disabled={!hasData}
+                            className={`w-full h-10 rounded-lg transition-all flex items-center justify-center ${
+                              hasData
+                                ? getStoolIntensityStyle(count, maxCount, phase)
+                                : "bg-app-border/30"
+                            } ${isCellSelected ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
+                              hasData ? "cursor-pointer" : "cursor-default"
+                            }`}
+                          >
+                            {hasData && (
+                              <span className="text-xs font-medium">{count}</span>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
 
-          {/* Bottom border for period column */}
-          <div className="flex">
-            <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
-            {(isPhaseAware ? phases : simplifiedPhases).map((phase) => (
-              <div 
-                key={phase} 
-                className={`flex-1 min-w-[70px] ${
-                  phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
-                }`}
-              />
-            ))}
+            {/* Bottom border for period column */}
+            <div className="flex">
+              <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
+              {(isPhaseAware ? phases : simplifiedPhases).map((phase) => (
+                <div
+                  key={phase}
+                  className={`flex-1 min-w-[70px] ${
+                    phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </div>
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 text-xs text-app-gray mt-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-app-red" />
+            <span>During period</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-app-plumb" />
+            <span>Other phases</span>
+          </div>
+        </div>
+
+        {/* Selected Cell Info Panel */}
+        <InfoPanel
+          info={selectedCell}
+          onClose={() => setSelectedCell(null)}
+          colorScheme="plumb"
+        />
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 text-xs text-app-gray">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-app-red" />
-          <span>During period</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-app-plumb" />
-          <span>Other phases</span>
-        </div>
+      {/* Mobile Cards */}
+      <div className="sm:hidden">
+        <MobilePhaseBowelCards
+          phaseStoolData={phaseStoolData}
+          bristolTypes={bristolTypes}
+          isPhaseAware={isPhaseAware}
+        />
       </div>
-
-      {/* Selected Cell Info Panel */}
-      <InfoPanel 
-        info={selectedCell} 
-        onClose={() => setSelectedCell(null)}
-        colorScheme="plumb"
-      />
 
       {/* Key Patterns */}
       <StoolInsights phaseStoolData={phaseStoolData} bristolTypes={bristolTypes} isPhaseAware={isPhaseAware} />
@@ -980,15 +1006,15 @@ function StoolInsights({ phaseStoolData, bristolTypes, isPhaseAware }: StoolInsi
             <span className="text-app-plumb font-medium">
               {bristolLabels[insight.type]}
             </span>
-            <span className="text-app-gray">seems to peak</span>
+            <span className="text-app-gray">peaks</span>
             <span className={`font-medium ${
               insight.phase === "menstrual" ? "text-app-red" : "text-app-plumb"
             }`}>
               {insight.phase === "menstrual" 
-                ? "during your period" 
+                ? "during period" 
                 : insight.phase === "other"
                   ? "outside of your period"
-                  : `during the ${phaseConfig[insight.phase]?.label.toLowerCase()} phase`}
+                  : `in ${phaseConfig[insight.phase]?.label.toLowerCase()}`}
             </span>
             {insight.phase !== "menstrual" && insight.phase !== "other" && (
               <span className="text-xs text-app-gray">
@@ -1115,16 +1141,17 @@ function PhaseMedicineView({ entries, cycleCount, isPhaseAware }: PhaseMedicineV
     <div className="space-y-4">
       <div>
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-medium text-app-charcoal">Medicine Patterns by Phase</h4>
+          <h4 className="text-sm font-medium text-app-charcoal">Medicine by Phase</h4>
           <span className="text-xs text-app-gray bg-app-cream/50 px-2 py-0.5 rounded-full">
             {cycleCount > 0 
-              ? `Includes data from ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
+              // ? `Includes data from ${cycleCount} cycle${cycleCount !== 1 ? "s" : ""}`
+              ? `${cycleCount} cycle${cycleCount !== 1 ? "s analyzed" : " analyzed"}`
               : "Based on all logged data"
             }
           </span>
         </div>
         <p className="text-xs text-app-gray mt-0.5">
-          Tap any cell to see details. Sorted by most frequently taken.
+          Tap any cell to see details.
         </p>
       </div>
 
@@ -1159,126 +1186,138 @@ function PhaseMedicineView({ entries, cycleCount, isPhaseAware }: PhaseMedicineV
         })}
       </div>
 
-      {/* Heat Map */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[400px]">
-          <div className="flex mb-2">
-            <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
-            {activePhases.map((phase) => (
-              <div 
-                key={phase} 
-                className={`flex-1 min-w-[70px] text-center ${
-                  phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
-                }`}
-              >
-                <p className={`text-xs font-medium ${
-                  phase === "menstrual" ? "text-app-red" : "text-app-green"
-                }`}>
-                  {phaseConfig[phase].label}
-                </p>
-                <p className="text-[10px] text-app-gray">
-                  {phaseConfig[phase].dayRange}
-                </p>
-              </div>
-            ))}
-          </div>
+      {/* Desktop Heat Map */}
+      <div className="hidden sm:block">
+        <div className="overflow-x-auto">
+          <div className="min-w-[400px]">
+            <div className="flex mb-2">
+              <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
+              {activePhases.map((phase) => (
+                <div
+                  key={phase}
+                  className={`flex-1 min-w-[70px] text-center ${
+                    phase === "menstrual" ? "border-x border-t border-app-red/20 rounded-t-lg bg-app-red/5" : ""
+                  }`}
+                >
+                  <p className={`text-xs font-medium ${
+                    phase === "menstrual" ? "text-app-red" : "text-app-green"
+                  }`}>
+                    {phaseConfig[phase].label}
+                  </p>
+                  <p className="text-[10px] text-app-gray">
+                    {phaseConfig[phase].dayRange}
+                  </p>
+                </div>
+              ))}
+            </div>
 
-          {/* Medicine Rows */}
-          <div className="space-y-1 max-h-80 overflow-y-auto">
-            {allMedicines.slice(0, 10).map((medicine) => {
-              const isSelected = selectedCell?.name === medicine;
-              
-              return (
-                <div key={medicine} className="flex items-center">
-                  {/* Sticky medicine name column */}
-                  <div className="w-32 shrink-0 pr-2 sticky left-0 bg-app-white z-10">
-                    <p 
-                      className={`text-xs text-app-charcoal truncate ${isSelected ? "font-semibold text-app-green" : ""}`} 
-                      title={medicine}
-                    >
-                      {medicine}
-                    </p>
-                  </div>
+            {/* Medicine Rows */}
+            <div className="space-y-1 max-h-80 overflow-y-auto">
+              {allMedicines.slice(0, 10).map((medicine) => {
+                const isSelected = selectedCell?.name === medicine;
 
-                  {activePhases.map((phase) => {
-                    const data = phaseMedicineData[phase]?.[medicine];
-                    const hasData = data && data.count > 0;
-                    const count = data?.count || 0;
-                    const avgPerCycle = getAverageCount(medicine, phase);
-                    const isCellSelected = selectedCell?.name === medicine && selectedCell?.phase === phase;
-
-                    return (
-                      <div 
-                        key={phase} 
-                        className={`flex-1 min-w-[70px] px-1 ${
-                          phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
-                        }`}
+                return (
+                  <div key={medicine} className="flex items-center">
+                    {/* Sticky medicine name column */}
+                    <div className="w-32 shrink-0 pr-2 sticky left-0 bg-app-white z-10">
+                      <p
+                        className={`text-xs text-app-charcoal truncate ${isSelected ? "font-semibold text-app-green" : ""}`}
+                        title={medicine}
                       >
-                        <button
-                          type="button"
-                          onClick={() => handleCellClick(medicine, phase)}
-                          disabled={!hasData}
-                          className={`w-full h-10 rounded-lg transition-all flex flex-col items-center justify-center ${
-                            hasData
-                              ? getMedicineIntensityStyle(count, maxCount, phase)
-                              : "bg-app-green/5"
-                          } ${isCellSelected ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
-                            hasData ? "cursor-pointer" : "cursor-default"
+                        {medicine}
+                      </p>
+                    </div>
+
+                    {activePhases.map((phase) => {
+                      const data = phaseMedicineData[phase]?.[medicine];
+                      const hasData = data && data.count > 0;
+                      const count = data?.count || 0;
+                      const avgPerCycle = getAverageCount(medicine, phase);
+                      const isCellSelected = selectedCell?.name === medicine && selectedCell?.phase === phase;
+
+                      return (
+                        <div
+                          key={phase}
+                          className={`flex-1 min-w-[70px] px-1 ${
+                            phase === "menstrual" ? "border-x border-app-red/20 bg-app-red/5" : ""
                           }`}
                         >
-                          {hasData && avgPerCycle !== null && cycleCount > 1 && (
-                            <span className="text-[10px] opacity-75 leading-none">
-                              ~{avgPerCycle}×/cycle
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCellClick(medicine, phase)}
+                            disabled={!hasData}
+                            className={`w-full h-10 rounded-lg transition-all flex flex-col items-center justify-center ${
+                              hasData
+                                ? getMedicineIntensityStyle(count, maxCount, phase)
+                                : "bg-app-green/5"
+                            } ${isCellSelected ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
+                              hasData ? "cursor-pointer" : "cursor-default"
+                            }`}
+                          >
+                            {hasData && avgPerCycle !== null && cycleCount > 1 && (
+                              <span className="text-[10px] opacity-75 leading-none">
+                                ~{avgPerCycle}×/cycle
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
 
-          {/* Bottom border for period column */}
-          <div className="flex">
-            <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
-            {activePhases.map((phase) => (
-              <div 
-                key={phase} 
-                className={`flex-1 min-w-[70px] ${
-                  phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
-                }`}
-              />
-            ))}
-          </div>
+            {/* Bottom border for period column */}
+            <div className="flex">
+              <div className="w-32 shrink-0 sticky left-0 bg-app-white z-10" />
+              {activePhases.map((phase) => (
+                <div
+                  key={phase}
+                  className={`flex-1 min-w-[70px] ${
+                    phase === "menstrual" ? "border-x border-b border-app-red/20 rounded-b-lg h-1" : ""
+                  }`}
+                />
+              ))}
+            </div>
 
-          {allMedicines.length > 10 && (
-            <p className="text-xs text-app-gray text-center mt-2">
-              Showing top 10 of {allMedicines.length} medicines
-            </p>
-          )}
+            {allMedicines.length > 10 && (
+              <p className="text-xs text-app-gray text-center mt-2">
+                Showing top 10 of {allMedicines.length} medicines
+              </p>
+            )}
+          </div>
         </div>
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 text-xs text-app-gray mt-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-app-red" />
+            <span>During period</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-app-green/50" />
+            <span>Other phases</span>
+          </div>
+        </div>
+
+        {/* Selected Cell Info Panel */}
+        <InfoPanel
+          info={selectedCell}
+          onClose={() => setSelectedCell(null)}
+          colorScheme="green"
+        />
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center justify-center gap-4 text-xs text-app-gray">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-app-red" />
-          <span>During period</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-app-green/50" />
-          <span>Other phases</span>
-        </div>
+      {/* Mobile Cards */}
+      <div className="sm:hidden">
+        <MobilePhaseMedicineCards
+          phaseMedicineData={phaseMedicineData}
+          allMedicines={allMedicines}
+          isPhaseAware={isPhaseAware}
+          cycleCount={cycleCount}
+        />
       </div>
-
-      {/* Selected Cell Info Panel */}
-      <InfoPanel 
-        info={selectedCell} 
-        onClose={() => setSelectedCell(null)}
-        colorScheme="green"
-      />
 
       {/* Key Patterns */}
       <MedicineInsights phaseMedicineData={phaseMedicineData} allMedicines={allMedicines} isPhaseAware={isPhaseAware} />
@@ -1344,10 +1383,10 @@ function MedicineInsights({ phaseMedicineData, allMedicines, isPhaseAware }: Med
               insight.phase === "menstrual" ? "text-app-red" : "text-app-green"
             }`}>
               {insight.phase === "menstrual" 
-                ? "during your period" 
+                ? "during period" 
                 : insight.phase === "other"
                   ? "outside of your period"
-                  : `during the ${phaseConfig[insight.phase]?.label.toLowerCase()} phase`}
+                  : `in ${phaseConfig[insight.phase]?.label.toLowerCase()}`}
             </span>
             {insight.phase !== "menstrual" && insight.phase !== "other" && (
               <span className="text-xs text-app-gray">
@@ -1382,7 +1421,7 @@ function calculateOverallAvgIntensity(phases: Record<string, { avgIntensity: num
   return totalCount > 0 ? totalIntensity / totalCount : 0;
 }
 
-function getPhaseIntensityStyle(
+export function getPhaseIntensityStyle(
   intensity: number,
   maxIntensity: number,
   isPeriodRelated: boolean,
@@ -1402,7 +1441,7 @@ function getPhaseIntensityStyle(
   }
 }
 
-function getStoolIntensityStyle(count: number, maxCount: number, phase: string): string {
+export function getStoolIntensityStyle(count: number, maxCount: number, phase: string): string {
   const ratio = count / maxCount;
   const isPeriod = phase === "menstrual";
 
@@ -1417,7 +1456,7 @@ function getStoolIntensityStyle(count: number, maxCount: number, phase: string):
   }
 }
 
-function getMedicineIntensityStyle(count: number, maxCount: number, phase: string): string {
+export function getMedicineIntensityStyle(count: number, maxCount: number, phase: string): string {
   const ratio = count / maxCount;
   const isPeriod = phase === "menstrual";
 

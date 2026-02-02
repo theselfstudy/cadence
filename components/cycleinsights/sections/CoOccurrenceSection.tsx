@@ -130,8 +130,10 @@ interface CoOccurrenceCardProps {
 function CoOccurrenceCard({ pair }: CoOccurrenceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-
-  const showContent = isExpanded || isHovered;
+  
+  // On desktop: keep original hover logic
+  // On mobile: only rely on click (isExpanded)
+  const showContent = window.innerWidth >= 768 ? (isExpanded || isHovered) : isExpanded;
 
   const getTypeIcon = (type: "symptom" | "medicine") => {
     return type === "symptom" ? "🏷️" : "💊";
@@ -224,8 +226,10 @@ function CoOccurrenceCard({ pair }: CoOccurrenceCardProps) {
           {/* Expanded Content */}
           <div
             className={`overflow-hidden transition-all duration-200 ${
-              showContent ? "max-h-[300px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
-            }`}
+              showContent
+                ? "max-h-[500px] mt-3 pt-3 border-t border-app-border"
+                : "max-h-0 mt-0 pt-0 border-0"
+            } md:mt-3 md:pt-3 md:border-t md:border-app-border`}
           >
             {pair.metadata && (
               <div className="space-y-2">

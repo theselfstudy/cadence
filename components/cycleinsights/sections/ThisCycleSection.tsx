@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useState } from "react";
 import type { StoredEntry } from "@/types";
 import type { DetectedCycle } from "@/lib/monthlyUtils";
 import { calculateThisCycleData, formatPhase } from "@/lib/insightUtils";
@@ -95,19 +96,20 @@ export function ThisCycleSection({
   const showPhase = phaseIsKnown && phase && phase !== "not_sure";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-5">
       {/* Main cycle info */}
-      <div className="flex items-center gap-6">
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
         {/* Cycle progress ring */}
-        <CycleProgressRing
-          currentDay={cycleDay}
-          estimatedLength={estimatedLength}
-          estimatedPeriodLength={estimatedPeriodLength}
-          size="lg"
-        />
-
+        <div className="flex justify-center sm:block">
+          <CycleProgressRing
+            currentDay={cycleDay}
+            estimatedLength={estimatedLength}
+            estimatedPeriodLength={estimatedPeriodLength}
+            size="lg"
+          />
+        </div>
         {/* Cycle details */}
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 space-y-2 text-center sm:text-left">
           {/* Cycle start date */}
           <div>
             <span className="text-xs text-app-gray">Cycle Started</span>
@@ -126,20 +128,14 @@ export function ThisCycleSection({
 
           {/* Time-to-event estimate */}
           {periodTypicallyStarts && completeCycles.length >= 2 && (
-            <p className="text-sm text-app-charcoal mt-2">
-              {/* Based on your {completeCycles.length} previous cycle inputs, your period
-              has typically started between{" "} */}
-              Based on your {completeCycles.length} previous cycle inputs, 
-              the length of your cycle is between{" "}
+            <p className="text-sm text-app-charcoal mt-2 text-balance">
+              Based on your last {completeCycles.length} cycles, your cycle length is{" "}
               <span className="font-medium text-app-teal">
-                {periodTypicallyStarts.dayRange[0]}
-              </span>{" "}
-              and{" "}
-              <span className="font-medium text-app-teal">
-                {periodTypicallyStarts.dayRange[1]} days
+                {periodTypicallyStarts.dayRange[0]}–{periodTypicallyStarts.dayRange[1]} days
               </span>
               .
             </p>
+
           )}
 
           {/* Early data message */}
@@ -170,46 +166,48 @@ interface SymptomsLoggedDisplayProps {
 }
 
 function SymptomsLoggedDisplay({ symptoms }: SymptomsLoggedDisplayProps) {
-  const maxToShow = 10;
-  
-  // Split by type, period-related first
-  const periodSymptoms = symptoms.filter((s) => s.isPeriodRelated);
-  const generalSymptoms = symptoms.filter((s) => !s.isPeriodRelated);
-  
-  // Limit display
-  const periodToShow = periodSymptoms.slice(0, maxToShow);
-  const remainingSlots = maxToShow - periodToShow.length;
-  const generalToShow = generalSymptoms.slice(0, remainingSlots);
-  const overflow = symptoms.length - (periodToShow.length + generalToShow.length);
+  const DEFAULT_VISIBLE = 3;
+  const [expanded, setExpanded] = useState(false);
+
+  const visibleCount = expanded ? symptoms.length : DEFAULT_VISIBLE;
+  const visibleSymptoms = symptoms.slice(0, visibleCount);
+  const overflow = symptoms.length - DEFAULT_VISIBLE;
 
   return (
     <div className="bg-app-cream/30 rounded-lg p-3">
       <p className="text-xs text-app-gray mb-2">Logged this cycle:</p>
+
       <div className="flex flex-wrap gap-1.5">
-        {/* Period symptoms - red */}
-        {periodToShow.map((symptom) => (
+        {visibleSymptoms.map((symptom) => (
           <span
-            key={`period-${symptom.name}`}
-            className="px-2 py-0.5 text-xs bg-app-red/10 text-app-red rounded-full border border-app-red/20"
+            key={symptom.name}
+            className={`px-2 py-0.5 text-xs rounded-full border
+              ${
+                symptom.isPeriodRelated
+                  ? "bg-app-red/10 text-app-red border-app-red/20"
+                  : "bg-app-teal/10 text-app-teal border-app-teal/20"
+              }`}
           >
             {symptom.name}
           </span>
         ))}
 
-        {/* General symptoms - teal */}
-        {generalToShow.map((symptom) => (
-          <span
-            key={`general-${symptom.name}`}
-            className="px-2 py-0.5 text-xs bg-app-teal/10 text-app-teal rounded-full border border-app-teal/20"
+        {!expanded && overflow > 0 && (
+          <button
+            onClick={() => setExpanded(true)}
+            className="px-2 py-0.5 text-xs text-app-teal hover:underline"
           >
-            {symptom.name}
-          </span>
-        ))}
-
-        {overflow > 0 && (
-          <span className="px-2 py-0.5 text-xs text-app-gray">
             +{overflow} more
-          </span>
+          </button>
+        )}
+
+        {expanded && symptoms.length > DEFAULT_VISIBLE && (
+          <button
+            onClick={() => setExpanded(false)}
+            className="px-2 py-0.5 text-xs text-app-gray hover:underline"
+          >
+            hide
+          </button>
         )}
       </div>
     </div>
