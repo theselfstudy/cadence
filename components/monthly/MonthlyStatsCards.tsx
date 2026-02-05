@@ -5,7 +5,7 @@ import type { MonthlyStats, MonthComparison } from "@/lib/monthlyUtils";
 
 // ============================================
 // MONTHLY STATS CARDS
-// Shows: Top Symptom, Timing Patterns, Cycle Phase (if enabled), New This Month
+// Shows: Top Symptom, Timing Patterns, Cycle Phase, New This Month
 // ============================================
 
 interface MonthlyStatsCardsProps {
@@ -367,9 +367,14 @@ function StatCard({
           {/* Expanded Content */}
           {expandedContent && (
             <div
-              className={`overflow-hidden transition-all duration-200 ${
-                showContent ? "max-h-[500px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
-              }`}
+              className={`
+                overflow-hidden
+                transition-[max-height,margin,padding] duration-300 ease-in-out
+                ${showContent
+                  ? "max-h-[500px] mt-3 pt-3 border-t border-app-border"
+                  : "max-h-0 mt-0 pt-0 border-t-0"}
+                md:mt-3 md:pt-3 md:border-t md:border-app-border
+              `}
             >
               {expandedContent}
             </div>
@@ -413,7 +418,12 @@ function CyclePhaseCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const showContent = isExpanded || isHovered;
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  const showContent = isDesktop
+    ? isExpanded || isHovered
+    : isExpanded;
   
   // Find highest intensity symptom (with isPeriodRelated info)
   const highestIntensity = topSymptoms
@@ -670,11 +680,16 @@ function CyclePhaseCard({
 
           {/* Expanded Content - Phase Breakdown Table */}
           <div
-            className={`overflow-hidden transition-all duration-200 ${
-              showContent ? "max-h-[500px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
-            }`}
+            className={`
+              overflow-hidden
+              transition-[max-height,margin,padding] duration-300 ease-in-out
+              ${showContent
+                ? "max-h-[600px] mt-3 pt-3 border-t border-app-border/50"
+                : "max-h-0 mt-0 pt-0 border-t-0"}
+              md:mt-3 md:pt-3 md:border-t md:border-app-border/50
+            `}
           >
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Phase Breakdown - Shows full month context with highlighting for selection */}
               {hasAnyPhaseData && (
                 <div>
@@ -804,7 +819,13 @@ function NewThisMonthCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const showContent = isExpanded || isHovered;
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  const showContent = isDesktop
+    ? isExpanded || isHovered
+    : isExpanded;
+
 
   // No comparison available
   if (!hasPreviousMonthData || !comparison) {
@@ -891,11 +912,16 @@ function NewThisMonthCard({
 
           {/* Expanded Content */}
           <div
-            className={`overflow-hidden transition-all duration-200 ${
-              showContent ? "max-h-[600px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
-            }`}
+            className={`
+              overflow-hidden
+              transition-[max-height,margin,padding] duration-300 ease-in-out
+              ${showContent
+                ? "max-h-[600px] mt-3 pt-3 border-t border-app-border/50"
+                : "max-h-0 mt-0 pt-0 border-t-0"}
+              md:mt-3 md:pt-3 md:border-t md:border-app-border/50
+            `}
           >
-            <div className="space-y-4">
+            <div className="space-y-2">
               {/* New Symptoms Pills */}
               {hasNewSymptoms && newCount > 1 && (
                 <div>

@@ -386,10 +386,6 @@ export default function MonthlyPage() {
     return monthRange.end.getDate();
   }, [monthRange]);
 
-  // if (!isClient || !isHydrated) {
-  //   return <MonthlyPageSkeleton />;
-  // }
-
   return (
     <div className="space-y-6">
       {/* Header */}
