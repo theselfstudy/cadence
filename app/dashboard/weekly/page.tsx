@@ -583,9 +583,17 @@ export default function WeeklyPage() {
 
       {/* Entry List Section - Shown by default */}
       <div className="card">
-        <button
+        <div
           onClick={() => setShowEntries(!showEntries)}
-          className="w-full flex items-center justify-between"
+          className="w-full flex items-center justify-between cursor-pointer"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setShowEntries(!showEntries);
+            }
+          }}
         >
           <div>
             <h2 className="text-lg font-semibold text-app-charcoal">
@@ -647,7 +655,7 @@ export default function WeeklyPage() {
             )}
             <span className="text-app-gray text-xl">{showEntries ? "−" : "+"}</span>
           </div>
-        </button>
+        </div>
 
         {showEntries && (
           <div className="mt-4">

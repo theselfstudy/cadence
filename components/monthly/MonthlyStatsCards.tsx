@@ -370,19 +370,27 @@ function StatCard({
 
           {subtext && <p className="text-xs text-app-gray mt-1">{subtext}</p>}
 
-          {expandedContent && (
-            <div
-              className={`
-                overflow-hidden
-                transition-[max-height,margin,padding] duration-300 ease-in-out
-                ${showContent
-                  ? "max-h-[400px] mt-3 pt-3 border-t border-app-border"
-                  : "max-h-0 mt-0 pt-0 border-t-0"}
-              `}
-            >
-              {expandedContent}
-            </div>
-          )}
+          {/* Mobile: conditional mount */}
+          <div className="block md:hidden">
+            {showContent && (
+              <div className="mt-3 pt-3 border-t border-app-border">
+                {expandedContent}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop: preserve existing behavior */}
+          <div
+            className={`
+              hidden md:block overflow-hidden
+              transition-[max-height,margin,padding] duration-300 ease-in-out
+              ${showContent
+                ? "max-h-[400px] mt-3 pt-3 border-t border-app-border"
+                : "max-h-0 mt-0 pt-0 border-t-0"}
+            `}
+          >
+            {expandedContent}
+          </div>
         </div>
       </button>
     </div>
@@ -683,9 +691,19 @@ function CyclePhaseCard({
           </p>
 
           {/* Expanded Content - Phase Breakdown Table */}
+          {/* Mobile */}
+          <div className="block md:hidden">
+            {showContent && (
+              <div className="mt-3 pt-3 border-t border-app-border/50 space-y-2">
+                {/* Phase Breakdown - Shows full month context with highlighting for selection */}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop */}
           <div
             className={`
-              overflow-hidden
+              hidden md:block overflow-hidden
               transition-[max-height,margin,padding] duration-300 ease-in-out
               ${showContent
                 ? "max-h-[600px] mt-3 pt-3 border-t border-app-border/50"
@@ -914,9 +932,19 @@ function NewThisMonthCard({
           </p>
 
           {/* Expanded Content */}
+          {/* Mobile */}
+          <div className="block md:hidden">
+            {showContent && (
+              <div className="mt-3 pt-3 border-t border-app-border/50 space-y-2">
+                {/* New Symptoms Pills */}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop */}
           <div
             className={`
-              overflow-hidden
+              hidden md:block overflow-hidden
               transition-[max-height,margin,padding] duration-300 ease-in-out
               ${showContent
                 ? "max-h-[600px] mt-3 pt-3 border-t border-app-border/50"
