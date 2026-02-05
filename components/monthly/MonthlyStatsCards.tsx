@@ -297,7 +297,13 @@ function StatCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const showContent = isExpanded || isHovered;
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  const showContent = isDesktop
+    ? isExpanded || isHovered
+    : isExpanded;
+
 
   const accentClasses: Record<string, string> = {
     teal: "bg-app-teal",
@@ -365,20 +371,12 @@ function StatCard({
           {subtext && <p className="text-xs text-app-gray mt-1">{subtext}</p>}
 
           {/* Expanded Content */}
-          {expandedContent && (
-            <div
-              className={`
-                overflow-hidden
-                transition-[max-height,margin,padding] duration-300 ease-in-out
-                ${showContent
-                  ? "max-h-[500px] mt-3 pt-3 border-t border-app-border"
-                  : "max-h-0 mt-0 pt-0 border-t-0"}
-                md:mt-3 md:pt-3 md:border-t md:border-app-border
-              `}
-            >
+          {expandedContent && showContent && (
+            <div className="mt-3 pt-3 border-t border-app-border">
               {expandedContent}
             </div>
           )}
+
         </div>
       </button>
     </div>
