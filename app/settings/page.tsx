@@ -343,6 +343,7 @@ function SettingsPageContent() {
   const [showResetSettingsModal, setShowResetSettingsModal] = useState(false);
   const [showDeleteAllDataModal, setShowDeleteAllDataModal] = useState(false);
   const [showDeleteMetadataModal, setShowDeleteMetadataModal] = useState(false);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
 
   // "Entries only" mode - sheet has entry data but no settings (user previously reset metadata)
   // In this mode, we just accept the sheet URL without OAuth, then OAuth on Continue/Skip Tutorial
@@ -837,20 +838,23 @@ function SettingsPageContent() {
       alert(`Please wait ${disconnectRateLimit.getFormattedTime()} before disconnecting again.`);
       return;
     }
+    setShowDisconnectModal(true);
+  };
 
-    if (window.confirm("Are you sure you want to disconnect? You will switch to Anonymous Mode.")) {
-      if (!disconnectRateLimit.attempt()) {
-        alert(`Rate limit reached. Please wait ${disconnectRateLimit.getFormattedTime()}.`);
-        return;
-      }
-
-      clearGoogleSheet();
-      setSheetUrl("");
-      setSheetName("");
-      setIsEditingSheet(false);
-      setSheetUrlError(null);
-      setSheetNameError(null);
+  const confirmDisconnect = () => {
+    if (!disconnectRateLimit.attempt()) {
+      alert(`Rate limit reached. Please wait ${disconnectRateLimit.getFormattedTime()}.`);
+      setShowDisconnectModal(false);
+      return;
     }
+
+    clearGoogleSheet();
+    setSheetUrl("");
+    setSheetName("");
+    setIsEditingSheet(false);
+    setSheetUrlError(null);
+    setSheetNameError(null);
+    setShowDisconnectModal(false);
   };
 
   // ---------------------------------------------------------------------------
@@ -2453,6 +2457,40 @@ function SettingsPageContent() {
             </p>
           ),
           confirmButtonText: "Yes, Delete Metadata",
+        }}
+      />
+
+      {/* Disconnect Google Sheet Modal */}
+      <DoubleConfirmModal
+        isOpen={showDisconnectModal}
+        onClose={() => setShowDisconnectModal(false)}
+        onConfirm={confirmDisconnect}
+        firstModal={{
+          title: "Disconnect Google Sheet?",
+          description: (
+            <p className="text-center">
+              Are you sure you want to disconnect from your Google Sheet? You will switch to <span className="font-semibold">Anonymous Mode</span>.
+            </p>
+          ),
+          affectedItems: [
+            "Google Sheet connection will be removed",
+            "Future entries will only be saved locally",
+          ],
+          preservedItems: [
+            "All your existing entries on this device",
+            "All your data in your Google Sheet",
+            "Your app settings and preferences",
+          ],
+          confirmButtonText: "Continue",
+        }}
+        secondModal={{
+          title: "Confirm Disconnect",
+          description: (
+            <p>
+              This will disconnect your Google Sheet. Your local data will remain, but new entries will no longer sync to Google Sheets.
+            </p>
+          ),
+          confirmButtonText: "Yes, Disconnect",
         }}
       />
     </>
