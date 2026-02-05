@@ -378,7 +378,6 @@ function StatCard({
                 ${showContent
                   ? "max-h-[400px] mt-3 pt-3 border-t border-app-border"
                   : "max-h-0 mt-0 pt-0 border-t-0"}
-                md:mt-3 md:pt-3 md:border-t md:border-app-border
               `}
             >
               {expandedContent}
@@ -691,7 +690,6 @@ function CyclePhaseCard({
               ${showContent
                 ? "max-h-[600px] mt-3 pt-3 border-t border-app-border/50"
                 : "max-h-0 mt-0 pt-0 border-t-0"}
-              md:mt-3 md:pt-3 md:border-t md:border-app-border/50
             `}
           >
             <div className="space-y-2">
@@ -923,7 +921,6 @@ function NewThisMonthCard({
               ${showContent
                 ? "max-h-[600px] mt-3 pt-3 border-t border-app-border/50"
                 : "max-h-0 mt-0 pt-0 border-t-0"}
-              md:mt-3 md:pt-3 md:border-t md:border-app-border/50
             `}
           >
             <div className="space-y-2">
