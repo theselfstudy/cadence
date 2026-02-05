@@ -370,13 +370,20 @@ function StatCard({
 
           {subtext && <p className="text-xs text-app-gray mt-1">{subtext}</p>}
 
-          {/* Expanded Content */}
-          {expandedContent && showContent && (
-            <div className="mt-3 pt-3 border-t border-app-border">
+          {expandedContent && (
+            <div
+              className={`
+                overflow-hidden
+                transition-[max-height,margin,padding] duration-300 ease-in-out
+                ${showContent
+                  ? "max-h-[400px] mt-3 pt-3 border-t border-app-border"
+                  : "max-h-0 mt-0 pt-0 border-t-0"}
+                md:mt-3 md:pt-3 md:border-t md:border-app-border
+              `}
+            >
               {expandedContent}
             </div>
           )}
-
         </div>
       </button>
     </div>
