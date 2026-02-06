@@ -10,7 +10,7 @@ const LOGO_SVG_STRING = `<svg width="100" height="100" viewBox="0 0 100 100" xml
   <path d="M78,22 A40,40 0 1 0 78,78" fill="none" stroke="#104B55" stroke-width="3" stroke-linecap="round"/>
   <path d="M30,30 A28,28 0 1 1 30,70" fill="none" stroke="#3F592E" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
   <path d="M61,39 A16,16 0 1 0 61,61" fill="none" stroke="#791D1E" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="50" cy="50" r="1.2" fill="#C4B7A6"/>
+  <path d="M50,56 C50,56 44,50 44,47 C44,44 46,42 50,46 C54,42 56,44 56,47 C56,50 50,56 50,56 Z" fill="#C4B7A6" transform="scale(0.5)" transform-origin="50px 50px"/>
 </svg>`;
 
 // Convert SVG to PNG data URL using canvas
