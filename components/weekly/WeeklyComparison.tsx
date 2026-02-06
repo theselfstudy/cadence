@@ -821,20 +821,26 @@ interface ComparisonCardProps {
   columnLabels?: { thisWeek: string; lastWeek: string };
 }
 
-function ComparisonCard({ 
-  icon, 
-  title, 
-  accentColor, 
-  thisWeek, 
-  lastWeek, 
+function ComparisonCard({
+  icon,
+  title,
+  accentColor,
+  thisWeek,
+  lastWeek,
   change,
   expandedContent,
   columnLabels = { thisWeek: "This Week", lastWeek: "Last Week" },
 }: ComparisonCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  
-  const showExpanded = (isExpanded || isHovered) && expandedContent;
+
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  // On mobile: single click only (no hover), on desktop: click or hover
+  const showExpanded = isDesktop
+    ? (isExpanded || isHovered) && expandedContent
+    : isExpanded && expandedContent;
 
   const accentClasses: Record<string, string> = {
     teal: "border-l-app-teal",
@@ -904,10 +910,21 @@ function ComparisonCard({
           </div>
         )}
 
-        {/* Expanded Content */}
+        {/* Expanded Content - Mobile: conditional mount */}
+        {expandedContent && (
+          <div className="block md:hidden">
+            {showExpanded && (
+              <div className="mt-3 pt-3 border-t border-app-border">
+                {expandedContent}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Expanded Content - Desktop: max-height transition */}
         {expandedContent && (
           <div
-            className={`overflow-hidden transition-all duration-200 ${
+            className={`hidden md:block overflow-hidden transition-all duration-200 ${
               showExpanded ? "max-h-[400px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
             }`}
           >
