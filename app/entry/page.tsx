@@ -963,73 +963,77 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
       {/* Bristol Stool Scale - Conditional */}
       {safeStoolTracking.enabled && shouldShowSection("bowel") && (
-        <section className="card">
-          <h2 className="text-lg font-semibold text-app-charcoal mb-4">
-            🧻 Bristol Stool Scale
-          </h2>
-          
-          {/* Bristol Type - Circular Buttons */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-app-charcoal mb-3">
-              What does it look like?
-            </label>
-            <div className="flex flex-wrap gap-2 sm:gap-2 justify-center">
-              {BRISTOL_TYPES.map((type) => (
-                <button
-                  key={type.type}
-                  type="button"
-                  onClick={() => setBristolType(type.type as BristolScaleType)}
-                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full text-base sm:text-lg font-semibold transition-all ${
-                    bristolType === type.type
-                      ? "bg-app-plumb text-white scale-110"
-                      : "bg-app-cream text-app-charcoal border-2 border-app-border hover:border-app-plumb"
-                  }`}
-                >
-                  {type.type}
-                </button>
-              ))}
-            </div>
-            {bristolType && (
-              <div className="mt-3 p-3 bg-app-cream rounded-lg">
-                <p className="text-sm font-medium text-app-charcoal">
-                  Type {bristolType}: {BRISTOL_TYPES.find((t) => t.type === bristolType)?.name}
-                </p>
-                <p className="text-sm text-app-gray mt-1">
-                  {BRISTOL_TYPES.find((t) => t.type === bristolType)?.description}
-                </p>
-              </div>
-            )}
-          </div>
+      <section className="card">
+        <h2 className="text-lg font-semibold text-app-charcoal mb-4">
+          🧻 Bristol Stool Scale
+        </h2>
 
-          {/* Post Feeling - Oval Chips */}
-          <div>
-            <label className="block text-sm font-medium text-app-charcoal mb-3">
-              How do you feel after?
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {POST_BOWEL_FEELINGS.map((feeling) => (
-                <button
-                  key={feeling.value}
-                  type="button"
-                  onClick={() => setPostFeeling(feeling.value)}
-                  className={`mb-2 sm:mb-4 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
-                    postFeeling === feeling.value
-                      ? "bg-app-plumb text-white"
-                      : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-plumb"
-                  }`}
-                >
-                  {feeling.label}
-                </button>
-              ))}
-            </div>
-            {postFeeling && (
-              <p className="mt-3 text-sm text-app-gray">
-                {POST_BOWEL_FEELINGS.find((f) => f.value === postFeeling)?.description}
+        {/* Bristol Type - Circular Buttons */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-app-charcoal mb-3">
+            What does it look like?
+          </label>
+
+          {/* Single-row scrollable container */}
+          <div className="flex gap-2 overflow-x-auto pb-1 pt-2 pb-2 justify-center">
+          {BRISTOL_TYPES.map((type) => (
+            <button
+              key={type.type}
+              type="button"
+              onClick={() => setBristolType(type.type as BristolScaleType)}
+              className={`flex-shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-full text-base sm:text-lg font-semibold transition-all ${
+                bristolType === type.type
+                  ? "bg-app-plumb text-white scale-110"
+                  : "bg-app-cream text-app-charcoal border-2 border-app-border hover:border-app-plumb"
+              }`}
+            >
+              {type.type}
+            </button>
+          ))}
+        </div>
+
+          {bristolType && (
+            <div className="mt-3 p-3 bg-app-cream rounded-lg">
+              <p className="text-sm font-medium text-app-charcoal">
+                Type {bristolType}: {BRISTOL_TYPES.find((t) => t.type === bristolType)?.name}
               </p>
-            )}
+              <p className="text-sm text-app-gray mt-1">
+                {BRISTOL_TYPES.find((t) => t.type === bristolType)?.description}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Post Feeling - Oval Chips */}
+        <div>
+          <label className="block text-sm font-medium text-app-charcoal mb-3">
+            How do you feel after?
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {POST_BOWEL_FEELINGS.map((feeling) => (
+              <button
+                key={feeling.value}
+                type="button"
+                onClick={() => setPostFeeling(feeling.value)}
+                className={`mb-2 sm:mb-4 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                  postFeeling === feeling.value
+                    ? "bg-app-plumb text-white"
+                    : "bg-app-cream text-app-charcoal border border-app-border hover:border-app-plumb"
+                }`}
+              >
+                {feeling.label}
+              </button>
+            ))}
           </div>
-        </section>
-      )}
+          {postFeeling && (
+            <p className="mt-3 text-sm text-app-gray">
+              {POST_BOWEL_FEELINGS.find((f) => f.value === postFeeling)?.description}
+            </p>
+          )}
+        </div>
+      </section>
+    )}
+
 
       {/* Period Tracking - Conditional */}
       {safePeriodTracking.enabled && shouldShowSection("period") && (
@@ -1046,14 +1050,13 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
             <div className="flex items-center gap-1.5 text-xs text-app-gray mb-3">
               <span>💡</span>
               <span>
-                Want to understand period cycles?{" "}
                 <a
                   href="https://www.healthline.com/health/womens-health/stages-of-menstrual-cycle"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-app-teal hover:text-app-teal/80 underline"
                 >
-                  Click here to learn more →
+                  Click here to learn more about period cycles →
                 </a>
               </span>
             </div>

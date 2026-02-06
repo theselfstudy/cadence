@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/stores/useSettings";
 import { ModeSelectionModal } from "@/components/welcome/ModeSelectionModal";
 import type { OnboardingMode } from "@/types";
 
 // =============================================================================
-// FEATURE DATA
+// TYPES
 // =============================================================================
 
 interface FeatureInfo {
@@ -15,76 +15,8 @@ interface FeatureInfo {
   label: string;
   description: string;
   bullets: string[];
-  color: string;
+  accent: "teal" | "green" | "red" | "lightgreen";
 }
-
-const FEATURES: FeatureInfo[] = [
-  {
-    icon: "🏷️",
-    label: "Log Symptoms",
-    description: "Log and monitor symptoms with optional intensity logging.",
-    bullets: [
-      "Choose from common symptoms or add custom ones",
-      "Track intensity using Simple or Mankoski pain scales",
-      "See patterns over time in your history",
-    ],
-    color: "app-teal",
-  },
-  {
-    icon: "🧻",
-    label: "Track Bowel Health",
-    description: "Track bowel movements using the Bristol Stool Scale.",
-    bullets: [
-      "Log stool type (1-7 on Bristol Scale)",
-      "Record how you feel after",
-      "Identify digestive patterns",
-    ],
-    color: "app-green",
-  },
-  {
-    icon: "🌸",
-    label: "See Your Cycles",
-    description: "Comprehensive menstrual cycle and period tracking.",
-    bullets: [
-      "Track cycle phases (menstrual, follicular, ovulation, luteal)",
-      "Log flow levels and period products",
-      "Add period-specific symptoms",
-    ],
-    color: "app-red",
-  },
-  {
-    icon: "💊",
-    label: "Log Medicine",
-    description: "Keep track of medications and supplements.",
-    bullets: [
-      "Add custom medicine and dosages",
-      "Tag each medicine by purpose (symptom, bowel, period, other)",
-      "Optional time tracking for time-sensitive meds",
-    ],
-    color: "app-teal",
-  },
-  {
-    icon: "💡",
-    label: "Insights & Trends",
-    description: "See your health data visualized over time.",
-    bullets: [
-      "Weekly, monthly, and quarterly summaries",
-      "Charts showing symptom frequency",
-      "Add and save custom filters"
-    ],
-    color: "app-green",
-  },
-    {
-    icon: "💾",
-    label: "Export & Save",
-    description: "Export your data at any time.",
-    bullets: [
-      "Download all entries as a CSV to your device for safekeeping",
-      "Export data based on filters",
-    ],
-    color: "app-teal",
-  },
-];
 
 interface PrivacyInfo {
   icon: string;
@@ -92,64 +24,130 @@ interface PrivacyInfo {
   description: string;
 }
 
+// =============================================================================
+// DATA
+// =============================================================================
+
+const FEATURES: FeatureInfo[] = [
+  {
+    icon: "🏷️",
+    label: "Log Symptoms",
+    description: "Log and monitor symptoms with optional intensity tracking.",
+    bullets: [
+      "Select common or custom symptoms",
+      "Select Simple or Mankoski pain scales",
+      "See patterns over time",
+    ],
+    accent: "teal",
+  },
+  {
+    icon: "🧻",
+    label: "Track Bowel Health",
+    description: "Track bowel movements using the Bristol Stool Scale.",
+    bullets: [
+      "Stool type (1–7)",
+      "Record how you feel after",
+      "Identify digestive patterns",
+    ],
+    accent: "green",
+  },
+  {
+    icon: "🌸",
+    label: "See Your Cycles",
+    description: "Comprehensive menstrual cycle tracking.",
+    bullets: [
+      "Cycle phases",
+      "Flow & product logging",
+      "Period-specific symptoms",
+    ],
+    accent: "red",
+  },
+  {
+    icon: "💊",
+    label: "Log Medicine",
+    description: "Track medications and supplements.",
+    bullets: [
+      "Custom meds & dosages",
+      "Purpose tagging",
+      "Optional time tracking",
+    ],
+    accent: "lightgreen",
+  },
+  {
+    icon: "💡",
+    label: "Insights & Trends",
+    description: "Visualize patterns over time.",
+    bullets: [
+      "Weekly / monthly summaries",
+      "Frequency charts",
+      "Saved filters",
+    ],
+    accent: "green",
+  },
+  {
+    icon: "💾",
+    label: "Export & Save",
+    description: "Export your data anytime.",
+    bullets: [
+      "CSV downloads",
+      "Filtered exports",
+    ],
+    accent: "teal",
+  },
+];
+
 const PRIVACY_POINTS: PrivacyInfo[] = [
   {
     icon: "🚫",
     label: "No Data Storage",
-    description: "We do not store your data on any servers or databases.",
+    description: "Your data never leaves your device.",
   },
   {
     icon: "🚫",
-    label: "No Data Sharing",
-    description: "Your health information is never sold or shared.",
+    label: "No Sharing",
+    description: "Nothing sold or shared.",
   },
   {
     icon: "🚫",
-    label: "No Account Required",
-    description: "Use anonymously or connect your own Google Sheet.",
+    label: "No Account",
+    description: "Anonymous by default.",
   },
   {
     icon: "🚫",
     label: "No Tracking",
-    description: "No analytics, no ads, no third-party trackers.",
+    description: "No analytics or ads.",
   },
 ];
 
 // =============================================================================
-// WELCOME PAGE COMPONENT
+// PAGE
 // =============================================================================
 
 export default function WelcomePage() {
   const router = useRouter();
   const { setupComplete, tutorialComplete } = useSettings();
-  
+
   const [showModeModal, setShowModeModal] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-  // Handle hydration
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => setIsClient(true), []);
 
-  // Redirect existing users away from welcome page
   useEffect(() => {
     if (isClient && (setupComplete || tutorialComplete)) {
       router.replace("/dashboard");
     }
   }, [isClient, setupComplete, tutorialComplete, router]);
 
-  // Handle mode selection
   const handleModeSelect = (mode: OnboardingMode) => {
     setShowModeModal(false);
     router.push(`/settings?onboardingMode=${mode}`);
   };
 
-  // Show loading state during hydration or redirect
   if (!isClient || setupComplete || tutorialComplete) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-pulse">
-          <div className="w-16 h-16 rounded-full bg-app-green/20 mx-auto mb-4" />
+        <div className="animate-pulse space-y-4">
+          <div className="w-16 h-16 rounded-full bg-app-green/20 mx-auto" />
           <div className="h-4 w-32 bg-app-border rounded mx-auto" />
         </div>
       </div>
@@ -158,7 +156,6 @@ export default function WelcomePage() {
 
   return (
     <>
-      {/* Mode Selection Modal */}
       {showModeModal && (
         <ModeSelectionModal
           onSelect={handleModeSelect}
@@ -166,8 +163,7 @@ export default function WelcomePage() {
         />
       )}
 
-      {/* Welcome Content */}
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 py-8">
+      <div className="min-h-[70vh] flex flex-col items-center text-center px-4 py-8">
         {/* Logo */}
         <div className="mb-8">
           <div className="w-24 h-24 rounded-full bg-app-green flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -179,15 +175,13 @@ export default function WelcomePage() {
         </div>
 
         {/* Description */}
-        <div className="max-w-md mx-auto mb-8">
-          <p className="text-lg text-app-gray leading-relaxed">
-            Your highly-customizable personal health tracking companion. Track symptoms, monitor patterns, 
-            and gain insights into your wellbeing all in one place.
-          </p>
-        </div>
+        <p className="max-w-md text-lg text-app-gray mb-10">
+          A highly customizable personal health tracker for symptoms,
+          cycles, and long-term insights.
+        </p>
 
-        {/* What You Can Track Section */}
-        <div className="w-full max-w-2xl mx-auto mb-8">
+        {/* Features */}
+        <section className="w-full max-w-2xl mb-10">
           <h2 className="text-sm font-semibold text-app-gray uppercase tracking-wide mb-4">
             What You Can Do
           </h2>
@@ -196,10 +190,10 @@ export default function WelcomePage() {
               <FeatureCard key={feature.label} feature={feature} />
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* What Cadence Doesn't Do Section */}
-        <div className="w-full max-w-2xl mx-auto mb-10">
+        {/* Privacy */}
+        <section className="w-full max-w-2xl mb-10">
           <h2 className="text-sm font-semibold text-app-gray uppercase tracking-wide mb-4">
             Your Privacy Protected
           </h2>
@@ -208,27 +202,14 @@ export default function WelcomePage() {
               <PrivacyCard key={point.label} point={point} />
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* CTA Button */}
+        {/* CTA */}
         <button
           onClick={() => setShowModeModal(true)}
-          className="px-8 py-4 bg-app-green text-white font-semibold rounded-xl hover:bg-app-green-dark transition-colors shadow-md hover:shadow-lg flex items-center gap-2"
+          className="px-8 py-4 bg-app-green text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:bg-app-green-dark transition-colors"
         >
-          Get Started
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 7l5 5m0 0l-5 5m5-5H6"
-            />
-          </svg>
+          Get Started →
         </button>
       </div>
     </>
@@ -236,67 +217,87 @@ export default function WelcomePage() {
 }
 
 // =============================================================================
-// FEATURE CARD COMPONENT
+// FEATURE CARD (FIXED MOBILE BEHAVIOR)
 // =============================================================================
 
-interface FeatureCardProps {
-  feature: FeatureInfo;
-}
-
-function FeatureCard({ feature }: FeatureCardProps) {
+function FeatureCard({ feature }: { feature: FeatureInfo }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Determine if we should show expanded content
-  const showContent = isExpanded || isHovered;
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  const showContent = isDesktop
+    ? isExpanded || isHovered
+    : isExpanded;
+
+  const accent =
+    feature.accent === "teal"
+      ? "border-app-teal"
+      : feature.accent === "green"
+      ? "border-app-green"
+      : feature.accent === "lightgreen"
+      ? "border-app-green/50"
+      : "border-app-green";
 
   return (
     <div
       className="relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => isDesktop && setIsHovered(true)}
+      onMouseLeave={() => isDesktop && setIsHovered(false)}
     >
       <button
         type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full p-4 bg-app-white rounded-lg border-2 transition-all text-left ${
+        onClick={() => setIsExpanded((v) => !v)}
+        className={`w-full text-left bg-app-white rounded-lg border-2 overflow-hidden transition-colors ${
           showContent
-            ? `border-${feature.color} shadow-md`
-            : "border-app-border hover:border-app-green/50"
+            ? `${accent} shadow-md`
+            : "border-app-border hover:border-app-gray/40"
         }`}
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-2xl block mb-1">{feature.icon}</span>
-            <span className="text-sm text-app-charcoal font-medium">{feature.label}</span>
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-2xl block mb-1">{feature.icon}</span>
+              <span className="text-sm font-medium text-app-charcoal whitespace-nowrap">
+                {feature.label}
+              </span>
+            </div>
+            <svg
+              className={`w-4 h-4 text-app-gray transition-transform ${
+                showContent ? "rotate-180" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
           </div>
-          <svg
-            className={`w-4 h-4 text-app-gray transition-transform ${
-              showContent ? "rotate-180" : ""
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
 
-        {/* Expanded Content */}
-        <div
-          className={`overflow-hidden transition-all duration-200 ${
-            showContent ? "max-h-48 mt-3 pt-3 border-t border-app-border" : "max-h-0"
-          }`}
-        >
-          <p className="text-xs text-app-gray mb-2">{feature.description}</p>
-          <ul className="space-y-1">
-            {feature.bullets.map((bullet, idx) => (
-              <li key={idx} className="text-xs text-app-charcoal flex items-start gap-1.5">
-                <span className="text-app-green mt-0.5">•</span>
-                <span>{bullet}</span>
-              </li>
-            ))}
-          </ul>
+          {showContent && (
+            <div className="mt-3 pt-3 border-t border-app-border/50 space-y-2">
+              <p className="text-xs text-app-gray">
+                {feature.description}
+              </p>
+              <ul className="space-y-1">
+                {feature.bullets.map((b, i) => (
+                  <li
+                    key={i}
+                    className="text-xs text-app-charcoal flex gap-1.5"
+                  >
+                    <span className="text-app-green">•</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </button>
     </div>
@@ -304,19 +305,19 @@ function FeatureCard({ feature }: FeatureCardProps) {
 }
 
 // =============================================================================
-// PRIVACY CARD COMPONENT
+// PRIVACY CARD
 // =============================================================================
 
-interface PrivacyCardProps {
-  point: PrivacyInfo;
-}
-
-function PrivacyCard({ point }: PrivacyCardProps) {
+function PrivacyCard({ point }: { point: PrivacyInfo }) {
   return (
     <div className="p-3 bg-app-cream rounded-lg border border-app-border text-center">
       <span className="text-xl block mb-1">{point.icon}</span>
-      <span className="text-xs text-app-charcoal font-medium block">{point.label}</span>
-      <p className="text-[10px] text-app-gray mt-1 leading-tight">{point.description}</p>
+      <span className="text-xs font-medium text-app-charcoal block">
+        {point.label}
+      </span>
+      <p className="text-[10px] text-app-gray mt-1 leading-tight">
+        {point.description}
+      </p>
     </div>
   );
 }
