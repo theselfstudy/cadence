@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import type { StoredEntry } from "@/types";
 import { CYCLE_PHASES } from "@/lib/constants";
 
@@ -29,6 +29,8 @@ interface WeeklyChartsProps {
   customProducts?: Record<string, { id: string; name: string }[]>;
   /** Medicines from settings to check period category */
   medicines?: { id: string; name: string; categories: string[] }[];
+  /** Week label showing the date range, e.g., "February 2-8" */
+  weekLabel?: string;
 }
 
 
@@ -40,6 +42,7 @@ export function WeeklyCharts({
   customProducts = {},
   medicines = [],
   onDayClick,
+  weekLabel,
 }: WeeklyChartsProps) {
   const [activeChart, setActiveChart] = useState<"symptoms" | "bowel" | "cycle" | "medicine">("symptoms");
 
@@ -119,6 +122,8 @@ export function WeeklyCharts({
             oneOffData={oneOffSymptomData}
             selectedDays={selectedDays}
             onDayClick={onDayClick}
+            weekLabel={weekLabel}
+            entries={entries}
           />
         )}      
         {validActiveChart === "bowel" && (
@@ -164,6 +169,8 @@ interface SymptomFrequencyChartProps {
   oneOffData: OneOffSymptomData[];
   selectedDays?: string[];
   onDayClick?: (day: string) => void;
+  weekLabel?: string;
+  entries?: StoredEntry[];
 }
 
 function SymptomFrequencyChart({
@@ -172,6 +179,8 @@ function SymptomFrequencyChart({
   oneOffData,
   selectedDays = [],
   onDayClick,
+  weekLabel,
+  entries = [],
 }: SymptomFrequencyChartProps) {
   const [viewMode, setViewMode] = useState<"table" | "heatmap">("heatmap");
 
@@ -199,7 +208,7 @@ function SymptomFrequencyChart({
         <div className="flex rounded-lg overflow-hidden border border-app-border">
           <button
             onClick={() => setViewMode("heatmap")}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
               viewMode === "heatmap"
                 ? "bg-app-teal text-white"
                 : "bg-white text-app-charcoal hover:bg-app-cream"
@@ -209,7 +218,7 @@ function SymptomFrequencyChart({
           </button>
           <button
             onClick={() => setViewMode("table")}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
               viewMode === "table"
                 ? "bg-app-teal text-white"
                 : "bg-white text-app-charcoal hover:bg-app-cream"
@@ -226,13 +235,13 @@ function SymptomFrequencyChart({
             <thead className="bg-app-cream sticky top-0">
               <tr>
                 <th className="text-left py-2 px-3 font-medium text-app-charcoal">Symptom</th>
-                <th className="text-center py-2 px-3 font-medium text-app-charcoal">
+                <th className="text-center py-2 px-3 font-medium text-app-charcoal whitespace-nowrap">
                   <span className="block text-xs">Highest</span>
-                  <span className="text-app-gray font-normal text-xs">Count / Day</span>
+                  <span className="text-app-gray font-normal text-[10px]">Count / Day</span>
                 </th>
-                <th className="text-center py-2 px-3 font-medium text-app-charcoal">
+                <th className="text-center py-2 px-3 font-medium text-app-charcoal whitespace-nowrap">
                   <span className="block text-xs">Lowest</span>
-                  <span className="text-app-gray font-normal text-xs">Count / Day</span>
+                  <span className="text-app-gray font-normal text-[10px]">Count / Day</span>
                 </th>
                 <th className="text-right py-2 px-3 font-medium text-app-charcoal w-16">Total</th>
               </tr>
@@ -256,10 +265,12 @@ function SymptomFrequencyChart({
           </table>
         </div>
       ) : (
-        <WeeklySymptomHeatMap 
-          data={heatMapData} 
+        <WeeklySymptomHeatMap
+          data={heatMapData}
           selectedDays={selectedDays}
           onDayClick={onDayClick}
+          weekLabel={weekLabel}
+          entries={entries}
         />
       )}
 
@@ -267,9 +278,9 @@ function SymptomFrequencyChart({
         {data.length} symptom{data.length !== 1 ? "s" : ""} tracked this week
       </p>
 
-      {/* One-Off Symptoms Section */}
+      {/* One-Off Symptoms Section - hidden on mobile (shown in drill-down instead) */}
       {oneOffData.length > 0 && (
-        <div className="mt-6 pt-4 border-t border-app-border">
+        <div className="hidden md:block mt-6 pt-4 border-t border-app-border">
           <h4 className="text-sm font-medium text-app-charcoal mb-2 flex items-center gap-1.5">
             <span>❖</span>
             One-Off Symptoms
@@ -297,6 +308,245 @@ function SymptomFrequencyChart({
 }
 
 // ============================================
+// MOBILE WEEK DAY DRILL-DOWN
+// ============================================
+
+interface MobileWeekDayDrillDownProps {
+  dayName: string;
+  phase?: string;
+  symptoms: {
+    name: string;
+    intensity: number | null;
+  }[];
+  oneOffSymptoms: string[];
+  weekLabel: string;
+  onClose: () => void;
+}
+
+function MobileWeekDayDrillDown({
+  dayName,
+  phase,
+  symptoms,
+  oneOffSymptoms,
+  weekLabel,
+  onClose,
+}: MobileWeekDayDrillDownProps) {
+  const isMenstrual = phase === "menstrual";
+  const hasAnySymptoms = symptoms.length > 0 || oneOffSymptoms.length > 0;
+
+  return (
+    <div
+      className={`mt-3 p-3 rounded-lg border ${
+        isMenstrual
+          ? "bg-app-red/5 border-app-red/20"
+          : "bg-app-teal/5 border-app-teal/20"
+      }`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-medium text-app-charcoal">
+          Date: {weekLabel} ({dayName})
+        </p>
+        <button
+          onClick={onClose}
+          className="text-app-gray hover:text-app-charcoal p-1"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {!hasAnySymptoms ? (
+        <p className="text-xs text-app-gray">No symptoms logged</p>
+      ) : (
+        <>
+          {/* Regular symptoms */}
+          {symptoms.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {symptoms.map((s, i) => (
+                <span
+                  key={i}
+                  className={`px-2 py-0.5 text-xs rounded ${
+                    isMenstrual
+                      ? "bg-app-red/10 text-app-red"
+                      : "bg-app-teal/10 text-app-teal"
+                  }`}
+                >
+                  {s.name}
+                  {s.intensity !== null ? ` (${s.intensity})` : ""}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* One-off symptoms section */}
+          {oneOffSymptoms.length > 0 && (
+            <div
+              className={`${symptoms.length > 0 ? "mt-3 pt-2 border-t" : ""} ${
+                isMenstrual ? "border-app-red/20" : "border-app-teal/20"
+              }`}
+            >
+              <p className="text-xs text-app-gray mb-1.5 flex items-center gap-1">
+                <span>❖</span>
+                One-Off Symptoms
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {oneOffSymptoms.map((symptom, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-0.5 text-xs rounded bg-app-plumb/10 text-app-plumb"
+                  >
+                    {symptom}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// MOBILE WEEK STRIP
+// ============================================
+
+interface MobileWeekStripProps {
+  allSymptomData: SymptomHeatMapData[];
+  weekLabel: string;
+  selectedDays?: string[];
+  onDayDrillDown?: (day: string) => void;
+  mobileDrillDownDay?: string | null;
+  entries?: StoredEntry[];
+}
+
+function MobileWeekStrip({
+  allSymptomData,
+  weekLabel,
+  selectedDays = [],
+  onDayDrillDown,
+  mobileDrillDownDay,
+  entries = [],
+}: MobileWeekStripProps) {
+  // Get day labels from first symptom's data
+  const dayLabels = allSymptomData[0]?.days.map((d) => d.day) || [];
+
+  // Build a map of dayName -> phase for menstrual highlighting
+  const dayPhaseMap = useMemo(() => {
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const map: Record<string, string | undefined> = {};
+    for (const entry of entries) {
+      const entryDate = new Date(entry.date + "T12:00:00");
+      const dayName = dayNames[entryDate.getDay()];
+      if (entry.cyclePhase) {
+        map[dayName] = entry.cyclePhase;
+      }
+    }
+    return map;
+  }, [entries]);
+
+  // Aggregate: check if ANY symptom was logged for each day
+  const aggregatedDays = useMemo(() => {
+    if (allSymptomData.length === 0 || dayLabels.length === 0) return [];
+
+    return dayLabels.map((dayName) => {
+      // Check if ANY symptom was logged on this day
+      const anyLogged = allSymptomData.some((symptomRow) => {
+        const dayData = symptomRow.days.find((d) => d.day === dayName);
+        return dayData?.logged === true;
+      });
+
+      return {
+        day: dayName,
+        logged: anyLogged,
+      };
+    });
+  }, [allSymptomData, dayLabels]);
+
+  return (
+    <div className="md:hidden">
+      {/* Week label */}
+      <p className="text-xs font-medium text-app-gray px-3 pt-2">
+        {weekLabel}
+      </p>
+
+      {/* Strip */}
+      <div className="overflow-x-auto overscroll-x-contain touch-pan-x">
+        <div className="flex gap-2 px-3 pt-5 pb-3 justify-center">
+          {aggregatedDays.map((day) => {
+            const isMenstrual = dayPhaseMap[day.day] === "menstrual";
+            const bgStyle = day.logged
+              ? isMenstrual
+                ? "bg-app-red/20"
+                : "bg-app-teal/50"
+              : "bg-app-border";
+
+            const isSelected = selectedDays.includes(day.day);
+            const isDrillDown = mobileDrillDownDay === day.day;
+
+            return (
+              <div
+                key={day.day}
+                className="relative flex flex-col items-center"
+              >
+                {/* Day name label */}
+                <span className="absolute -top-5 text-[0.6rem] text-app-gray/50 select-none">
+                  {day.day}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => onDayDrillDown?.(day.day)}
+                  className={`
+                    w-9 h-9 rounded-md
+                    flex items-center justify-center
+                    ${bgStyle}
+                    ${isMenstrual ? "border border-app-red" : ""}
+                    ${isSelected ? "ring-1 ring-app-teal" : ""}
+                    ${isDrillDown ? "ring-2 shadow-md scale-95" : ""}
+                    ${isDrillDown && isMenstrual ? "ring-app-red" : ""}
+                    ${isDrillDown && !isMenstrual ? "ring-app-teal" : ""}
+                    transition-colors active:scale-95
+                  `}
+                >
+                  {/* Show checkmark if any symptom logged */}
+                  {day.logged && (
+                    <svg
+                      className={`w-4 h-4 ${isMenstrual ? "text-app-red" : "text-app-cream"}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // WEEKLY SYMPTOM HEAT MAP (moved from separate file)
 // ============================================
 
@@ -305,6 +555,8 @@ interface WeeklySymptomHeatMapProps {
   maxHeight?: number;
   onDayClick?: (day: string) => void;
   selectedDays?: string[];
+  weekLabel?: string;
+  entries?: StoredEntry[];
 }
 
 function WeeklySymptomHeatMap({
@@ -312,8 +564,64 @@ function WeeklySymptomHeatMap({
   maxHeight = 320,
   onDayClick,
   selectedDays = [],
+  weekLabel = "",
+  entries = [],
 }: WeeklySymptomHeatMapProps) {
   const [activeCell, setActiveCell] = useState<string | null>(null);
+  const [mobileSelectedDay, setMobileSelectedDay] = useState<string | null>(null);
+
+  // Handle mobile day tap - toggle selection
+  const handleMobileDayTap = (day: string) => {
+    setMobileSelectedDay((prev) => (prev === day ? null : day));
+  };
+
+  // Aggregate symptoms for the mobile-selected day
+  const mobileSelectedSymptoms = useMemo(() => {
+    if (mobileSelectedDay === null) return [];
+
+    const symptoms: { name: string; intensity: number | null }[] = [];
+    for (const symptomRow of data) {
+      const dayData = symptomRow.days.find((d) => d.day === mobileSelectedDay);
+      if (dayData?.logged) {
+        symptoms.push({
+          name: symptomRow.symptom,
+          intensity: dayData.intensity,
+        });
+      }
+    }
+    return symptoms;
+  }, [mobileSelectedDay, data]);
+
+  // Get phase for the mobile-selected day from entries
+  const mobileSelectedPhase = useMemo(() => {
+    if (mobileSelectedDay === null || entries.length === 0) return undefined;
+
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    for (const entry of entries) {
+      const entryDate = new Date(entry.date + "T12:00:00");
+      const dayName = dayNames[entryDate.getDay()];
+      if (dayName === mobileSelectedDay && entry.cyclePhase) {
+        return entry.cyclePhase;
+      }
+    }
+    return undefined;
+  }, [mobileSelectedDay, entries]);
+
+  // Get one-off symptoms for the mobile-selected day from entries
+  const mobileSelectedOneOffSymptoms = useMemo(() => {
+    if (mobileSelectedDay === null || entries.length === 0) return [];
+
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const oneOffs: string[] = [];
+    for (const entry of entries) {
+      const entryDate = new Date(entry.date + "T12:00:00");
+      const dayName = dayNames[entryDate.getDay()];
+      if (dayName === mobileSelectedDay && entry.oneOffSymptoms) {
+        oneOffs.push(...entry.oneOffSymptoms);
+      }
+    }
+    return oneOffs;
+  }, [mobileSelectedDay, entries]);
 
   if (data.length === 0) {
     return (
@@ -329,101 +637,152 @@ function WeeklySymptomHeatMap({
   const dayLabels = data[0]?.days.map((d) => d.day) || [];
 
   return (
-    <div>
-      {/* Day Headers - Clickable */}
-      <div className="flex mb-2">
-        <div className="w-28 sm:w-36 shrink-0" />
-        {dayLabels.map((day) => {
-          const isSelected = selectedDays.includes(day);
-          return (
-            <button
-              key={day}
-              type="button"
-              onClick={() => onDayClick?.(day)}
-              disabled={!onDayClick}
-              className={`flex-1 min-w-[40px] text-center text-xs font-medium transition-colors rounded py-1 ${
-                isSelected
-                  ? "bg-app-teal text-white"
-                  : onDayClick
-                    ? "text-app-gray hover:bg-app-cream hover:text-app-charcoal cursor-pointer"
-                    : "text-app-gray"
-              }`}
-            >
-              {day}
-            </button>
-          );
-        })}
-      </div>
+    <div className="border border-app-border rounded-lg overflow-visible">
+      {/* ================= MOBILE ================= */}
+      <MobileWeekStrip
+        allSymptomData={data}
+        weekLabel={weekLabel}
+        selectedDays={selectedDays}
+        onDayDrillDown={handleMobileDayTap}
+        mobileDrillDownDay={mobileSelectedDay}
+        entries={entries}
+      />
 
-      {/* Symptom Rows - Scrollable */}
-      <div 
-        className="space-y-1 overflow-y-auto pr-1"
-        style={{ maxHeight: `${maxHeight}px` }}
-      >
-        {data.map((symptom) => (
-          <div key={symptom.symptom} className="flex items-center">
-            {/* Symptom Name */}
-            <div className="w-28 sm:w-36 shrink-0 pr-2">
-              <p className="text-sm text-app-charcoal truncate" title={symptom.symptom}>
-                {symptom.symptom}
-              </p>
-            </div>
-
-            {/* Day Cells */}
-            {symptom.days.map((day) => {
-              const isSelected = selectedDays.includes(day.day);
-              const cellKey = `${symptom.symptom}-${day.day}`;
-              const isActive = activeCell === cellKey;
-
-              return (
-                <div key={day.day} className="flex-1 min-w-[40px] px-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onDayClick?.(day.day)}
-                    onMouseEnter={() => setActiveCell(cellKey)}
-                    onMouseLeave={() => setActiveCell(null)}
-                    className={`w-full h-8 rounded transition-all ${getHeatMapIntensityStyle(
-                      day.intensity,
-                      day.logged
-                    )} ${isActive ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
-                      isSelected ? "ring-2 ring-app-teal" : ""
-                    }`}
-                    title={getHeatMapCellTitle(symptom.symptom, day.day, day.intensity, day.logged)}
-                  >
-                    {isActive && day.logged && (
-                      <span className="text-xs font-medium">
-                        {day.intensity !== null ? day.intensity : "✓"}
-                      </span>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      {/* Scroll indicator for many symptoms */}
-      {data.length > 8 && (
-        <div className="flex justify-center mt-2 text-app-gray/50">
-          <svg 
-            className="w-4 h-4 animate-bounce" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M19 9l-7 7-7-7" 
-            />
-          </svg>
+      {/* Mobile drill-down details */}
+      {mobileSelectedDay !== null && (
+        <div className="md:hidden px-3 pb-3">
+          <MobileWeekDayDrillDown
+            dayName={mobileSelectedDay}
+            phase={mobileSelectedPhase}
+            symptoms={mobileSelectedSymptoms}
+            oneOffSymptoms={mobileSelectedOneOffSymptoms}
+            weekLabel={weekLabel}
+            onClose={() => setMobileSelectedDay(null)}
+          />
         </div>
       )}
 
-      {/* Legend */}
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs text-app-gray">
+      {/* ================= DESKTOP (UNCHANGED) ================= */}
+      <div className="hidden md:block p-3">
+        {/* Day Headers - Clickable */}
+        <div className="flex mb-2">
+          <div className="w-28 sm:w-36 shrink-0" />
+          {dayLabels.map((day) => {
+            const isSelected = selectedDays.includes(day);
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => onDayClick?.(day)}
+                disabled={!onDayClick}
+                className={`flex-1 min-w-[40px] text-center text-xs font-medium transition-colors rounded py-1 ${
+                  isSelected
+                    ? "bg-app-teal text-white"
+                    : onDayClick
+                      ? "text-app-gray hover:bg-app-cream hover:text-app-charcoal cursor-pointer"
+                      : "text-app-gray"
+                }`}
+              >
+                {day}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Symptom Rows - Scrollable */}
+        <div
+          className="space-y-1 overflow-y-auto pr-1"
+          style={{ maxHeight: `${maxHeight}px` }}
+        >
+          {data.map((symptom) => (
+            <div key={symptom.symptom} className="flex items-center">
+              {/* Symptom Name */}
+              <div className="w-28 sm:w-36 shrink-0 pr-2">
+                <p className="text-sm text-app-charcoal truncate" title={symptom.symptom}>
+                  {symptom.symptom}
+                </p>
+              </div>
+
+              {/* Day Cells */}
+              {symptom.days.map((day) => {
+                const isSelected = selectedDays.includes(day.day);
+                const cellKey = `${symptom.symptom}-${day.day}`;
+                const isActive = activeCell === cellKey;
+
+                return (
+                  <div key={day.day} className="flex-1 min-w-[40px] px-0.5">
+                    <button
+                      type="button"
+                      onClick={() => onDayClick?.(day.day)}
+                      onMouseEnter={() => setActiveCell(cellKey)}
+                      onMouseLeave={() => setActiveCell(null)}
+                      className={`w-full h-8 rounded transition-all ${getHeatMapIntensityStyle(
+                        day.intensity,
+                        day.logged
+                      )} ${isActive ? "ring-2 ring-app-charcoal ring-offset-1" : ""} ${
+                        isSelected ? "ring-2 ring-app-teal" : ""
+                      }`}
+                      title={getHeatMapCellTitle(symptom.symptom, day.day, day.intensity, day.logged)}
+                    >
+                      {isActive && day.logged && (
+                        <span className="text-xs font-medium">
+                          {day.intensity !== null ? day.intensity : "✓"}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Scroll indicator for many symptoms */}
+        {data.length > 8 && (
+          <div className="flex justify-center mt-2 text-app-gray/50">
+            <svg
+              className="w-4 h-4 animate-bounce"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Legend */}
+      <div className="md:hidden mt-3 mb-2 flex flex-wrap items-center justify-center gap-3 text-xs text-app-gray">
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-border" />
+          <span>No logs</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-teal/50 flex items-center justify-center">
+            <svg className="w-2.5 h-2.5 text-app-cream" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <span>Logged</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-red/20 border border-app-red flex items-center justify-center">
+            <svg className="w-2.5 h-2.5 text-app-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <span>Logged (Period)</span>
+        </div>
+      </div>
+
+      {/* Desktop Legend */}
+      <div className="hidden md:flex mt-3 mb-2 flex-wrap items-center justify-center gap-3 text-xs text-app-gray">
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-app-border" />
           <span>Not logged</span>

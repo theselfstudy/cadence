@@ -1047,15 +1047,15 @@ function MonthlySymptomHeatMap({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-app-teal/50" />
-          <span>Low</span>
+          <span>Low Intensity</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-app-teal/75" />
-          <span>Medium</span>
+          <span>Medium Intensity</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-app-teal" />
-          <span>High</span>
+          <span>High Intensity</span>
         </div>
       </div>
     </div>

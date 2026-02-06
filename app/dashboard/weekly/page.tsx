@@ -551,6 +551,7 @@ export default function WeeklyPage() {
               selectedDays={selectedDays}
               customProducts={settings.periodTracking.productTracking?.customProducts}
               medicines={settings.medicineTracking.medicines}
+              weekLabel={weekRange.label}
             />
           </div>
         )}
