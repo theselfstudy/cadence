@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
 import { useEntries, useEntriesRevision } from "@/stores/useEntries";
-// import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
 
@@ -46,7 +45,6 @@ type ViewMode = "cards" | "table";
 export default function MonthlyPage() {
   // Client-side rendering guard - wait for both client mount AND store hydration
   const [isClient, setIsClient] = useState(false);
-  // const isHydrated = useEntriesHydrated();
 
   // Store data
   const entries = useEntries((state) => state.entries);
@@ -386,10 +384,6 @@ export default function MonthlyPage() {
     return monthRange.end.getDate();
   }, [monthRange]);
 
-  // if (!isClient || !isHydrated) {
-  //   return <MonthlyPageSkeleton />;
-  // }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -583,71 +577,66 @@ export default function MonthlyPage() {
 
       {/* Entry List Section - Shown by default */}
       <div className="card">
-        <button
-          onClick={() => setShowEntries(!showEntries)}
-          className="w-full flex items-center justify-between"
-        >
-          <div>
-            <h2 className="text-lg font-semibold text-app-charcoal">
-              Entries ({filteredEntries.length})
-            </h2>
-            {filteredEntries.length !== monthEntries.length && (
-              <p className="text-xs text-app-gray">
-                Filtered from {monthEntries.length} total
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {/* View Toggle (only when expanded) */}
-            {showEntries && (
-              <div className="flex rounded-lg overflow-hidden border border-app-border">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setViewMode("cards");
-                  }}
-                  className={`px-2 py-1 text-xs transition-colors ${
-                    viewMode === "cards"
-                      ? "bg-app-teal text-white"
-                      : "bg-white text-app-charcoal hover:bg-app-cream"
-                  }`}
-                  title="Card View"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setViewMode("table");
-                  }}
-                  className={`px-2 py-1 text-xs transition-colors ${
-                    viewMode === "table"
-                      ? "bg-app-teal text-white"
-                      : "bg-white text-app-charcoal hover:bg-app-cream"
-                  }`}
-                  title="Table View"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                </button>
-              </div>
-            )}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setShowEntries(!showEntries)}
+            className="flex-1 flex items-center justify-between text-left"
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-app-charcoal">
+                Entries ({filteredEntries.length})
+              </h2>
+              {filteredEntries.length !== monthEntries.length && (
+                <p className="text-xs text-app-gray">
+                  Filtered from {monthEntries.length} total
+                </p>
+              )}
+            </div>
             <span className="text-app-gray text-xl">{showEntries ? "-" : "+"}</span>
-          </div>
-        </button>
+          </button>
+
+          {/* View Toggle (only when expanded) - Outside the collapse button to avoid nesting */}
+          {showEntries && (
+            <div className="flex rounded-lg overflow-hidden border border-app-border ml-3">
+              <button
+                onClick={() => setViewMode("cards")}
+                className={`px-2 py-1 text-xs transition-colors ${
+                  viewMode === "cards"
+                    ? "bg-app-teal text-white"
+                    : "bg-white text-app-charcoal hover:bg-app-cream"
+                }`}
+                title="Card View"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-2 py-1 text-xs transition-colors ${
+                  viewMode === "table"
+                    ? "bg-app-teal text-white"
+                    : "bg-white text-app-charcoal hover:bg-app-cream"
+                }`}
+                title="Table View"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
 
         {showEntries && (
           <div className="mt-4">

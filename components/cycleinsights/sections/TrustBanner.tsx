@@ -152,7 +152,7 @@ export function TrustBanner({
         {/* Progress message */}
         <div className="bg-app-white/70 rounded-lg p-4 mb-4">
           <p className="text-sm text-app-charcoal leading-relaxed">
-            You'll see basic summaries now. After{" "}
+            You'll see basic summaries once a period has been logged. After{" "}
             <span className="font-medium text-app-teal">2+ complete cycles</span>, 
             deeper patterns will emerge.
           </p>
@@ -202,14 +202,41 @@ export function TrustBanner({
           <h2 className="text-lg font-semibold text-app-charcoal">
             Your data, your patterns
           </h2>
-          <p className="text-sm text-app-gray mt-0.5">
-            {getCycleCountText()}
-            {bannerData.dateRange && (
-              <> · {formatDateRange()}</>
-            )}
-            {bannerData.entryCount > 0 && (
-              <> · {bannerData.entryCount} {bannerData.entryCount === 1 ? "entry" : "entries"}</>
-            )}
+
+          {/* Helper function to join parts with separators dynamically */}
+          {/* Desktop */}
+          <p className="text-sm text-app-gray mt-0.5 hidden md:flex md:items-center md:gap-1.5 md:whitespace-nowrap">
+            {[
+              bannerData.dateRange ? formatDateRange() : null,
+              bannerData.entryCount > 0
+                ? `${bannerData.entryCount} ${bannerData.entryCount === 1 ? "entry" : "entries"}`
+                : null,
+              getCycleCountText(),
+            ]
+              .filter(Boolean)
+              .map((part, idx) => (
+                <span key={idx}>
+                  {idx > 0 && <>· </>}
+                  {part}
+                </span>
+              ))}
+          </p>
+
+          {/* Mobile */}
+          <p className="text-sm text-app-gray mt-0.5 flex flex-col md:hidden">
+            {[
+              [
+                bannerData.dateRange ? formatDateRange() : null,
+                bannerData.entryCount > 0
+                  ? `${bannerData.entryCount} ${bannerData.entryCount === 1 ? "entry" : "entries"}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              getCycleCountText(),
+            ].map((line, idx) => (
+              <span key={idx}>{line}</span>
+            ))}
           </p>
         </div>
       </div>
@@ -217,10 +244,7 @@ export function TrustBanner({
       {/* Main message */}
       <div className="bg-app-white/70 rounded-lg p-4 mb-4">
         <p className="text-sm text-app-charcoal leading-relaxed">
-          All insights come from your logged entries only.{" "}
-          {/* <span className="text-app-gray">
-            Nothing is predicted, shared, or sent anywhere.
-          </span> */}
+          Insights only come from your logged entries.{" "}
         </p>
       </div>
 

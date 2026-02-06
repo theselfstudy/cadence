@@ -1,4 +1,3 @@
-// /components/cycleinsights/sections/EmergingPatternsSection.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -70,8 +69,8 @@ export function EmergingPatternsSection({
           More data needed
         </p>
         <p className="text-xs text-app-gray">
-          Log {2 - completeCycles.length} more complete cycle
-          {2 - completeCycles.length !== 1 ? "s" : ""} to see emerging patterns
+          Keep loggin! Emerging patterns will begin to appear after {2 - completeCycles.length}+ complete cycle{2 - completeCycles.length !== 1 ? "s" : ""}
+          {/* {2 - completeCycles.length !== 1 ? "s" : ""} to see emerging patterns */}
         </p>
 
         <div className="flex items-center justify-center gap-1 mt-3">

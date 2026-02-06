@@ -173,16 +173,21 @@ export const useSettings = create<SettingsStore>()(
         sheetName?: string
       ): Promise<boolean> => {
         set({ isSyncing: true });
+        console.log("loadSettingsFromSheet: Starting restore for spreadsheet:", spreadsheetId);
 
         const settingsJson = await getSettingsFromSheet(spreadsheetId, accessToken);
 
         if (!settingsJson) {
+          console.error("loadSettingsFromSheet: No settings found in sheet. The .cadence-settings sheet may not exist or is empty.");
           set({ isSyncing: false });
           return false;
         }
 
+        console.log("loadSettingsFromSheet: Found settings JSON, parsing...");
+
         try {
           const loadedSettings = JSON.parse(settingsJson);
+          console.log("loadSettingsFromSheet: Parsed settings keys:", Object.keys(loadedSettings));
 
           // If settings exist in a sheet, the user has clearly completed setup.
           // Force these to true to prevent re-prompting setup/tutorial on recovery.
@@ -217,6 +222,12 @@ export const useSettings = create<SettingsStore>()(
             hasUnsavedChanges: false,
             lastSavedSnapshot: correctedSnapshot,
           });
+
+          // Verify the state was set correctly
+          const updatedState = get();
+          console.log("loadSettingsFromSheet: Settings restored successfully. Google Sheet URL:", updatedState.googleSheet.url);
+          console.log("loadSettingsFromSheet: Symptoms enabled:", updatedState.symptoms?.enabled, "Selected count:", updatedState.symptoms?.selected?.length);
+          console.log("loadSettingsFromSheet: Period tracking enabled:", updatedState.periodTracking?.enabled);
 
           // Update sync tracker to reflect that we just synced settings from the sheet
           const { useSyncTracker } = await import('./useSyncTracker');

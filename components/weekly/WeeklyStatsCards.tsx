@@ -208,7 +208,12 @@ function StatCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const showContent = isExpanded || isHovered;
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  const showContent = isDesktop
+    ? isExpanded || isHovered
+    : isExpanded;
 
   const accentClasses: Record<string, string> = {
     teal: "bg-app-teal",
@@ -277,13 +282,25 @@ function StatCard({
 
           {/* Expanded Content */}
           {expandedContent && (
-            <div
-              className={`overflow-hidden transition-all duration-200 ${
-                showContent ? "max-h-[500px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
-              }`}
-            >
-              {expandedContent}
-            </div>
+            <>
+              {/* Mobile */}
+              <div className="block md:hidden">
+                {showContent && (
+                  <div className="mt-3 pt-3 border-t border-app-border">
+                    {expandedContent}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop */}
+              <div
+                className={`hidden md:block overflow-hidden transition-all duration-200 ${
+                  showContent ? "max-h-[500px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
+                }`}
+              >
+                {expandedContent}
+              </div>
+            </>
           )}
         </div>
       </button>
@@ -303,9 +320,9 @@ interface CyclePhaseCardProps {
   phaseRanges?: { phase: string; startDate: string; endDate: string | null; days: number }[];
 }
 
-function CyclePhaseCard({ 
-  currentPhase, 
-  daysLogged, 
+function CyclePhaseCard({
+  currentPhase,
+  daysLogged,
   topSymptoms,
   phaseDistribution = {},
   phaseRanges = [],
@@ -313,7 +330,12 @@ function CyclePhaseCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const showContent = isExpanded || isHovered;
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  const showContent = isDesktop
+    ? isExpanded || isHovered
+    : isExpanded;
 
   // Calculate unique phases logged
   const uniquePhases = Object.keys(phaseDistribution).filter(
@@ -414,8 +436,104 @@ function CyclePhaseCard({
           </p>
 
           {/* Expanded Content */}
+          {/* Mobile */}
+          <div className="block md:hidden">
+            {showContent && (
+              <div className="mt-3 pt-3 border-t border-app-border space-y-3">
+                {/* Phase Breakdown - show when multiple phases */}
+                {isMultiPhase && Object.keys(phaseDistribution).length > 0 && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-2">Phase Breakdown</p>
+                    <div className="space-y-1">
+                      {["menstrual", "follicular", "ovulation", "luteal", "not_sure"]
+                        .filter((phase) => (phaseDistribution[phase] || 0) > 0)
+                        .map((phase) => {
+                          const days = phaseDistribution[phase] || 0;
+                          const isMenstrual = phase === "menstrual";
+                          const phaseLabels: Record<string, string> = {
+                            menstrual: "Period",
+                            follicular: "Follicular",
+                            ovulation: "Ovulation",
+                            luteal: "Luteal",
+                            not_sure: "Unsure",
+                          };
+                          
+                          return (
+                            <div 
+                              key={phase} 
+                              className={`flex justify-between items-center p-2 rounded-lg ${
+                                isMenstrual ? "bg-app-red/10" : "bg-app-teal/10"
+                              }`}
+                            >
+                              <span className={`text-sm font-medium ${isMenstrual ? "text-app-red" : "text-app-charcoal"}`}>
+                                {phaseLabels[phase]}
+                              </span>
+                              <span className={`text-sm font-medium ${isMenstrual ? "text-app-red" : "text-app-teal"}`}>
+                                {days}d
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Highest Intensity Symptom */}
+                {highestIntensity && (
+                  <div className={`p-2 rounded-lg ${highestIntensity.isPeriodRelated ? "bg-app-red/10" : "bg-app-teal/10"}`}>
+                    <p className="text-xs text-app-gray">Most Intense</p>
+                    <p className={`text-sm font-medium ${highestIntensity.isPeriodRelated ? "text-app-red" : "text-app-teal"}`}>
+                      {highestIntensity.name}{" "}
+                      <span className="text-app-charcoal">
+                        (avg {highestIntensity.avgIntensity}/10)
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                {/* Symptoms by Intensity */}
+                {topSymptoms.filter(s => s.avgIntensity !== null).length > 0 && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-1">By Intensity</p>
+                    <div className="bg-app-cream rounded-md overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-app-border/50">
+                            <th className="py-1.5 px-2 text-left text-app-gray font-medium">Symptom</th>
+                            <th className="py-1.5 px-2 text-right text-app-gray font-medium">Avg</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {topSymptoms
+                            .filter(s => s.avgIntensity !== null)
+                            .sort((a, b) => (b.avgIntensity ?? 0) - (a.avgIntensity ?? 0))
+                            .slice(0, 3)
+                            .map((symptom) => (
+                              <tr key={symptom.name} className="border-b border-app-border/50 last:border-0">
+                                <td className="py-1.5 px-2 text-app-charcoal truncate max-w-[100px]">
+                                  {symptom.name}
+                                </td>
+                                <td className={`py-1.5 px-2 text-right font-medium ${symptom.isPeriodRelated ? "text-app-red" : "text-app-teal"}`}>
+                                  {symptom.avgIntensity}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* No symptoms */}
+                {topSymptoms.filter(s => s.avgIntensity !== null).length === 0 && (
+                  <p className="text-xs text-app-gray italic">No symptoms with intensity logged</p>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Desktop */}
           <div
-            className={`overflow-hidden transition-all duration-200 ${
+            className={`hidden md:block overflow-hidden transition-all duration-200 ${
               showContent ? "max-h-[500px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
             }`}
           >
@@ -536,7 +654,12 @@ function NewThisWeekCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const showContent = isExpanded || isHovered;
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  const showContent = isDesktop
+    ? isExpanded || isHovered
+    : isExpanded;
 
   // No comparison available
   if (!hasPreviousWeekData || !comparison) {
@@ -620,10 +743,101 @@ function NewThisWeekCard({
                   ? "From last week"
                   : "Patterns stable"}
           </p>
-
           {/* Expanded Content */}
+          {/* Mobile */}
+          <div className="block md:hidden">
+            {showContent && (
+              <div className="mt-3 pt-3 border-t border-app-border space-y-4">
+                {/* New Symptoms Pills */}
+                {hasNewSymptoms && newCount > 1 && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-1">All New Symptoms</p>
+                    <div className="flex flex-wrap gap-1">
+                      {comparison.symptoms.newSymptoms.map((symptom) => (
+                        <span
+                          key={symptom.name}
+                          className={`px-2 py-0.5 text-xs rounded-full ${
+                            symptom.isPeriodRelated 
+                              ? "bg-app-red/10 text-app-red" 
+                              : "bg-app-teal/10 text-app-teal"
+                          }`}
+                        >
+                          {symptom.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Resolved Symptoms */}
+                {hasResolvedSymptoms && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-1">
+                      Resolved
+                      <span className="text-app-gray/60 ml-1">(0 logs this week)</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {comparison.symptoms.resolvedSymptoms.slice(0, 4).map((symptom) => (
+                        <span
+                          key={symptom.name}
+                          className={`px-2 py-0.5 text-xs rounded-full ${
+                            symptom.isPeriodRelated 
+                              ? "bg-app-red/10 text-app-red" 
+                              : "bg-app-teal/10 text-app-teal"
+                          }`}
+                        >
+                          {symptom.name}
+                        </span>
+                      ))}
+                      {comparison.symptoms.resolvedSymptoms.length > 4 && (
+                        <span className="px-2 py-0.5 text-xs text-app-gray">
+                          +{comparison.symptoms.resolvedSymptoms.length - 4}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Last Week's Top 3 Symptoms */}
+                {lastWeekTopSymptoms.length > 0 && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-1">Last Week&apos;s Top 3</p>
+                    <div className="bg-app-cream rounded-md overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-app-border/50">
+                            <th className="py-1.5 px-2 text-left text-app-gray font-medium">Symptom</th>
+                            <th className="py-1.5 px-2 text-right text-app-gray font-medium">Count</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lastWeekTopSymptoms.slice(0, 3).map((symptom) => (
+                            <tr key={symptom.name} className="border-b border-app-border/50 last:border-0">
+                              <td className="py-1.5 px-2 text-app-charcoal truncate max-w-[100px]">
+                                {symptom.name}
+                              </td>
+                              <td className="py-1.5 px-2 text-app-gray text-right font-medium">
+                                {symptom.count}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* No symptoms either week */}
+                {topSymptoms.length === 0 && lastWeekTopSymptoms.length === 0 && (
+                  <p className="text-xs text-app-gray italic">No symptoms logged either week</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop */}
           <div
-            className={`overflow-hidden transition-all duration-200 ${
+            className={`hidden md:block overflow-hidden transition-all duration-200 ${
               showContent ? "max-h-[600px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
             }`}
           >

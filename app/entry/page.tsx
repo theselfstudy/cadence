@@ -114,8 +114,17 @@ function ConsolidatedMedicineLog({
   onChange,
   is24Hour,
   onCustomInputValidation,
+  onTimeValidation,
 }: ConsolidatedMedicineLogProps) {
   const [customDosageInputs, setCustomDosageInputs] = useState<Record<string, string>>({});
+  // Track editing state for time inputs: key is `${medicineId}-hour` or `${medicineId}-minute`
+  const [editingTimeInputs, setEditingTimeInputs] = useState<Record<string, string>>({});
+  // Track time validation errors: key is `${medicineId}-hour` or `${medicineId}-minute`
+  const [timeErrors, setTimeErrors] = useState<Record<string, string | null>>({});
+
+  // Valid hour range based on time format
+  const minHour = 0;
+  const maxHour = is24Hour ? 23 : 12;
 
   // Notify parent of validation state whenever custom inputs change
   useEffect(() => {
@@ -124,6 +133,14 @@ function ConsolidatedMedicineLog({
       onCustomInputValidation(hasError);
     }
   }, [customDosageInputs, onCustomInputValidation]);
+
+  // Notify parent of time validation state
+  useEffect(() => {
+    if (onTimeValidation) {
+      const hasError = Object.values(timeErrors).some((error) => error !== null);
+      onTimeValidation(hasError);
+    }
+  }, [timeErrors, onTimeValidation]);
 
   if (medicines.length === 0) {
     return (
@@ -338,29 +355,95 @@ function ConsolidatedMedicineLog({
                     <label className="block text-xs text-app-gray mb-1">Time taken: *</label>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <input
-                        type="number"
-                        min={is24Hour ? 0 : 1}
-                        max={is24Hour ? 23 : 12}
-                        value={entry.time?.hour ?? 12}
-                        onChange={(e) =>
-                          updateLogEntry(entry.medicineId, {
-                            time: { ...entry.time!, hour: Number(e.target.value) },
-                          })
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={
+                          `${entry.medicineId}-hour` in editingTimeInputs
+                            ? editingTimeInputs[`${entry.medicineId}-hour`]
+                            : (entry.time?.hour ?? 12).toString().padStart(2, "0")
                         }
-                        className="w-14 sm:w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
+                        onChange={(e) => {
+                          const input = e.target.value;
+                          const numericOnly = input.replace(/[^0-9]/g, "").slice(0, 2);
+                          setEditingTimeInputs((prev) => ({ ...prev, [`${entry.medicineId}-hour`]: numericOnly }));
+                          const numValue = numericOnly === "" ? 0 : Number(numericOnly);
+                          updateLogEntry(entry.medicineId, {
+                            time: { ...entry.time!, hour: numValue },
+                          });
+                          // Validate hour
+                          if (numValue < minHour || numValue > maxHour) {
+                            setTimeErrors((prev) => ({
+                              ...prev,
+                              [`${entry.medicineId}-hour`]: is24Hour
+                                ? "Hour must be 0-23"
+                                : "Hour must be 0-12",
+                            }));
+                          } else {
+                            setTimeErrors((prev) => ({ ...prev, [`${entry.medicineId}-hour`]: null }));
+                          }
+                        }}
+                        onFocus={(e) => {
+                          setEditingTimeInputs((prev) => ({ ...prev, [`${entry.medicineId}-hour`]: (entry.time?.hour ?? 12).toString() }));
+                          setTimeout(() => e.target.select(), 0);
+                        }}
+                        onBlur={() => {
+                          setEditingTimeInputs((prev) => {
+                            const { [`${entry.medicineId}-hour`]: _hour, ...rest } = prev;
+                            void _hour;
+                            return rest;
+                          });
+                        }}
+                        className={`w-14 sm:w-16 px-2 py-2 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-sm ${
+                          timeErrors[`${entry.medicineId}-hour`]
+                            ? "border-red-500 focus:ring-red-300"
+                            : "border-app-border focus:ring-app-taupe"
+                        }`}
                       />
                       <span className="text-app-gray font-bold">:</span>
                       <input
-                        type="number"
-                        min={0}
-                        max={59}
-                        value={entry.time?.minute?.toString().padStart(2, "0") ?? "00"}
-                        onChange={(e) =>
-                          updateLogEntry(entry.medicineId, {
-                            time: { ...entry.time!, minute: Number(e.target.value) },
-                          })
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={
+                          `${entry.medicineId}-minute` in editingTimeInputs
+                            ? editingTimeInputs[`${entry.medicineId}-minute`]
+                            : (entry.time?.minute ?? 0).toString().padStart(2, "0")
                         }
-                        className="w-14 sm:w-16 px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-center text-sm"
+                        onChange={(e) => {
+                          const input = e.target.value;
+                          const numericOnly = input.replace(/[^0-9]/g, "").slice(0, 2);
+                          setEditingTimeInputs((prev) => ({ ...prev, [`${entry.medicineId}-minute`]: numericOnly }));
+                          const numValue = numericOnly === "" ? 0 : Number(numericOnly);
+                          updateLogEntry(entry.medicineId, {
+                            time: { ...entry.time!, minute: numValue },
+                          });
+                          // Validate minute
+                          if (numValue < 0 || numValue > 59) {
+                            setTimeErrors((prev) => ({
+                              ...prev,
+                              [`${entry.medicineId}-minute`]: "Minutes must be 0-59",
+                            }));
+                          } else {
+                            setTimeErrors((prev) => ({ ...prev, [`${entry.medicineId}-minute`]: null }));
+                          }
+                        }}
+                        onFocus={(e) => {
+                          setEditingTimeInputs((prev) => ({ ...prev, [`${entry.medicineId}-minute`]: (entry.time?.minute ?? 0).toString() }));
+                          setTimeout(() => e.target.select(), 0);
+                        }}
+                        onBlur={() => {
+                          setEditingTimeInputs((prev) => {
+                            const { [`${entry.medicineId}-minute`]: _minute, ...rest } = prev;
+                            void _minute;
+                            return rest;
+                          });
+                        }}
+                        className={`w-14 sm:w-16 px-2 py-2 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-sm ${
+                          timeErrors[`${entry.medicineId}-minute`]
+                            ? "border-red-500 focus:ring-red-300"
+                            : "border-app-border focus:ring-app-taupe"
+                        }`}
                       />
                       {!is24Hour && (
                         <select
@@ -377,6 +460,17 @@ function ConsolidatedMedicineLog({
                         </select>
                       )}
                     </div>
+                    {/* Time validation error messages */}
+                    {(timeErrors[`${entry.medicineId}-hour`] || timeErrors[`${entry.medicineId}-minute`]) && (
+                      <div className="mt-1 text-center sm:text-left">
+                        {timeErrors[`${entry.medicineId}-hour`] && (
+                          <p className="text-xs text-red-500">{timeErrors[`${entry.medicineId}-hour`]}</p>
+                        )}
+                        {timeErrors[`${entry.medicineId}-minute`] && (
+                          <p className="text-xs text-red-500">{timeErrors[`${entry.medicineId}-minute`]}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -502,6 +596,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [hasCustomDosageInputError, setHasCustomDosageInputError] = useState(false);
   const [hasStartTimeError, setHasStartTimeError] = useState(false);
   const [hasEndTimeError, setHasEndTimeError] = useState(false);
+  const [hasMedicineTimeError, setHasMedicineTimeError] = useState(false);
 
   // One-off custom symptoms (per-entry only, not persisted globally)
   const [oneOffSymptoms, setOneOffSymptoms] = useState<string[]>([]);
@@ -1248,6 +1343,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
             onChange={setLoggedMedicines}
             is24Hour={is24Hour}
             onCustomInputValidation={setHasCustomDosageInputError}
+            onTimeValidation={setHasMedicineTimeError}
           />
         </section>
       )}
@@ -1294,11 +1390,11 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isSubmitting || !!notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError}
+          disabled={isSubmitting || !!notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError || hasMedicineTimeError}
           className={`w-full py-3 sm:py-4 rounded-lg font-semibold text-white transition-all text-sm sm:text-base ${
             isSubmitting
               ? "bg-app-teal/70 cursor-wait"
-              : notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError
+              : notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError || hasMedicineTimeError
               ? "bg-app-gray cursor-not-allowed"
               : "bg-app-teal hover:bg-app-teal"
           }`}
@@ -1403,6 +1499,12 @@ function TimeInputSection({ label, value, onChange, is24Hour, onValidationChange
   const [hourError, setHourError] = useState<string | null>(null);
   const [minuteError, setMinuteError] = useState<string | null>(null);
 
+  // Local editing state - don't pad while user is typing
+  const [isEditingHour, setIsEditingHour] = useState(false);
+  const [isEditingMinute, setIsEditingMinute] = useState(false);
+  const [hourDisplay, setHourDisplay] = useState("");
+  const [minuteDisplay, setMinuteDisplay] = useState("");
+
   // Valid ranges
   const minHour = is24Hour ? 0 : 0;
   const maxHour = is24Hour ? 23 : 12;
@@ -1429,6 +1531,21 @@ function TimeInputSection({ label, value, onChange, is24Hour, onValidationChange
     onChange({ hour, minute, period });
     setHourError(null);
     setMinuteError(null);
+    setIsEditingHour(false);
+    setIsEditingMinute(false);
+  };
+
+  // Handle hour focus - start editing mode
+  const handleHourFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsEditingHour(true);
+    setHourDisplay(value.hour.toString());
+    // Select all after a brief delay to ensure the display value is set
+    setTimeout(() => e.target.select(), 0);
+  };
+
+  // Handle hour blur - exit editing mode
+  const handleHourBlur = () => {
+    setIsEditingHour(false);
   };
 
   // Handle hour input - only allow numeric, 1-2 digits
@@ -1436,6 +1553,8 @@ function TimeInputSection({ label, value, onChange, is24Hour, onValidationChange
     const input = e.target.value;
     // Only allow numeric characters, limit to 2 digits
     const numericOnly = input.replace(/[^0-9]/g, "").slice(0, 2);
+    setHourDisplay(numericOnly);
+
     const numValue = numericOnly === "" ? 0 : Number(numericOnly);
     onChange({ ...value, hour: numValue });
 
@@ -1451,12 +1570,26 @@ function TimeInputSection({ label, value, onChange, is24Hour, onValidationChange
     }
   };
 
+  // Handle minute focus - start editing mode
+  const handleMinuteFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsEditingMinute(true);
+    setMinuteDisplay(value.minute.toString());
+    // Select all after a brief delay to ensure the display value is set
+    setTimeout(() => e.target.select(), 0);
+  };
+
+  // Handle minute blur - exit editing mode
+  const handleMinuteBlur = () => {
+    setIsEditingMinute(false);
+  };
 
   // Handle minute input - only allow numeric, 1-2 digits
   const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value;
     // Only allow numeric characters, limit to 2 digits
     const numericOnly = input.replace(/[^0-9]/g, "").slice(0, 2);
+    setMinuteDisplay(numericOnly);
+
     const numValue = numericOnly === "" ? 0 : Number(numericOnly);
     onChange({ ...value, minute: numValue });
 
@@ -1484,12 +1617,14 @@ function TimeInputSection({ label, value, onChange, is24Hour, onValidationChange
       <div className="flex items-center justify-center gap-2">
         <div className="w-16 sm:w-20">
           <input
-            type="number"
-            min={minHour}
-            max={maxHour}
-            value={value.hour}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={isEditingHour ? hourDisplay : value.hour.toString().padStart(2, "0")}
             onChange={handleHourChange}
-            className={`w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-base sm:text-lg font-medium text-app-charcoal [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-auto [&::-webkit-inner-spin-button]:appearance-auto ${
+            onFocus={handleHourFocus}
+            onBlur={handleHourBlur}
+            className={`w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-base sm:text-lg font-medium text-app-charcoal ${
               hourError
                 ? "border-red-500 focus:ring-red-300"
                 : "border-app-border focus:ring-app-green"
@@ -1500,12 +1635,14 @@ function TimeInputSection({ label, value, onChange, is24Hour, onValidationChange
         <span className="text-xl sm:text-2xl text-app-gray font-bold pb-5">:</span>
         <div className="w-16 sm:w-20">
           <input
-            type="number"
-            min={0}
-            max={59}
-            value={value.minute}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={isEditingMinute ? minuteDisplay : value.minute.toString().padStart(2, "0")}
             onChange={handleMinuteChange}
-            className={`w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-base sm:text-lg font-medium text-app-charcoal [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-auto [&::-webkit-inner-spin-button]:appearance-auto ${
+            onFocus={handleMinuteFocus}
+            onBlur={handleMinuteBlur}
+            className={`w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-base sm:text-lg font-medium text-app-charcoal ${
               minuteError
                 ? "border-red-500 focus:ring-red-300"
                 : "border-app-border focus:ring-app-green"
@@ -1548,6 +1685,7 @@ interface ConsolidatedMedicineLogProps {
   onChange: (entries: MedicineLogEntry[]) => void;
   is24Hour: boolean;
   onCustomInputValidation?: (hasError: boolean) => void;
+  onTimeValidation?: (hasError: boolean) => void;
 }
 
 interface ProductUsageEntrySectionProps {

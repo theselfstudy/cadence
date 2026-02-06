@@ -39,3 +39,5 @@ next-env.d.ts
 
 .testing
 CLAUDE.md
+
+/.claude/

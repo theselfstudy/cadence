@@ -182,7 +182,7 @@ export function CollapsibleSection({
           
           {/* Badge - subtle indicator of content count */}
           {badge && (
-            <span className="px-2 py-0.5 text-xs font-medium text-app-gray bg-app-cream rounded-full">
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-medium text-app-gray bg-app-cream rounded-full whitespace-nowrap">
               {badge}
             </span>
           )}

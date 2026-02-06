@@ -1,4 +1,3 @@
-// /components/cycleinsights/sections/CoOccurrenceSection.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -36,8 +35,8 @@ export function CoOccurrenceSection({ entries, cycles }: CoOccurrenceSectionProp
         <span className="text-2xl block mb-2">🔗</span>
         <p className="text-sm text-app-charcoal font-medium mb-1">More data needed</p>
         <p className="text-xs text-app-gray">
-          Log {2 - completeCycles.length} more complete cycle
-          {2 - completeCycles.length !== 1 ? "s" : ""} to see co-occurring events
+          Keep logging! Co-occurring events will appear after {2 - completeCycles.length}+ complete cycle{2 - completeCycles.length !== 1 ? "s" : ""}
+          {/* {2 - completeCycles.length !== 1 ? "s" : ""} to see co-occurring events */}
         </p>
 
         <div className="flex items-center justify-center gap-1 mt-3">
@@ -130,8 +129,11 @@ interface CoOccurrenceCardProps {
 function CoOccurrenceCard({ pair }: CoOccurrenceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-
-  const showContent = isExpanded || isHovered;
+  
+  // Desktop: hover + click
+  // Mobile: only click
+  const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
+  const showContent = isDesktop ? isExpanded || isHovered : isExpanded;
 
   const getTypeIcon = (type: "symptom" | "medicine") => {
     return type === "symptom" ? "🏷️" : "💊";
@@ -222,34 +224,30 @@ function CoOccurrenceCard({ pair }: CoOccurrenceCardProps) {
           </div>
 
           {/* Expanded Content */}
-          <div
-            className={`overflow-hidden transition-all duration-200 ${
-              showContent ? "max-h-[300px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
-            }`}
-          >
-            {pair.metadata && (
-              <div className="space-y-2">
-                {/* First / Last co-occurrence */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-app-gray">First together:</span>
-                    <p className="font-medium text-app-charcoal">
-                      {formatDate(pair.metadata.firstCoOccurrenceDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-app-gray">Last together:</span>
-                    <p className="font-medium text-app-charcoal">
-                      {formatDate(pair.metadata.lastCoOccurrenceDate)}
-                    </p>
-                  </div>
+          {showContent && pair.metadata && (
+            <div
+              className="mt-3 pt-3 border-t border-app-border/50 space-y-2 bg-app-cream/5 -mx-4 -mb-4 px-4 pb-4 rounded-b-lg md:mx-0 md:mb-0 md:px-0 md:pb-0 md:bg-transparent"
+            >
+              {/* First / Last co-occurrence */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-app-gray">First together:</span>
+                  <p className="font-medium text-app-charcoal">
+                    {formatDate(pair.metadata.firstCoOccurrenceDate)}
+                  </p>
                 </div>
-
-                {/* Description */}
-                <p className="text-xs text-app-gray italic">{pair.description}</p>
+                <div>
+                  <span className="text-app-gray">Last together:</span>
+                  <p className="font-medium text-app-charcoal">
+                    {formatDate(pair.metadata.lastCoOccurrenceDate)}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Description */}
+              <p className="text-xs text-app-gray italic">{pair.description}</p>
+            </div>
+          )}
         </div>
       </button>
     </div>
