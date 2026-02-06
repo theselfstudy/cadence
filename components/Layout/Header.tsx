@@ -1,6 +1,7 @@
 "use client";
 
 import { SafeLink } from "@/components/ui/SafeLink";
+import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useSettings } from "@/stores/useSettings";
@@ -43,9 +44,7 @@ export function Header() {
 
               {/* Logo / Brand */}
               <SafeLink href="/dashboard" className="flex items-center gap-2 group">
-                <div className="w-8 h-8 rounded-full bg-app-green flex items-center justify-center group-hover:bg-app-green-dark transition-colors">
-                  <span className="text-white text-lg">✿</span>
-                </div>
+                <AnimatedLogo size="sm" hoverEffect />
                 <span className="text-xl font-semibold text-app-charcoal">
                   {APP_CONFIG.name}
                 </span>
@@ -164,9 +163,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Sidebar Header */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-app-border flex-shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-app-green flex items-center justify-center">
-              <span className="text-white text-lg">✿</span>
-            </div>
+            <AnimatedLogo size="sm" hoverEffect />
             <span className="text-xl font-semibold text-app-charcoal">
               {APP_CONFIG.name}
             </span>

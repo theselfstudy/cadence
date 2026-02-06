@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/stores/useSettings";
+import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 
 /**
  * Tutorial steps configuration
@@ -287,27 +288,11 @@ interface TutorialIllustrationProps {
 function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustrationProps) {
   const illustrations: Record<string, React.ReactNode> = {
     // ==========================================
-    // WELCOME - Clean animated gradient orbs
+    // WELCOME - Animated logo with color flow
     // ==========================================
     welcome: (
-    <div className="text-center">
-      <div className="text-8xl mb-4">✿</div>
-      <div className="flex items-center justify-center gap-2">
-        <span 
-          className="w-3 h-3 rounded-full bg-app-green"
-          style={{ animation: "pulse 1.5s ease-in-out infinite" }}
-        />
-        <span 
-          className="w-3 h-3 rounded-full bg-app-teal"
-          style={{ animation: "pulse 1.5s ease-in-out 0.2s infinite" }}
-        />
-        <span 
-          className="w-3 h-3 rounded-full bg-app-red"
-          style={{ animation: "pulse 1.5s ease-in-out 0.4s infinite" }}
-        />
-      </div>
-    </div>
-  ),
+      <AnimatedLogo size="lg" />
+    ),
 
     // ==========================================
     // LOG SELECTION - Dynamic modal preview
@@ -857,39 +842,31 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
     // ==========================================
     done: (
       <div className="relative w-48 h-48 flex items-center justify-center">
-        {/* Celebration burst */}
-        <div 
-          className="absolute inset-0 rounded-full bg-gradient-to-br from-app-green/20 to-app-teal/20"
-          style={{ animation: "ping 2s ease-out infinite" }}
-        />
-        
-        {/* Center checkmark */}
-        <div className="relative z-10 w-24 h-24 bg-app-green rounded-full flex items-center justify-center shadow-lg">
-          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
+        {/* Center logo */}
+        <div className="relative z-10">
+          <AnimatedLogo size="lg" />
         </div>
 
         {/* Floating icons */}
-        <div 
+        <div
           className="absolute top-2 right-8 text-2xl"
           style={{ animation: "bounce 1.5s ease-in-out infinite" }}
         >
           📊
         </div>
-        <div 
+        <div
           className="absolute bottom-4 left-4 text-2xl"
           style={{ animation: "bounce 1.2s ease-in-out 0.7s infinite" }}
         >
           🌸
         </div>
-        <div 
+        <div
           className="absolute top-8 left-2 text-xl"
           style={{ animation: "bounce 1.5s ease-in-out 0.6s infinite" }}
         >
           📝
         </div>
-        <div 
+        <div
           className="absolute bottom-4 right-2 text-xl"
           style={{ animation: "bounce 1.3s ease-in-out 0.9s infinite" }}
         >

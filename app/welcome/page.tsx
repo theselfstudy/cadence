@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/stores/useSettings";
 import { ModeSelectionModal } from "@/components/welcome/ModeSelectionModal";
+import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import type { OnboardingMode } from "@/types";
 
 // =============================================================================
@@ -146,8 +147,8 @@ export default function WelcomePage() {
   if (!isClient || setupComplete || tutorialComplete) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-pulse space-y-4">
-          <div className="w-16 h-16 rounded-full bg-app-green/20 mx-auto" />
+        <div className="space-y-4">
+          <AnimatedLogo size="md" />
           <div className="h-4 w-32 bg-app-border rounded mx-auto" />
         </div>
       </div>
@@ -166,9 +167,7 @@ export default function WelcomePage() {
       <div className="min-h-[70vh] flex flex-col items-center text-center px-4 py-8">
         {/* Logo */}
         <div className="mb-8">
-          <div className="w-24 h-24 rounded-full bg-app-green flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white text-5xl">✿</span>
-          </div>
+          <AnimatedLogo size="lg" className="mb-4" />
           <h1 className="text-3xl font-bold text-app-charcoal">
             Welcome to Cadence
           </h1>

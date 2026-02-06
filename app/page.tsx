@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/stores/useSettings";
+import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 
 /**
  * Root page - handles routing based on user state
@@ -35,10 +36,8 @@ export default function RootPage() {
   // Show loading while determining redirect
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="animate-pulse text-center">
-        <div className="w-16 h-16 rounded-full bg-app-green/20 mx-auto mb-4 flex items-center justify-center">
-          <span className="text-3xl">✿</span>
-        </div>
+      <div className="text-center">
+        <AnimatedLogo size="md" className="mb-4" />
         <p className="text-app-gray">Loading Cadence...</p>
       </div>
     </div>
