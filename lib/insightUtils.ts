@@ -1140,7 +1140,8 @@ export function calculateEmergingPatterns(
 
     // Recently appeared (first in last 2 cycles)
     if (data.firstCycleIndex >= totalCycles - 2 && cyclesPresent <= 2) {
-      const monthLabel = getMonthLabel(completeCycles[data.firstCycleIndex].startDate);
+      const mostRecentCycleIndex = Math.max(...data.cyclesPresent);
+      const monthLabel = getMonthLabel(completeCycles[mostRecentCycleIndex].startDate);
       patterns.push({
         id: `new-symptom-${symptom}`,
         type: 'new',
@@ -1149,7 +1150,7 @@ export function calculateEmergingPatterns(
         cyclesPresent,
         totalCycles,
         firstAppeared: { cycleIndex: data.firstCycleIndex + 1, monthLabel },
-        description: `first logged in your ${ordinal(data.firstCycleIndex + 1)} cycle (${monthLabel})`,
+        description: `last logged in your ${ordinal(mostRecentCycleIndex + 1)} cycle (${monthLabel})`,
         isPeriodRelated: data.isPeriodRelated,
         metadata: buildSymptomMetadata(),
       });
@@ -1167,7 +1168,10 @@ export function calculateEmergingPatterns(
       if (trend) {
         const startValue = Math.round(avgIntensities[0] * 10) / 10;
         const endValue = Math.round(avgIntensities[avgIntensities.length - 1] * 10) / 10;
-        
+
+        // Use actual start/end comparison for display consistency
+        const displayDirection = endValue > startValue ? 'up' : 'down';
+
         const cyclesAppearedIn = cycleIndices.map((idx) => ({
           cycleIndex: idx + 1,
           monthLabel: getMonthLabel(completeCycles[idx].startDate),
@@ -1182,13 +1186,13 @@ export function calculateEmergingPatterns(
 
         patterns.push({
           id: `trend-symptom-${symptom}`,
-          type: trend.direction === 'up' ? 'increasing' : 'decreasing',
+          type: displayDirection === 'up' ? 'increasing' : 'decreasing',
           name: symptom,
           itemType: 'symptom',
           cyclesPresent,
           totalCycles,
-          trend: { direction: trend.direction, startValue, endValue },
-          description: `intensity has been ${trend.direction === 'up' ? 'increasing' : 'decreasing'} over your last ${cycleIndices.length} cycles`,
+          trend: { direction: displayDirection, startValue, endValue },
+          description: `intensity has been ${displayDirection === 'up' ? 'increasing' : 'decreasing'} over your last ${cycleIndices.length} cycles`,
           isPeriodRelated: data.isPeriodRelated,
           metadata: {
             firstLoggedDate: completeCycles[firstCycleIdx].startDate,
@@ -1243,7 +1247,8 @@ export function calculateEmergingPatterns(
 
     // Recently appeared (first in last 2 cycles)
     if (data.firstCycleIndex >= totalCycles - 2 && cyclesPresent <= 2) {
-      const monthLabel = getMonthLabel(completeCycles[data.firstCycleIndex].startDate);
+      const mostRecentCycleIndex = Math.max(...data.cyclesPresent);
+      const monthLabel = getMonthLabel(completeCycles[mostRecentCycleIndex].startDate);
       patterns.push({
         id: `new-medicine-${medicine}`,
         type: 'new',
@@ -1252,7 +1257,7 @@ export function calculateEmergingPatterns(
         cyclesPresent,
         totalCycles,
         firstAppeared: { cycleIndex: data.firstCycleIndex + 1, monthLabel },
-        description: `first logged in your ${ordinal(data.firstCycleIndex + 1)} cycle (${monthLabel})`,
+        description: `last logged in your ${ordinal(mostRecentCycleIndex + 1)} cycle (${monthLabel})`,
         metadata: buildMedicineMetadata(),
       });
     }
@@ -1301,7 +1306,8 @@ export function calculateEmergingPatterns(
 
     // Recently appeared (first in last 2 cycles)
     if (data.firstCycleIndex >= totalCycles - 2 && cyclesPresent <= 2) {
-      const monthLabel = getMonthLabel(completeCycles[data.firstCycleIndex].startDate);
+      const mostRecentCycleIndex = Math.max(...data.cyclesPresent);
+      const monthLabel = getMonthLabel(completeCycles[mostRecentCycleIndex].startDate);
       patterns.push({
         id: `new-stool-${stoolType}`,
         type: 'new',
@@ -1310,7 +1316,7 @@ export function calculateEmergingPatterns(
         cyclesPresent,
         totalCycles,
         firstAppeared: { cycleIndex: data.firstCycleIndex + 1, monthLabel },
-        description: `first logged in your ${ordinal(data.firstCycleIndex + 1)} cycle (${monthLabel})`,
+        description: `last logged in your ${ordinal(mostRecentCycleIndex + 1)} cycle (${monthLabel})`,
         metadata: buildStoolMetadata(),
       });
     }

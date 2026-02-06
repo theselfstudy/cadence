@@ -283,10 +283,10 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Cycle Insights",
     href: "/dashboard/cycleinsights",
   },
-  {
-    label: "Settings Overview",
-    href: "/dashboard/settings-overview",
-  },
+  // {
+  //   label: "At a Glance",
+  //   href: "/dashboard/settings-overview",
+  // },
 ] as const;
 
 // Settings item (shown at bottom of sidebar)

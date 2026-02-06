@@ -5,6 +5,44 @@
 import type { StoredEntry, LogSection } from "@/types";
 import { BRISTOL_TYPES } from "@/lib/constants";
 
+// Static logo SVG string
+const LOGO_SVG_STRING = `<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <path d="M78,22 A40,40 0 1 0 78,78" fill="none" stroke="#104B55" stroke-width="3" stroke-linecap="round"/>
+  <path d="M30,30 A28,28 0 1 1 30,70" fill="none" stroke="#3F592E" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  <path d="M61,39 A16,16 0 1 0 61,61" fill="none" stroke="#791D1E" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="50" cy="50" r="1.2" fill="#C4B7A6"/>
+</svg>`;
+
+// Convert SVG to PNG data URL using canvas
+async function svgToPngDataUrl(svgString: string, size: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Could not get canvas context"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/png"));
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load SVG"));
+    };
+
+    img.src = url;
+  });
+}
+
 // ============================================
 // Helper Functions
 // ============================================
@@ -676,12 +714,27 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
   // HEADER
   // ============================================
 
+  // Add logo and title
+  const logoSize = 10;
+  const logoPxSize = 420; // Render at higher res for quality
+  let titleX = margin;
+
+  try {
+    // Convert SVG to PNG and add to PDF
+    const logoPng = await svgToPngDataUrl(LOGO_SVG_STRING, logoPxSize);
+    doc.addImage(logoPng, "PNG", margin, yPos - 6, logoSize, logoSize);
+    titleX = margin + logoSize + 4;
+  } catch {
+    // Logo conversion failed, continue without logo
+  }
+
+  // Title
   doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
   const title = useAVSMode ? "Health Summary Report" : "Health Tracking Report";
-  doc.text(title, margin, yPos);
-  yPos += 10;
+  doc.text(title, titleX, yPos + (titleX > margin ? 4 : 0));
+  yPos += titleX > margin ? 14 : 10;
 
   // Generation info
   doc.setFontSize(9);

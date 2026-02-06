@@ -116,7 +116,7 @@ export default function SettingsOverviewPage() {
             </svg>
           </Link>
           <h1 className="text-2xl font-bold text-app-charcoal">
-            Settings Overview
+            At a Glance
           </h1>
         </div>
         <p className="text-app-gray">

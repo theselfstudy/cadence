@@ -124,7 +124,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
   ];
 
   const settingsItems = [
-    { href: "/dashboard/settings-overview", label: "Settings Overview" },
+    // { href: "/dashboard/settings-overview", label: "At a Glance" },
     { href: "/settings", label: "Settings" },
   ];
 
@@ -297,7 +297,7 @@ function NavIcon({ label }: { label: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 13l2 2 4-4" />
         </svg>
       );
-    case "Settings Overview":
+    case "At a Glance":
       return (
         <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
