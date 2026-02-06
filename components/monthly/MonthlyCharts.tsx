@@ -506,9 +506,9 @@ function SymptomFrequencyChart({
         {data.length} symptom{data.length !== 1 ? "s" : ""} tracked this month
       </p>
 
-      {/* One-Off Symptoms Section */}
+      {/* One-Off Symptoms Section - hidden on mobile (shown in drill-down instead) */}
       {oneOffData.length > 0 && (
-        <div className="mt-6 pt-4 border-t border-app-border">
+        <div className="hidden md:block mt-6 pt-4 border-t border-app-border">
           <h4 className="text-sm font-medium text-app-charcoal mb-2 flex items-center gap-1.5">
             <span>❖</span>
             One-Off Symptoms
@@ -546,6 +546,8 @@ interface MobileDayDrillDownProps {
     name: string;
     avgIntensity: number | null;
   }[];
+  oneOffSymptoms: string[];
+  monthLabel: string;
   onClose: () => void;
 }
 
@@ -553,9 +555,16 @@ function MobileDayDrillDown({
   day,
   phase,
   symptoms,
+  oneOffSymptoms,
+  monthLabel,
   onClose,
 }: MobileDayDrillDownProps) {
   const isMenstrual = phase === "menstrual";
+
+  // Extract month name from monthLabel (e.g., "January 2026" -> "January")
+  const monthName = monthLabel.split(" ")[0] || "Month";
+
+  const hasAnySymptoms = symptoms.length > 0 || oneOffSymptoms.length > 0;
 
   return (
     <div
@@ -567,7 +576,7 @@ function MobileDayDrillDown({
     >
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-medium text-app-charcoal">
-          Day {day}
+          Date: {monthName} {day}
         </p>
         <button
           onClick={onClose}
@@ -589,26 +598,53 @@ function MobileDayDrillDown({
         </button>
       </div>
 
-      {symptoms.length === 0 ? (
+      {!hasAnySymptoms ? (
         <p className="text-xs text-app-gray">No symptoms logged</p>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {symptoms.map((s, i) => (
-            <span
-              key={i}
-              className={`px-2 py-0.5 text-xs rounded ${
-                isMenstrual
-                  ? "bg-app-red/10 text-app-red"
-                  : "bg-app-teal/10 text-app-teal"
-              }`}
-            >
-              {s.name}
-              {s.avgIntensity !== null
-                ? ` (${s.avgIntensity.toFixed(1)})`
-                : ""}
-            </span>
-          ))}
-        </div>
+        <>
+          {/* Regular symptoms */}
+          {symptoms.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {symptoms.map((s, i) => (
+                <span
+                  key={i}
+                  className={`px-2 py-0.5 text-xs rounded ${
+                    isMenstrual
+                      ? "bg-app-red/10 text-app-red"
+                      : "bg-app-teal/10 text-app-teal"
+                  }`}
+                >
+                  {s.name}
+                  {s.avgIntensity !== null
+                    ? ` (${s.avgIntensity.toFixed(1)})`
+                    : ""}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* One-off symptoms section */}
+          {oneOffSymptoms.length > 0 && (
+            <div className={`${symptoms.length > 0 ? "mt-3 pt-2 border-t" : ""} ${
+              isMenstrual ? "border-app-red/20" : "border-app-teal/20"
+            }`}>
+              <p className="text-xs text-app-gray mb-1.5 flex items-center gap-1">
+                <span>❖</span>
+                One-Off Symptoms
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {oneOffSymptoms.map((symptom, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-0.5 text-xs rounded bg-app-plumb/10 text-app-plumb"
+                  >
+                    {symptom}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -618,7 +654,7 @@ function MobileDayDrillDown({
 // ============================================
 
 interface MobileMonthStripProps {
-  days: MonthlySymptomHeatMapData["days"];
+  allSymptomData: MonthlySymptomHeatMapData[];
   monthLabel: string; // e.g. "January 2026"
   selectedDays?: number[];
   onDayDrillDown?: (day: number) => void;
@@ -627,7 +663,7 @@ interface MobileMonthStripProps {
 }
 
 function MobileMonthStrip({
-  days,
+  allSymptomData,
   monthLabel,
   selectedDays = [],
   onDayDrillDown,
@@ -650,6 +686,25 @@ function MobileMonthStrip({
     }
     return map;
   }, [entries]);
+
+  // Aggregate: check if ANY symptom was logged for each day
+  const aggregatedDays = useMemo(() => {
+    if (allSymptomData.length === 0) return [];
+
+    const baseDays = allSymptomData[0].days;
+    return baseDays.map((baseDay) => {
+      // Check if ANY symptom was logged on this day
+      const anyLogged = allSymptomData.some((symptomRow) => {
+        const dayData = symptomRow.days.find((d) => d.day === baseDay.day);
+        return dayData?.logged === true;
+      });
+
+      return {
+        day: baseDay.day,
+        logged: anyLogged,
+      };
+    });
+  }, [allSymptomData]);
 
   useEffect(() => {
     if (hasAutoScrolled.current) return;
@@ -684,27 +739,27 @@ function MobileMonthStrip({
         className="overflow-x-auto overscroll-x-contain touch-pan-x"
       >
         <div className="flex gap-2 px-3 pt-5 pb-3 min-w-max">
-          {days.map((day) => {
+          {aggregatedDays.map((day) => {
             const isMenstrual = dayPhaseMap[day.day] === "menstrual";
-            const intensityStyle = isMenstrual
-              ? getMenstrualIntensityStyle(day.intensity, day.logged)
-              : getIntensityStyle(day.intensity, day.logged);
+            // Use simple logged check - if any symptom logged, show colored background
+            const bgStyle = day.logged
+              ? isMenstrual
+                ? "bg-app-red/20"
+                : "bg-app-teal/50"
+              : "bg-app-border";
 
             const isSelected = selectedDays.includes(day.day);
             const isDrillDown = mobileDrillDownDay === day.day;
-            const showGhostLabel = day.day % 5 === 0;
 
             return (
               <div
                 key={day.day}
                 className="relative flex items-center justify-center"
               >
-                {/* Ghost label (overlay, does NOT affect layout) */}
-                {showGhostLabel && (
-                  <span className="absolute -top-5 text-[0.6rem] text-app-gray/50 select-none">
-                    {day.day}
-                  </span>
-                )}
+                {/* Ghost label (overlay, does NOT affect layout) - show every day */}
+                <span className="absolute -top-5 text-[0.6rem] text-app-gray/50 select-none">
+                  {day.day}
+                </span>
 
                 <button
                   type="button"
@@ -713,8 +768,7 @@ function MobileMonthStrip({
                   className={`
                     w-9 h-9 rounded-md
                     flex items-center justify-center
-                    text-[0.65rem] font-semibold
-                    ${intensityStyle}
+                    ${bgStyle}
                     ${isMenstrual ? "border border-app-red" : ""}
                     ${isSelected ? "ring-1 ring-app-teal" : ""}
                     ${isDrillDown ? "ring-2 shadow-md scale-95" : ""}
@@ -723,9 +777,22 @@ function MobileMonthStrip({
                     transition-colors active:scale-95
                   `}
                 >
-                  <span className={isMenstrual ? "text-app-red" : "text-app-cream"}>
-                    {day.intensity}
-                  </span>
+                  {/* Show checkmark if any symptom logged */}
+                  {day.logged && (
+                    <svg
+                      className={`w-4 h-4 ${isMenstrual ? "text-app-red" : "text-app-cream"}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
                 </button>
               </div>
             );
@@ -809,6 +876,20 @@ function MonthlySymptomHeatMap({
     return undefined;
   }, [mobileSelectedDay, entries]);
 
+  // Get one-off symptoms for the mobile-selected day from entries
+  const mobileSelectedOneOffSymptoms = useMemo(() => {
+    if (mobileSelectedDay === null || entries.length === 0) return [];
+
+    const oneOffs: string[] = [];
+    for (const entry of entries) {
+      const entryDate = new Date(entry.date + "T12:00:00");
+      if (entryDate.getDate() === mobileSelectedDay && entry.oneOffSymptoms) {
+        oneOffs.push(...entry.oneOffSymptoms);
+      }
+    }
+    return oneOffs;
+  }, [mobileSelectedDay, entries]);
+
   if (data.length === 0) {
     return (
       <p className="text-xs text-app-gray text-center py-4">
@@ -824,7 +905,7 @@ function MonthlySymptomHeatMap({
     <div className="border border-app-border rounded-lg overflow-visible">
       {/* ================= MOBILE ================= */}
       <MobileMonthStrip
-        days={data[0].days}
+        allSymptomData={data}
         monthLabel={monthLabel}
         selectedDays={selectedDays}
         onDayDrillDown={handleMobileDayTap}
@@ -839,6 +920,8 @@ function MonthlySymptomHeatMap({
             day={mobileSelectedDay}
             phase={mobileSelectedPhase}
             symptoms={mobileSelectedSymptoms}
+            oneOffSymptoms={mobileSelectedOneOffSymptoms}
+            monthLabel={monthLabel}
             onClose={() => setMobileSelectedDay(null)}
           />
         </div>
@@ -932,8 +1015,32 @@ function MonthlySymptomHeatMap({
           </div>
         </div>
       </div>
-      {/* Legend */}
-      <div className="mt-3 mb-2 flex flex-wrap items-center justify-center gap-3 text-xs text-app-gray">
+      {/* Mobile Legend */}
+      <div className="md:hidden mt-3 mb-2 flex flex-wrap items-center justify-center gap-3 text-xs text-app-gray">
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-border" />
+          <span>No logs</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-teal/50 flex items-center justify-center">
+            <svg className="w-2.5 h-2.5 text-app-cream" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <span>Logged</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded bg-app-red/20 border border-app-red flex items-center justify-center">
+            <svg className="w-2.5 h-2.5 text-app-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <span>Logged (Period)</span>
+        </div>
+      </div>
+
+      {/* Desktop Legend */}
+      <div className="hidden md:flex mt-3 mb-2 flex-wrap items-center justify-center gap-3 text-xs text-app-gray">
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-app-border" />
           <span>No logs</span>
