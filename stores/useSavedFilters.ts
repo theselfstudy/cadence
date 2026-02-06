@@ -195,19 +195,23 @@ export const useSavedFilters = create<SavedFiltersStore>()(
         accessToken: string
       ): Promise<boolean> => {
         set({ isSyncing: true });
+        console.log("loadFromSheet: Starting filters restore for spreadsheet:", spreadsheetId);
 
         try {
           const filtersJson = await getSavedFiltersFromSheet(spreadsheetId, accessToken);
 
           if (!filtersJson) {
+            // No filters saved yet - this is normal, not an error
+            console.log("loadFromSheet: No saved filters found (this is OK if user hasn't saved any filters yet)");
             set({ isSyncing: false });
             return false;
           }
 
           const loadedFilters = JSON.parse(filtersJson) as SavedFilter[];
-          
+
           // Validate the loaded data
           if (!Array.isArray(loadedFilters)) {
+            console.error("loadFromSheet: Invalid filters data - not an array");
             set({ isSyncing: false });
             return false;
           }
@@ -216,6 +220,8 @@ export const useSavedFilters = create<SavedFiltersStore>()(
           const validFilters = loadedFilters
             .filter((f) => f.id && f.name && f.filters)
             .slice(0, MAX_SAVED_FILTERS);
+
+          console.log("loadFromSheet: Restored", validFilters.length, "saved filters");
 
           set({
             savedFilters: validFilters,

@@ -169,6 +169,7 @@ export async function getSettingsFromSheet(
   accessToken: string
 ): Promise<string | null> {
   try {
+    console.log("getSettingsFromSheet: Fetching from range:", SETTINGS_RANGE);
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SETTINGS_RANGE)}`,
       {
@@ -178,10 +179,14 @@ export async function getSettingsFromSheet(
       }
     );
     if (!response.ok) {
-      throw new Error("Failed to fetch settings from sheet.");
+      const errorBody = await response.json().catch(() => ({}));
+      console.error("getSettingsFromSheet: API error", response.status, errorBody);
+      throw new Error(`Failed to fetch settings from sheet: ${response.status}`);
     }
     const data = await response.json();
-    return data.values?.[0]?.[0] || null;
+    const settingsValue = data.values?.[0]?.[0] || null;
+    console.log("getSettingsFromSheet: Retrieved data, has value:", !!settingsValue, "length:", settingsValue?.length || 0);
+    return settingsValue;
   } catch (error) {
     console.error("Error getting settings from sheet:", error);
     return null;
@@ -1881,6 +1886,7 @@ export async function getSavedFiltersFromSheet(
   accessToken: string
 ): Promise<string | null> {
   try {
+    console.log("getSavedFiltersFromSheet: Fetching from range:", SAVED_FILTERS_RANGE);
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(SAVED_FILTERS_RANGE)}`,
       {
@@ -1889,14 +1895,17 @@ export async function getSavedFiltersFromSheet(
         },
       }
     );
-    
+
     if (!response.ok) {
-      // Sheet might not exist yet - that's okay
+      // Sheet might not exist yet - that's okay (user may not have saved any filters)
+      console.log("getSavedFiltersFromSheet: Sheet not found or empty (status:", response.status, ") - this is normal if no filters were saved");
       return null;
     }
-    
+
     const data = await response.json();
-    return data.values?.[0]?.[0] || null;
+    const filtersValue = data.values?.[0]?.[0] || null;
+    console.log("getSavedFiltersFromSheet: Retrieved data, has value:", !!filtersValue, "length:", filtersValue?.length || 0);
+    return filtersValue;
   } catch (error) {
     console.error("Error getting saved filters from sheet:", error);
     return null;

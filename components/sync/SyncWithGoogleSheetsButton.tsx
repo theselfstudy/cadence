@@ -112,16 +112,22 @@ export function SyncWithGoogleSheetsButton({
     const token = getOAuthToken();
     const pendingSync = getMobileSyncPending();
 
+    console.log("SyncButton useEffect: Checking for pending OAuth. Has token:", !!token, "Has pendingSync:", !!pendingSync);
+
     if (!token || !pendingSync) return;
+
+    console.log("SyncButton useEffect: Found pending sync, mode:", pendingSync.mode);
 
     // We just returned from OAuth redirect on mobile
     if (pendingSync.mode === "restore") {
       // Restore mode: check for pending sheet URL
       const pendingSheetUrl = localStorage.getItem('restore_pending_sheet_url');
+      console.log("SyncButton useEffect: Restore mode, pendingSheetUrl:", pendingSheetUrl ? "found" : "not found");
       if (pendingSheetUrl) {
-        performRestore(pendingSheetUrl, token);
+        // Clear pending state first, then perform restore
         localStorage.removeItem('restore_pending_sheet_url');
         clearMobileSyncPending();
+        performRestore(pendingSheetUrl, token);
       }
     } else if (pendingSync.mode === "sync" && mode === "sync") {
       // Sync mode: trigger the sync automatically
@@ -148,12 +154,22 @@ export function SyncWithGoogleSheetsButton({
     }
 
     console.log("Restoring settings from sheet...");
-    const success = await loadSettingsFromSheet(spreadsheetId, token);
+    const settingsSuccess = await loadSettingsFromSheet(spreadsheetId, token);
 
-    if (success) {
-      // Also restore saved filters and entries
-      await loadSavedFiltersFromSheet(spreadsheetId, token);
-      await importEntriesFromSheet(token);
+    if (settingsSuccess) {
+      console.log("Settings restored successfully, loading filters and entries...");
+
+      // Load saved filters (may return false if no filters exist, which is OK)
+      const filtersResult = await loadSavedFiltersFromSheet(spreadsheetId, token);
+      console.log("Filters restore result:", filtersResult);
+
+      // Import entries from the sheet
+      const entriesResult = await importEntriesFromSheet(token);
+      console.log("Entries import result:", entriesResult);
+
+      // Small delay to ensure localStorage writes are complete before navigation
+      // This prevents race conditions where the page navigates before Zustand persist finishes
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       clearOAuthToken();
       setIsRestoring(false);

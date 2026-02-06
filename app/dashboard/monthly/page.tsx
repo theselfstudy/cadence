@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
 import { useEntries, useEntriesRevision } from "@/stores/useEntries";
-// import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
 
@@ -46,7 +45,6 @@ type ViewMode = "cards" | "table";
 export default function MonthlyPage() {
   // Client-side rendering guard - wait for both client mount AND store hydration
   const [isClient, setIsClient] = useState(false);
-  // const isHydrated = useEntriesHydrated();
 
   // Store data
   const entries = useEntries((state) => state.entries);
