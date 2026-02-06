@@ -124,6 +124,7 @@ export function WeeklyCharts({
             onDayClick={onDayClick}
             weekLabel={weekLabel}
             entries={entries}
+            cycleEnabled={enabledSections.cycle}
           />
         )}      
         {validActiveChart === "bowel" && (
@@ -171,6 +172,7 @@ interface SymptomFrequencyChartProps {
   onDayClick?: (day: string) => void;
   weekLabel?: string;
   entries?: StoredEntry[];
+  cycleEnabled?: boolean;
 }
 
 function SymptomFrequencyChart({
@@ -181,6 +183,7 @@ function SymptomFrequencyChart({
   onDayClick,
   weekLabel,
   entries = [],
+  cycleEnabled = false,
 }: SymptomFrequencyChartProps) {
   const [viewMode, setViewMode] = useState<"table" | "heatmap">("heatmap");
 
@@ -271,6 +274,7 @@ function SymptomFrequencyChart({
           onDayClick={onDayClick}
           weekLabel={weekLabel}
           entries={entries}
+          cycleEnabled={cycleEnabled}
         />
       )}
 
@@ -312,23 +316,21 @@ function SymptomFrequencyChart({
 // ============================================
 
 interface MobileWeekDayDrillDownProps {
-  dayName: string;
   phase?: string;
   symptoms: {
     name: string;
     intensity: number | null;
   }[];
   oneOffSymptoms: string[];
-  weekLabel: string;
+  dateLabel: string;
   onClose: () => void;
 }
 
 function MobileWeekDayDrillDown({
-  dayName,
   phase,
   symptoms,
   oneOffSymptoms,
-  weekLabel,
+  dateLabel,
   onClose,
 }: MobileWeekDayDrillDownProps) {
   const isMenstrual = phase === "menstrual";
@@ -344,7 +346,7 @@ function MobileWeekDayDrillDown({
     >
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-medium text-app-charcoal">
-          Date: {weekLabel} ({dayName})
+          {dateLabel}
         </p>
         <button
           onClick={onClose}
@@ -557,6 +559,7 @@ interface WeeklySymptomHeatMapProps {
   selectedDays?: string[];
   weekLabel?: string;
   entries?: StoredEntry[];
+  cycleEnabled?: boolean;
 }
 
 function WeeklySymptomHeatMap({
@@ -566,6 +569,7 @@ function WeeklySymptomHeatMap({
   selectedDays = [],
   weekLabel = "",
   entries = [],
+  cycleEnabled = false,
 }: WeeklySymptomHeatMapProps) {
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [mobileSelectedDay, setMobileSelectedDay] = useState<string | null>(null);
@@ -623,6 +627,22 @@ function WeeklySymptomHeatMap({
     return oneOffs;
   }, [mobileSelectedDay, entries]);
 
+  // Get formatted date label for the mobile-selected day (e.g., "February 3")
+  const mobileSelectedDateLabel = useMemo(() => {
+    if (mobileSelectedDay === null || entries.length === 0) return "";
+
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    for (const entry of entries) {
+      const entryDate = new Date(entry.date + "T12:00:00");
+      const dayName = dayNames[entryDate.getDay()];
+      if (dayName === mobileSelectedDay) {
+        return `${monthNames[entryDate.getMonth()]} ${entryDate.getDate()}`;
+      }
+    }
+    return "";
+  }, [mobileSelectedDay, entries]);
+
   if (data.length === 0) {
     return (
       <div className="text-center py-8">
@@ -652,11 +672,10 @@ function WeeklySymptomHeatMap({
       {mobileSelectedDay !== null && (
         <div className="md:hidden px-3 pb-3">
           <MobileWeekDayDrillDown
-            dayName={mobileSelectedDay}
             phase={mobileSelectedPhase}
             symptoms={mobileSelectedSymptoms}
             oneOffSymptoms={mobileSelectedOneOffSymptoms}
-            weekLabel={weekLabel}
+            dateLabel={mobileSelectedDateLabel}
             onClose={() => setMobileSelectedDay(null)}
           />
         </div>
@@ -771,14 +790,16 @@ function WeeklySymptomHeatMap({
           </div>
           <span>Logged</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-app-red/20 border border-app-red flex items-center justify-center">
-            <svg className="w-2.5 h-2.5 text-app-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
+        {cycleEnabled && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-app-red/20 border border-app-red flex items-center justify-center">
+              <svg className="w-2.5 h-2.5 text-app-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span>Logged (Period)</span>
           </div>
-          <span>Logged (Period)</span>
-        </div>
+        )}
       </div>
 
       {/* Desktop Legend */}

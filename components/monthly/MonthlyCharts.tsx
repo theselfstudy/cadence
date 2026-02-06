@@ -154,6 +154,7 @@ export function MonthlyCharts({
             onDayClick={onDayClick}
             entries={entries}
             monthLabel={monthRange?.label}
+            cycleEnabled={enabledSections.cycle}
           />
         )}
         {validActiveChart === "cycle" && (
@@ -373,6 +374,7 @@ interface SymptomFrequencyChartProps {
   onDayClick?: (day: number) => void;
   monthLabel?: string;
   entries?: StoredEntry[];
+  cycleEnabled?: boolean;
 }
 
 function SymptomFrequencyChart({
@@ -383,6 +385,7 @@ function SymptomFrequencyChart({
   onDayClick,
   monthLabel,
   entries = [],
+  cycleEnabled = false,
 }: SymptomFrequencyChartProps) {
   const [viewMode, setViewMode] = useState<"table" | "heatmap">("heatmap");
 
@@ -499,6 +502,7 @@ function SymptomFrequencyChart({
           onDayClick={onDayClick}
           monthLabel={monthLabel ?? ""}
           entries={entries}
+          cycleEnabled={cycleEnabled}
         />
       )}
 
@@ -576,7 +580,7 @@ function MobileDayDrillDown({
     >
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-medium text-app-charcoal">
-          Date: {monthName} {day}
+          {monthName} {day}
         </p>
         <button
           onClick={onClose}
@@ -615,9 +619,7 @@ function MobileDayDrillDown({
                   }`}
                 >
                   {s.name}
-                  {s.avgIntensity !== null
-                    ? ` (${s.avgIntensity.toFixed(1)})`
-                    : ""}
+                  {s.avgIntensity !== null ? ` (${s.avgIntensity.toFixed(1)})` : ""}
                 </span>
               ))}
             </div>
@@ -813,6 +815,7 @@ interface MonthlySymptomHeatMapProps {
   onDayClick?: (day: number) => void;          // desktop filter
   monthLabel: string;
   entries?: StoredEntry[];
+  cycleEnabled?: boolean;
 }
 
 function MonthlySymptomHeatMap({
@@ -821,6 +824,7 @@ function MonthlySymptomHeatMap({
   onDayClick,
   monthLabel,
   entries = [],
+  cycleEnabled = false,
 }: MonthlySymptomHeatMapProps) {
   const [hoveredCell, setHoveredCell] = useState<{
     symptom: string;
@@ -915,7 +919,7 @@ function MonthlySymptomHeatMap({
 
       {/* Mobile drill-down details */}
       {mobileSelectedDay !== null && (
-        <div className="md:hidden">
+        <div className="md:hidden px-3 pb-3">
           <MobileDayDrillDown
             day={mobileSelectedDay}
             phase={mobileSelectedPhase}
@@ -1029,14 +1033,16 @@ function MonthlySymptomHeatMap({
           </div>
           <span>Logged</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-app-red/20 border border-app-red flex items-center justify-center">
-            <svg className="w-2.5 h-2.5 text-app-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
+        {cycleEnabled && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-app-red/20 border border-app-red flex items-center justify-center">
+              <svg className="w-2.5 h-2.5 text-app-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span>Logged (Period)</span>
           </div>
-          <span>Logged (Period)</span>
-        </div>
+        )}
       </div>
 
       {/* Desktop Legend */}
