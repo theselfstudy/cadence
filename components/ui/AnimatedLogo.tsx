@@ -50,6 +50,20 @@ const generateKeyframes = (offset: number) => {
   `;
 };
 
+// Generate keyframes for smooth color cycling (fill-based for heart)
+const generateFillKeyframes = (offset: number) => {
+  const len = COLORS.length;
+  return `
+    @keyframes fillCycle${offset} {
+      0% { fill: ${COLORS[offset % len]}; }
+      25% { fill: ${COLORS[(offset + 1) % len]}; }
+      50% { fill: ${COLORS[(offset + 2) % len]}; }
+      75% { fill: ${COLORS[(offset + 3) % len]}; }
+      100% { fill: ${COLORS[offset % len]}; }
+    }
+  `;
+};
+
 export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false }: AnimatedLogoProps) {
   const [isHovered, setIsHovered] = useState(false);
   const config = SIZE_CONFIG[size];
@@ -63,6 +77,7 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
     ${generateKeyframes(1)}
     ${generateKeyframes(2)}
     ${generateKeyframes(3)}
+    ${generateFillKeyframes(1)}
   `;
 
   return (
@@ -124,16 +139,14 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
               stroke: showHoverState ? HOVER_COLOR : undefined,
             }}
           />
-          {/* Center dot */}
-          <circle
-            cx="50"
-            cy="50"
-            r={config.strokeWidth * 0.4}
-            strokeWidth={config.strokeWidth * 0.8}
-            fill="none"
+          {/* Center heart */}
+          <path
+            d="M50,56 C50,56 44,50 44,47 C44,44 46,42 50,46 C54,42 56,44 56,47 C56,50 50,56 50,56 Z"
+            transform={`scale(${config.strokeWidth / 6})`}
             style={{
-              animation: showHoverState ? "none" : `colorCycle1 ${CYCLE_DURATION}s ease-in-out infinite`,
-              stroke: showHoverState ? HOVER_COLOR : undefined,
+              transformOrigin: "50px 50px",
+              animation: showHoverState ? "none" : `fillCycle1 ${CYCLE_DURATION}s ease-in-out infinite`,
+              fill: showHoverState ? HOVER_COLOR : undefined,
             }}
           />
         </svg>
