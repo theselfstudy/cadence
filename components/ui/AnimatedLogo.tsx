@@ -21,18 +21,21 @@ interface AnimatedLogoProps {
 const SIZE_CONFIG = {
   sm: {
     svgSize: 32,
-    strokeWidth: 2.5,
+    strokeWidth: 3.75,
     padding: 4,
+    heartOrigin: "50px 50px", // Adjust these values to center the sm heart
   },
   md: {
     svgSize: 64,
     strokeWidth: 4,
     padding: 8,
+    heartOrigin: "49px 52px",
   },
   lg: {
     svgSize: 100,
     strokeWidth: 6,
     padding: 12,
+    heartOrigin: "49px 52px",
   },
 };
 
@@ -142,9 +145,9 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
           {/* Center heart */}
           <path
             d="M50,56 C50,56 44,50 44,47 C44,44 46,42 50,46 C54,42 56,44 56,47 C56,50 50,56 50,56 Z"
-            transform={`scale(${config.strokeWidth / 6})`}
+            transform={`scale(${config.strokeWidth / 9})`}
             style={{
-              transformOrigin: "50px 50px",
+              transformOrigin: config.heartOrigin,
               animation: showHoverState ? "none" : `fillCycle1 ${CYCLE_DURATION}s ease-in-out infinite`,
               fill: showHoverState ? HOVER_COLOR : undefined,
             }}
