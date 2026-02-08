@@ -107,6 +107,41 @@ export async function verifySheetConnection(
   }
 }
 
+/**
+ * Fetches the title of a Google Spreadsheet.
+ * Used to display the user's sheet name without requiring manual input.
+ *
+ * @param spreadsheetId - The ID of the spreadsheet
+ * @param accessToken - OAuth access token
+ * @returns The spreadsheet title, or null if unable to fetch
+ */
+export async function getSpreadsheetTitle(
+  spreadsheetId: string,
+  accessToken: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=properties.title`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to fetch spreadsheet title:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.properties?.title ?? null;
+  } catch (error) {
+    console.error('Error fetching spreadsheet title:', error);
+    return null;
+  }
+}
+
 // ============================================
 // SHEET NAMES & CONFIGURATION
 // ============================================

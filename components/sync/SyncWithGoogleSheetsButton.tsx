@@ -11,6 +11,7 @@ import { useButtonRateLimit } from "@/hooks/useRateLimit";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SheetDisconnectedModal } from "@/components/ui/SheetDisconnectedModal";
 import { startSync } from "@/lib/syncEngine";
+import { getSpreadsheetTitle } from "@/lib/googleSheets";
 import {
   isMobileDevice,
   triggerOAuthRedirect,
@@ -94,7 +95,7 @@ export function SyncWithGoogleSheetsButton({
   const [isRestoring, setIsRestoring] = useState(false);
 
   // Store hooks
-  const { isGoogleSheetConnected, loadSettingsFromSheet } = useSettings();
+  const { isGoogleSheetConnected, loadSettingsFromSheet, googleSheet, setGoogleSheet } = useSettings();
   const { syncInProgress, currentPhase, lastSuccessfulSyncAt } = useSyncState();
   const loadSavedFiltersFromSheet = useSavedFilters((state) => state.loadFromSheet);
   const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
@@ -132,14 +133,30 @@ export function SyncWithGoogleSheetsButton({
     } else if (pendingSync.mode === "sync" && mode === "sync") {
       // Sync mode: trigger the sync automatically
       clearMobileSyncPending();
-      startSync().catch((error) => {
-        console.error("Mobile sync error:", error);
-        if ((error as Error).message?.includes('deleted') || (error as Error).message?.includes('access')) {
-          setShowSheetDisconnected(true);
+
+      // Fetch and update sheet title for mobile flow
+      const updateSheetTitle = async () => {
+        if (googleSheet?.url) {
+          const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet.url);
+          if (spreadsheetId) {
+            const title = await getSpreadsheetTitle(spreadsheetId, token);
+            if (title && title !== googleSheet.name) {
+              setGoogleSheet(googleSheet.url, title);
+            }
+          }
         }
+      };
+
+      updateSheetTitle().then(() => {
+        startSync().catch((error) => {
+          console.error("Mobile sync error:", error);
+          if ((error as Error).message?.includes('deleted') || (error as Error).message?.includes('access')) {
+            setShowSheetDisconnected(true);
+          }
+        });
       });
     }
-  }, [mode]);
+  }, [mode, googleSheet, setGoogleSheet]);
 
   // Perform the actual restore operation
   const performRestore = async (url: string, token: string) => {
@@ -191,6 +208,18 @@ export function SyncWithGoogleSheetsButton({
       // Store token temporarily in sessionStorage
       sessionStorage.setItem('google_oauth_token', tokenResponse.access_token);
       sessionStorage.setItem('google_oauth_timestamp', Date.now().toString());
+
+      // Fetch and update the sheet title if we have a connected sheet
+      if (googleSheet?.url) {
+        const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet.url);
+        if (spreadsheetId) {
+          const title = await getSpreadsheetTitle(spreadsheetId, tokenResponse.access_token);
+          if (title && title !== googleSheet.name) {
+            // Update the sheet name in settings
+            await setGoogleSheet(googleSheet.url, title);
+          }
+        }
+      }
 
       if (mode === "restore") {
         // Perform restore

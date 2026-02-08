@@ -3,7 +3,7 @@
 import { useGoogleLogin } from "@react-oauth/google";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { checkForExistingSettings, checkForExistingEntries, deleteSettingsSheet, deleteSavedFiltersSheet } from "@/lib/googleSheets";
+import { checkForExistingSettings, checkForExistingEntries, deleteSettingsSheet, deleteSavedFiltersSheet, getSpreadsheetTitle } from "@/lib/googleSheets";
 import { useSettings } from "@/stores/useSettings";
 import { validateSettings } from "@/lib/settingsValidation";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
@@ -282,7 +282,6 @@ function SettingsPageContent() {
   const [newSymptom, setNewSymptom] = useState("");
   const [newPeriodSymptom, setNewPeriodSymptom] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
-  const [sheetName, setSheetName] = useState("");
   const [isEditingSheet, setIsEditingSheet] = useState(false);
 
   // Validation: Check if any text inputs exceed character limits
@@ -290,7 +289,6 @@ function SettingsPageContent() {
   const [medicineNameInputError, setMedicineNameInputError] = useState(false);
   const [dosageInputError, setDosageInputError] = useState(false);
   const [sheetUrlInputError, setSheetUrlInputError] = useState(false);
-  const [sheetNameInputError, setSheetNameInputError] = useState(false);
 
   // Formula injection detection state
   const [newSymptomHasFormulaInjection, setNewSymptomHasFormulaInjection] = useState(false);
@@ -301,13 +299,11 @@ function SettingsPageContent() {
 
   // Google Sheet validation errors
   const [sheetUrlError, setSheetUrlError] = useState<string | null>(null);
-  const [sheetNameError, setSheetNameError] = useState<string | null>(null);
 
   const hasTextInputError =
     newSymptom.length > 60 ||
     newPeriodSymptom.length > 60 ||
     sheetUrl.length > 120 ||
-    sheetName.length > 60 ||
     Object.values(customProductInputErrors).some(hasError => hasError) ||
     medicineNameInputError ||
     dosageInputError ||
@@ -316,8 +312,7 @@ function SettingsPageContent() {
     Object.values(customProductFormulaInjection).some(hasInjection => hasInjection) ||
     medicineNameHasFormulaInjection ||
     dosageHasFormulaInjection ||
-    !!sheetUrlError ||
-    !!sheetNameError;
+    !!sheetUrlError;
   const [pendingSheetUrl, setPendingSheetUrl] = useState<string | null>(null);
   const [pendingSheetName, setPendingSheetName] = useState<string | null>(null);
   const [pendingAccessToken, setPendingAccessToken] = useState<string | null>(null);
@@ -519,12 +514,15 @@ function SettingsPageContent() {
         return;
       }
 
+      // Fetch the sheet title from the API
+      const fetchedSheetName = await getSpreadsheetTitle(spreadsheetId, tokenResponse.access_token);
+
       const existingSettings = await checkForExistingSettings(spreadsheetId, tokenResponse.access_token);
 
       if (existingSettings) {
         // Has settings - show recovery prompt
         setPendingSheetUrl(sheetUrl);
-        setPendingSheetName(sheetName);
+        setPendingSheetName(fetchedSheetName);
         setPendingAccessToken(tokenResponse.access_token);
         setShowRecoveryPrompt(true);
       } else {
@@ -536,10 +534,9 @@ function SettingsPageContent() {
           // This enables the "entries only" passthrough mode
           setHasEntriesOnlySheet(true);
           setPendingEntriesOnlySheetUrl(sheetUrl);
-          setPendingEntriesOnlySheetName(sheetName);
-          setGoogleSheet(sheetUrl, sheetName);
+          setPendingEntriesOnlySheetName(fetchedSheetName);
+          setGoogleSheet(sheetUrl, fetchedSheetName ?? undefined);
           setSheetUrl("");
-          setSheetName("");
           setIsEditingSheet(false);
 
           // Show success modal with info about entries import
@@ -551,7 +548,7 @@ function SettingsPageContent() {
           setShowSuccessModal(true);
         } else {
           // Fresh sheet - connect and trigger full sync using sync engine
-          setGoogleSheet(sheetUrl, sheetName);
+          setGoogleSheet(sheetUrl, fetchedSheetName ?? undefined);
 
           // Store token for sync engine
           sessionStorage.setItem('google_oauth_token', tokenResponse.access_token);
@@ -595,7 +592,6 @@ function SettingsPageContent() {
           }
 
           setSheetUrl("");
-          setSheetName("");
           setIsEditingSheet(false);
         }
       }
@@ -775,10 +771,6 @@ function SettingsPageContent() {
   // ---------------------------------------------------------------------------
 
   const handleSaveGoogleSheet = () => {
-    if (!sheetName.trim()) {
-      setSheetNameError("Please enter a name for your sheet");
-      return;
-    }
     if (!sheetUrl.trim()) {
       setSheetUrlError("Please paste a Google Sheet URL");
       return;
@@ -788,14 +780,12 @@ function SettingsPageContent() {
       return;
     }
     setSheetUrlError(null);
-    setSheetNameError(null);
 
-    // Save sheet URL and name to localStorage without OAuth
-    setGoogleSheet(sheetUrl, sheetName);
+    // Save sheet URL to localStorage without OAuth (name will be fetched on sync)
+    setGoogleSheet(sheetUrl);
 
     // Clear form fields and edit mode
     setSheetUrl("");
-    setSheetName("");
     setIsEditingSheet(false);
 
     // Show success modal
@@ -819,18 +809,14 @@ function SettingsPageContent() {
     }
 
     setSheetUrl(safeGoogleSheet.url || "");
-    setSheetName(safeGoogleSheet.name || "");
     setIsEditingSheet(true);
     setSheetUrlError(null);
-    setSheetNameError(null);
   };
 
   const handleCancelEdit = () => {
     setSheetUrl("");
-    setSheetName("");
     setIsEditingSheet(false);
     setSheetUrlError(null);
-    setSheetNameError(null);
   };
 
   const handleRemoveGoogleSheet = () => {
@@ -850,10 +836,8 @@ function SettingsPageContent() {
 
     clearGoogleSheet();
     setSheetUrl("");
-    setSheetName("");
     setIsEditingSheet(false);
     setSheetUrlError(null);
-    setSheetNameError(null);
     setShowDisconnectModal(false);
   };
 
@@ -886,7 +870,6 @@ function SettingsPageContent() {
     setPendingSheetName(null);
     setPendingAccessToken(null);
     setSheetUrl("");
-    setSheetName("");
     setIsEditingSheet(false);
   };
 
@@ -904,7 +887,6 @@ function SettingsPageContent() {
     setPendingSheetName(null);
     setPendingAccessToken(null);
     setSheetUrl("");
-    setSheetName("");
     setIsEditingSheet(false);
   };
 
@@ -1374,24 +1356,35 @@ function SettingsPageContent() {
                   <div className="p-4 bg-app-cream rounded-lg border border-app-border">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-app-charcoal truncate">
-                          {safeGoogleSheet.name || "Connected Sheet"}
-                        </p>
+                        {safeGoogleSheet.name && (
+                          <p className="font-medium text-app-charcoal mb-1 truncate">
+                            {safeGoogleSheet.name}
+                          </p>
+                        )}
                         <a
                           href={safeGoogleSheet.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-app-green hover:text-app-green-dark underline underline-offset-2 break-all"
+                          className="inline-flex items-center gap-1.5 text-app-green hover:text-app-green-dark font-medium transition-colors"
                         >
-                          {safeGoogleSheet.url}
+                          View your Google Sheet
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M7 17L17 7M17 7H7M17 7V17"
+                            />
+                          </svg>
                         </a>
-                        {safeGoogleSheet.addedAt && (
-                          <p className="text-xs text-app-gray mt-1">
-                            Added {new Date(safeGoogleSheet.addedAt).toLocaleDateString()}
-                          </p>
-                        )}
                       </div>
-                      <span className="w-2 h-2 bg-app-teal rounded-full flex-shrink-0" title="Connected" />
+                      <span className="w-2 h-2 bg-app-teal rounded-full flex-shrink-0 mt-1" title="Connected" />
                     </div>
                   </div>
                   <div className="flex gap-2 mt-4 items-center">
@@ -1428,9 +1421,29 @@ function SettingsPageContent() {
                           <p className="text-sm font-medium text-app-charcoal">
                             Google Sheet Connected!
                           </p>
-                          <p className="text-xs text-app-gray mt-1">
-                            Click any "🔄 Sync with Google Sheets" buttons to keep your data and settings up to date in your Google Sheet.
+                          <p className="text-xs text-app-gray mt-1 flex items-center gap-1 flex-wrap">
+                            Changes are saved to your Google Sheet only when you click a "
+                            <span className="inline-flex items-center gap-1 font-medium text-app-gray">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                />
+                              </svg>
+                              Sync with Google Sheets"
+                            </span>
+                            button.
                           </p>
+
                         </div>
                       </div>
                     </div>
@@ -1470,29 +1483,14 @@ function SettingsPageContent() {
                       onValidationChange={(isValid) => setSheetUrlInputError(!isValid)}
                     />
                   </div>
-                  <div>
-                    <SecureTextInput
-                      value={sheetName}
-                      onChange={(value) => {
-                        setSheetName(value);
-                        setSheetNameError(null);
-                      }}
-                      label="Sheet Name"
-                      placeholder="e.g., My Health Tracker"
-                      required={true}
-                      showCharCount={true}
-                      errorMessage={sheetNameError || undefined}
-                      onValidationChange={(isValid) => setSheetNameInputError(!isValid)}
-                    />
-                  </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={handleSaveGoogleSheet}
-                      disabled={sheetUrlInputError || sheetNameInputError || sheetUrl.length > 150 || sheetName.length > 60}
+                      disabled={sheetUrlInputError || sheetUrl.length > 150}
                       className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isEditingSheet ? "Update Sheet Info" : "📊 Connect a Google Sheet"}
+                      {isEditingSheet ? "Update Sheet URL" : "📊 Connect a Google Sheet"}
                     </button>
                     {isEditingSheet && (
                       <button
