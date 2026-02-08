@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useEntries, useEntriesRevision } from "@/stores/useEntries";
 import { useFreshData } from "@/hooks/useFreshData";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useSettings } from "@/stores/useSettings";
 import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
 import { 
@@ -45,6 +46,7 @@ export function CycleInsightsPage() {
   // const isHydrated = useEntriesHydrated();
   const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
   const periodTracking = useSettings((state) => state.periodTracking);
+  const isMobile = useIsMobile();
   
   // ============================================
   // CYCLE DETECTION & CALCULATIONS
@@ -194,6 +196,7 @@ const detectedCycles = useMemo(() => {
         icon={<CalendarCycleIcon className="w-5 h-5" />}
         helpText="Shows where you are in your current cycle based on your logged data."
         className="sm:rounded-xl"
+        defaultExpanded={true}
       >
         <ThisCycleSection
           currentCycle={currentCycle}
@@ -207,7 +210,7 @@ const detectedCycles = useMemo(() => {
         title="Your Consistent Patterns"
         icon={<PatternIcon className="w-5 h-5" />}
         helpText="Patterns that appear in at least 60% of your tracked cycles."
-        defaultExpanded={false}
+        defaultExpanded={!isMobile}
       >
         <ConsistentPatternsSection
           entries={entries}
@@ -220,11 +223,11 @@ const detectedCycles = useMemo(() => {
       <CollapsibleSection
         title="Occasional & Emerging"
         icon={<SparkleIcon className="w-5 h-5" />}
-        badge={hasEnoughDataForDeepInsights && emergingPatterns.length > 0 
-          ? `${emergingPatterns.length} pattern${emergingPatterns.length !== 1 ? "s" : ""}` 
+        badge={hasEnoughDataForDeepInsights && emergingPatterns.length > 0
+          ? `${emergingPatterns.length} pattern${emergingPatterns.length !== 1 ? "s" : ""}`
           : undefined}
         helpText="Patterns that appear less frequently, have recently started, or are changing over time."
-        defaultExpanded={false}
+        defaultExpanded={!isMobile}
       >
         <EmergingPatternsSection
           entries={entries}
@@ -236,11 +239,11 @@ const detectedCycles = useMemo(() => {
       <CollapsibleSection
         title="Notable Cycles"
         icon={<FlagIcon className="w-5 h-5" />}
-        badge={hasEnoughDataForDeepInsights && notableCycles.length > 0 
-          ? `${notableCycles.length} noted` 
+        badge={hasEnoughDataForDeepInsights && notableCycles.length > 0
+          ? `${notableCycles.length} noted`
           : undefined}
         helpText="Observations about cycles that differed from your usual pattern. Cycles naturally vary."
-        defaultExpanded={false}
+        defaultExpanded={!isMobile}
       >
         <NotableCyclesSection
           entries={entries}
@@ -254,7 +257,7 @@ const detectedCycles = useMemo(() => {
         icon={<ChartDetailIcon className="w-5 h-5" />}
         badge="Full details"
         helpText="Detailed breakdowns of your cycle data including cycle history."
-        defaultExpanded={false}
+        defaultExpanded={!isMobile}
       >
         <DetailedViewsSection
           cycles={detectedCycles}
@@ -269,7 +272,7 @@ const detectedCycles = useMemo(() => {
         icon={<EntryLogIcon className="w-5 h-5" />}
         badge={`${entries.length} entr${entries.length !== 1 ? "ies" : "y"}`}
         helpText="All your logged entries with full details."
-        defaultExpanded={false}
+        defaultExpanded={!isMobile}
       >
         <div className="sm:contents">
           <EntriesSection entries={entries} />

@@ -14,6 +14,7 @@ import { ConsistencyResult, groupConsistencyResults, ItemCategory } from "@/lib/
 interface ConsistencySectionProps {
   consistencyData: ConsistencyResult[];
   totalEntries: number;
+  uniqueDaysLogged: number;
   defaultExpanded?: boolean;
 }
 
@@ -51,7 +52,7 @@ const CATEGORY_COLORS: Record<ItemCategory, { bg: string; bgLight: string; text:
   },
 };
 
-export function ConsistencySection({ consistencyData, totalEntries, defaultExpanded = true }: ConsistencySectionProps) {
+export function ConsistencySection({ consistencyData, totalEntries, uniqueDaysLogged, defaultExpanded = true }: ConsistencySectionProps) {
   const [activeTab, setActiveTab] = useState<TabType>("highly_consistent");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [isAtBottom, setIsAtBottom] = useState(false);
@@ -64,6 +65,10 @@ export function ConsistencySection({ consistencyData, totalEntries, defaultExpan
 
   const hasData = consistencyData.length > 0;
   const grouped = groupConsistencyResults(consistencyData);
+
+  // Calculate weeks for badge
+  const weeksTotal = Math.floor(uniqueDaysLogged / 7);
+  const weekLabel = weeksTotal === 1 ? "week" : "weeks";
 
   // Count items in each tab
   const tabCounts: Record<TabType, number> = {
@@ -102,7 +107,7 @@ export function ConsistencySection({ consistencyData, totalEntries, defaultExpan
   return (
     <CollapsibleSection
       title="Consistency & Variability"
-      badge={hasData ? `${consistencyData.length} tracked` : undefined}
+      badge={hasData && weeksTotal > 0 ? `${weeksTotal} ${weekLabel} of data` : undefined}
       helpText="Shows how regularly each item appears. Consistent items appear most days, moderate items occasionally, and variable items are unpredictable."
       defaultExpanded={defaultExpanded}
       icon={
@@ -144,6 +149,9 @@ export function ConsistencySection({ consistencyData, totalEntries, defaultExpan
         onScroll={handleScroll}
         className="max-h-[28rem] overflow-y-auto mt-4"
       >
+        {/* Info blurb explaining the percentage cutoff */}
+        <TabInfoBlurb tab={activeTab} />
+
         {tabCounts[activeTab] === 0 ? (
           <EmptyState tab={activeTab} />
         ) : (
@@ -218,15 +226,34 @@ interface ConsistencyCardProps {
 }
 
 function ConsistencyCard({ item, colors }: ConsistencyCardProps) {
+  const dayLabel = item.daysPerWeek === 1 ? "day" : "days";
+
   return (
     <div className={`rounded-lg p-3 ${colors.bgLight}`}>
       <div className="flex items-center justify-between">
         <span className="font-medium text-app-charcoal">{item.itemName}</span>
         <span className="text-sm text-app-gray">
-          ~{item.daysPerWeek} days/week
+          ~{item.daysPerWeek} {dayLabel}/week
         </span>
       </div>
       <p className="text-xs text-app-gray mt-1">{item.description}</p>
+    </div>
+  );
+}
+
+function TabInfoBlurb({ tab }: { tab: TabType }) {
+  const info: Record<TabType, string> = {
+    highly_consistent: "Items appearing 60%+ of logged days",
+    moderate: "Items appearing 30-59% of logged days",
+    variable: "Items appearing less than 30% of logged days",
+  };
+
+  return (
+    <div className="flex items-center gap-2 mb-4 px-2 py-1.5 bg-app-cream/50 rounded-lg">
+      <svg className="w-4 h-4 text-app-teal flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+      <span className="text-xs text-app-gray">{info[tab]}</span>
     </div>
   );
 }

@@ -6,6 +6,17 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useSettings } from "@/stores/useSettings";
 import { APP_CONFIG } from "@/lib/constants";
+import {
+  WeeklyIcon,
+  MonthlyIcon,
+  AllInsightsIcon,
+  CycleInsightsIcon,
+  HistoryIcon,
+  PdfExportsIcon,
+  SettingsIcon,
+  DashboardIcon,
+  NewEntryIcon,
+} from "@/components/dashboard/QuickNavIcons";
 
 /**
  * Header component with hamburger menu and navigation
@@ -13,6 +24,7 @@ import { APP_CONFIG } from "@/lib/constants";
 export function Header() {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSettingsHovered, setIsSettingsHovered] = useState(false);
 
   return (
     <>
@@ -60,26 +72,10 @@ export function Header() {
                   : "text-app-gray hover:text-app-charcoal hover:bg-app-cream"
               }`}
               aria-label="Settings"
+              onMouseEnter={() => setIsSettingsHovered(true)}
+              onMouseLeave={() => setIsSettingsHovered(false)}
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
+              <SettingsIcon isHovered={isSettingsHovered} className="!w-6 !h-6" />
             </SafeLink>
           </div>
         </div>
@@ -116,6 +112,9 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/dashboard/weekly", label: "Weekly View" },
     { href: "/dashboard/monthly", label: "Monthly View" },
     { href: "/dashboard/history", label: "History View" },
+  ];
+
+  const insightItems = [
     { href: "/dashboard/allinsights", label: "All Insights" },
     ...(isPeriodTrackingEnabled ? [{ href: "/dashboard/cycleinsights", label: "Cycle Insights" }] : []),
   ];
@@ -129,20 +128,26 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/settings", label: "Settings" },
   ];
 
-  const NavLink = ({ href, label }: { href: string; label: string }) => (
-    <SafeLink
-      href={href}
-      onClick={onClose}
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-        pathname === href
-          ? "bg-app-green text-white"
-          : "text-app-charcoal hover:bg-app-cream"
-      }`}
-    >
-      <NavIcon label={label} />
-      {label}
-    </SafeLink>
-  );
+  const NavLink = ({ href, label }: { href: string; label: string }) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+      <SafeLink
+        href={href}
+        onClick={onClose}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
+          pathname === href
+            ? "bg-app-green text-white"
+            : "text-app-charcoal hover:bg-app-cream"
+        }`}
+      >
+        <NavIcon label={label} isHovered={isHovered} isActive={pathname === href} />
+        {label}
+      </SafeLink>
+    );
+  };
 
   return (
     <>
@@ -204,12 +209,24 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Divider */}
           <div className="my-3 border-t border-app-border" />
 
-          {/* Views: Weekly, Monthly, Cycle Insights */}
+          {/* Views: Weekly, Monthly, History */}
           <p className="px-4 py-2 text-xs font-medium text-app-gray uppercase tracking-wider">
             Views
           </p>
           <ul className="space-y-1">
             {viewItems.map((item) => (
+              <li key={item.href}>
+                <NavLink href={item.href} label={item.label} />
+              </li>
+            ))}
+          </ul>
+
+          {/* Insights: All Insights, Cycle Insights */}
+          <p className="px-4 py-2 pt-4 text-xs font-medium text-app-gray uppercase tracking-wider">
+            Insights
+          </p>
+          <ul className="space-y-1">
+            {insightItems.map((item) => (
               <li key={item.href}>
                 <NavLink href={item.href} label={item.label} />
               </li>
@@ -250,60 +267,28 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
 /**
  * Icon component for navigation items
  */
-function NavIcon({ label }: { label: string }) {
+function NavIcon({ label, isHovered = false, isActive = false }: { label: string; isHovered?: boolean; isActive?: boolean }) {
   const iconClass = "w-5 h-5";
-  
+  // For active state, we want white icons, so override the color
+  const activeClass = isActive ? "text-white" : "";
+
   switch (label) {
     case "Dashboard":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      );
+      return <DashboardIcon isHovered={isHovered} className={activeClass} />;
     case "New Entry":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      );
+      return <NewEntryIcon isHovered={isHovered} className={activeClass} />;
     case "Weekly View":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      );
+      return <WeeklyIcon isHovered={isHovered} className={activeClass} />;
     case "Monthly View":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM9 15h.01M12 15h.01M15 15h.01M9 18h.01M12 18h.01" />
-        </svg>
-      );
+      return <MonthlyIcon isHovered={isHovered} className={activeClass} />;
     case "History View":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-        </svg>
-      );
+      return <HistoryIcon isHovered={isHovered} className={activeClass} />;
     case "All Insights":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      );
+      return <AllInsightsIcon isHovered={isHovered} className={activeClass} />;
     case "Cycle Insights":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-        </svg>
-      );
+      return <CycleInsightsIcon isHovered={isHovered} className={activeClass} />;
     case "PDF Exports":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3v4a2 2 0 002 2h4" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 13l2 2 4-4" />
-        </svg>
-      );
+      return <PdfExportsIcon isHovered={isHovered} className={activeClass} />;
     case "At a Glance":
       return (
         <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,12 +296,7 @@ function NavIcon({ label }: { label: string }) {
         </svg>
       );
     case "Settings":
-      return (
-        <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      );
+      return <SettingsIcon isHovered={isHovered} className={activeClass} />;
     default:
       return null;
   }

@@ -44,7 +44,7 @@ export function WeeklyLoadSection({ loadStats, totalEntries, defaultExpanded = t
   return (
     <CollapsibleSection
       title="Weekly Summary"
-      helpText="Shows the proportion of days in the last 7 days with symptoms, non-baseline Bristol stool types (outside 3-4), and medication use."
+      helpText="Shows the proportion of days in the last 7 days with symptoms and medication use, plus the proportion of Bristol movements within the normal range (types 3-4)."
       defaultExpanded={defaultExpanded}
       icon={
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,8 +64,10 @@ export function WeeklyLoadSection({ loadStats, totalEntries, defaultExpanded = t
         {/* Bristol Load Ring */}
         <LoadRing
           label="Bristol"
-          value={loadStats.bristolLoad.percentage}
-          subtext={`${loadStats.bristolLoad.daysWithNonBaseline}/7 days`}
+          value={loadStats.bristolLoad.totalMovements > 0
+            ? Math.round(((loadStats.bristolLoad.totalMovements - loadStats.bristolLoad.nonBaselineMovements) / loadStats.bristolLoad.totalMovements) * 100)
+            : 0}
+          subtext={`${loadStats.bristolLoad.totalMovements - loadStats.bristolLoad.nonBaselineMovements}/${loadStats.bristolLoad.totalMovements} movements`}
           colorKey="bristol"
         />
 
@@ -87,7 +89,7 @@ export function WeeklyLoadSection({ loadStats, totalEntries, defaultExpanded = t
           </div>
           <div className="flex items-start gap-2">
             <div className={`w-3 h-3 rounded-full ${RING_COLORS.bristol.bg} flex-shrink-0 mt-0.5`} />
-            <span>Days with Bristol types outside 3-4 (non-baseline)</span>
+            <span>Movements with normal Bristol types (3-4)</span>
           </div>
           <div className="flex items-start gap-2">
             <div className={`w-3 h-3 rounded-full ${RING_COLORS.medicine.bg} flex-shrink-0 mt-0.5`} />

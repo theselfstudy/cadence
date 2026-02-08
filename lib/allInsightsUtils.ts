@@ -78,6 +78,10 @@ export interface WeeklyLoadStats {
     daysWithNonBaseline: number;
     totalDays: number;
     percentage: number;
+    // New: movement-based stats
+    nonBaselineMovements: number;
+    totalMovements: number;
+    movementPercentage: number;
   };
   medicineLoad: {
     daysWithMedicine: number;
@@ -94,6 +98,12 @@ export interface ConsistencyResult {
   intensityStdDev?: number;
   category: "highly_consistent" | "moderate" | "variable";
   description: string;
+  // Bristol-specific: movement-based stats
+  bristolStats?: {
+    totalMovements: number;
+    nonBaselineMovements: number;
+    percentage: number;
+  };
 }
 
 export interface GroupedConsistency {
@@ -562,6 +572,10 @@ export function calculateWeeklyLoadStats(entries: StoredEntry[]): WeeklyLoadStat
   const daysWithMedicine = new Set<string>();
   const allDaysLogged = new Set<string>();
 
+  // Track Bristol movements
+  let totalBristolMovements = 0;
+  let nonBaselineBristolMovements = 0;
+
   for (const entry of currentWeek) {
     const dateStr = new Date(entry.date).toISOString().split("T")[0];
     allDaysLogged.add(dateStr);
@@ -573,8 +587,12 @@ export function calculateWeeklyLoadStats(entries: StoredEntry[]): WeeklyLoadStat
 
     // Check for non-baseline Bristol (outside 3-4)
     const bristol = extractBristol(entry);
-    if (bristol && (bristol.type < 3 || bristol.type > 4)) {
-      daysWithNonBaselineBristol.add(dateStr);
+    if (bristol) {
+      totalBristolMovements++;
+      if (bristol.type < 3 || bristol.type > 4) {
+        nonBaselineBristolMovements++;
+        daysWithNonBaselineBristol.add(dateStr);
+      }
     }
 
     // Check for medications
@@ -584,6 +602,9 @@ export function calculateWeeklyLoadStats(entries: StoredEntry[]): WeeklyLoadStat
   }
 
   const totalDays = 7; // Always use 7 for the week
+  const movementPercentage = totalBristolMovements > 0
+    ? Math.round((nonBaselineBristolMovements / totalBristolMovements) * 100)
+    : 0;
 
   return {
     symptomLoad: {
@@ -595,6 +616,9 @@ export function calculateWeeklyLoadStats(entries: StoredEntry[]): WeeklyLoadStat
       daysWithNonBaseline: daysWithNonBaselineBristol.size,
       totalDays,
       percentage: Math.round((daysWithNonBaselineBristol.size / totalDays) * 100),
+      nonBaselineMovements: nonBaselineBristolMovements,
+      totalMovements: totalBristolMovements,
+      movementPercentage,
     },
     medicineLoad: {
       daysWithMedicine: daysWithMedicine.size,
@@ -616,7 +640,10 @@ export function calculateConsistencyMetrics(entries: StoredEntry[]): Consistency
   if (stats.uniqueDaysLogged < 7) return [];
 
   const results: ConsistencyResult[] = [];
-  const itemStats: Record<string, { days: Set<string>; intensities: number[] }> = {};
+  const itemStats: Record<string, { days: Set<string>; intensities: number[]; count: number }> = {};
+
+  // Track total Bristol movements for percentage calculation
+  let totalBristolMovements = 0;
 
   // Gather stats per item
   for (const entry of entries) {
@@ -624,8 +651,9 @@ export function calculateConsistencyMetrics(entries: StoredEntry[]): Consistency
 
     for (const symptom of extractSymptoms(entry)) {
       const key = `symptom:${symptom.name}`;
-      if (!itemStats[key]) itemStats[key] = { days: new Set(), intensities: [] };
+      if (!itemStats[key]) itemStats[key] = { days: new Set(), intensities: [], count: 0 };
       itemStats[key].days.add(dateStr);
+      itemStats[key].count++;
       if (symptom.intensity !== undefined && symptom.intensity !== null) {
         itemStats[key].intensities.push(symptom.intensity);
       }
@@ -634,16 +662,19 @@ export function calculateConsistencyMetrics(entries: StoredEntry[]): Consistency
     // Bristol stool data
     const bristol = extractBristol(entry);
     if (bristol) {
+      totalBristolMovements++;
       const key = `bristol:${bristol.name}`;
-      if (!itemStats[key]) itemStats[key] = { days: new Set(), intensities: [] };
+      if (!itemStats[key]) itemStats[key] = { days: new Set(), intensities: [], count: 0 };
       itemStats[key].days.add(dateStr);
+      itemStats[key].count++;
       itemStats[key].intensities.push(bristol.type);
     }
 
     for (const med of extractMedications(entry)) {
       const key = `medication:${med.name}`;
-      if (!itemStats[key]) itemStats[key] = { days: new Set(), intensities: [] };
+      if (!itemStats[key]) itemStats[key] = { days: new Set(), intensities: [], count: 0 };
       itemStats[key].days.add(dateStr);
+      itemStats[key].count++;
     }
   }
 
@@ -651,7 +682,7 @@ export function calculateConsistencyMetrics(entries: StoredEntry[]): Consistency
   for (const [key, data] of Object.entries(itemStats)) {
     const [type, name] = key.split(":") as [ItemCategory, string];
     const frequencyRatio = data.days.size / stats.uniqueDaysLogged;
-    const daysPerWeek = Math.round(frequencyRatio * 7 * 10) / 10;
+    const daysPerWeek = Math.round(frequencyRatio * 7);
 
     // Calculate intensity variability for symptoms
     let intensityStdDev: number | undefined;
@@ -662,21 +693,22 @@ export function calculateConsistencyMetrics(entries: StoredEntry[]): Consistency
     // Categorize consistency
     let category: "highly_consistent" | "moderate" | "variable";
     let description: string;
+    const dayLabel = daysPerWeek === 1 ? "day" : "days";
 
     if (frequencyRatio >= 0.6 && (intensityStdDev === undefined || intensityStdDev < 0.8)) {
       category = "highly_consistent";
-      description = `Appears regularly (~${daysPerWeek} days/week)${intensityStdDev !== undefined ? " with consistent intensity" : ""}`;
+      description = `Appears regularly (~${daysPerWeek} ${dayLabel}/week)${intensityStdDev !== undefined ? " with consistent intensity" : ""}`;
     } else if (frequencyRatio >= 0.3) {
       category = "moderate";
-      description = `Appears occasionally (~${daysPerWeek} days/week)`;
+      description = `Appears occasionally (~${daysPerWeek} ${dayLabel}/week)`;
     } else {
       category = "variable";
-      description = `Appears infrequently (~${daysPerWeek} days/week)${intensityStdDev !== undefined && intensityStdDev > 1 ? " with variable intensity" : ""}`;
+      description = `Appears infrequently (~${daysPerWeek} ${dayLabel}/week)${intensityStdDev !== undefined && intensityStdDev > 1 ? " with variable intensity" : ""}`;
     }
 
     // Only include items that appear at least twice
     if (data.days.size >= 2) {
-      results.push({
+      const result: ConsistencyResult = {
         itemName: name,
         itemType: type,
         frequencyRatio,
@@ -684,7 +716,21 @@ export function calculateConsistencyMetrics(entries: StoredEntry[]): Consistency
         intensityStdDev,
         category,
         description,
-      });
+      };
+
+      // Add Bristol-specific stats
+      if (type === "bristol" && totalBristolMovements > 0) {
+        // Check if this is a non-baseline type (outside 3-4)
+        const bristolType = parseInt(name.replace("Type ", ""), 10);
+        const isNonBaseline = bristolType < 3 || bristolType > 4;
+        result.bristolStats = {
+          totalMovements: totalBristolMovements,
+          nonBaselineMovements: isNonBaseline ? data.count : 0,
+          percentage: Math.round((data.count / totalBristolMovements) * 100),
+        };
+      }
+
+      results.push(result);
     }
   }
 

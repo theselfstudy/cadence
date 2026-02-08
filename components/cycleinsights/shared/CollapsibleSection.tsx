@@ -52,18 +52,29 @@ export function CollapsibleSection({
   // ============================================
   // STATE & REFS
   // ============================================
-  
+
   // Support both controlled and uncontrolled modes
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
   const isExpanded = controlledExpanded ?? internalExpanded;
-  
+
+  // Track if user has manually toggled - once toggled, don't auto-sync
+  const hasUserToggledRef = useRef(false);
+
   // For smooth height animation
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | "auto">("auto");
-  
+
   // For tooltip visibility
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync with defaultExpanded changes (handles hydration & responsive changes)
+  // Only sync if user hasn't manually toggled
+  useEffect(() => {
+    if (!hasUserToggledRef.current && controlledExpanded === undefined) {
+      setInternalExpanded(defaultExpanded);
+    }
+  }, [defaultExpanded, controlledExpanded]);
 
   // ============================================
   // EFFECTS
@@ -99,12 +110,15 @@ export function CollapsibleSection({
   
   const handleToggle = () => {
     const newExpanded = !isExpanded;
-    
+
+    // Mark that user has manually toggled - stop auto-syncing
+    hasUserToggledRef.current = true;
+
     // Update internal state if uncontrolled
     if (controlledExpanded === undefined) {
       setInternalExpanded(newExpanded);
     }
-    
+
     // Notify parent for persistence
     onToggle?.(newExpanded);
   };

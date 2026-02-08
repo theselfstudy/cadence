@@ -159,7 +159,7 @@ export function TrustBanner({
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className="w-10 h-10 rounded-full bg-app-teal/10 flex items-center justify-center flex-shrink-0">
-          <span className="text-xl" role="img" aria-label="Lock">🔒</span>
+          <LockIcon className="w-5 h-5 text-app-teal" />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-app-charcoal">

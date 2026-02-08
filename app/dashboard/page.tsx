@@ -6,6 +6,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThisWeekGlance } from "@/components/dashboard";
 import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
+import {
+  WeeklyIcon,
+  MonthlyIcon,
+  AllInsightsIcon,
+  CycleInsightsIcon,
+  HistoryIcon,
+} from "@/components/dashboard/QuickNavIcons";
 
 // =============================================================================
 // DASHBOARD LANDING PAGE
@@ -97,43 +104,42 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <DashboardCard
             href="/dashboard/weekly"
-            icon="📅"
+            iconComponent={WeeklyIcon}
             title="Weekly View"
             description="7-day trends & charts"
             color="teal"
           />
           <DashboardCard
             href="/dashboard/monthly"
-            icon="📊"
+            iconComponent={MonthlyIcon}
             title="Monthly View"
             description="Monthly patterns & insights"
-            color="plumb"
-            // comingSoon
+            color="green"
           />
           <DashboardCard
             href="/dashboard/allinsights"
-            icon="📈"
+            iconComponent={AllInsightsIcon}
             title="All Insights"
             description="Patterns & trends for all your data"
-            color="teal"
+            color="plumb"
           />
-          {isPeriodTrackingEnabled && (
+          {isPeriodTrackingEnabled ? (
             <DashboardCard
               href="/dashboard/cycleinsights"
-              icon="🌸"
+              iconComponent={CycleInsightsIcon}
               title="Cycle Insights"
               description="Menstrual cycle patterns & insights"
               color="red"
-              // comingSoon
+            />
+          ) : (
+            <DashboardCard
+              href="/dashboard/history"
+              iconComponent={HistoryIcon}
+              title="History"
+              description="All entries, filters & export"
+              color="charcoal"
             />
           )}
-          <DashboardCard
-            href="/dashboard/history"
-            icon="📋"
-            title="History"
-            description="All entries, filters & export"
-            color="charcoal"
-          />
         </div>
       </div>
     </div>
@@ -144,16 +150,23 @@ export default function DashboardPage() {
 // HELPER COMPONENTS
 // =============================================================================
 
+interface IconComponentProps {
+  className?: string;
+  isHovered?: boolean;
+}
+
 interface DashboardCardProps {
   href: string;
-  icon: string;
+  iconComponent: React.ComponentType<IconComponentProps>;
   title: string;
   description: string;
   color: "green" | "teal" | "plumb" | "taupe" | "charcoal" | "red";
   comingSoon?: boolean;
 }
 
-function DashboardCard({ href, icon, title, description, color, comingSoon }: DashboardCardProps) {
+function DashboardCard({ href, iconComponent: IconComponent, title, description, color, comingSoon }: DashboardCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
   const colorClasses = {
     green: "hover:border-app-green hover:bg-app-green/5",
     teal: "hover:border-app-teal hover:bg-app-teal/5",
@@ -170,9 +183,13 @@ function DashboardCard({ href, icon, title, description, color, comingSoon }: Da
           Coming Soon
         </span>
       )}
-      <span className="text-2xl block mb-2">{icon}</span>
-      <h3 className="font-semibold text-app-charcoal">{title}</h3>
-      <p className="text-sm text-app-gray mt-1">{description}</p>
+      <div className="flex items-center gap-3">
+        <IconComponent isHovered={isHovered} />
+        <div>
+          <h3 className="font-semibold text-app-charcoal">{title}</h3>
+          <p className="text-sm text-app-gray">{description}</p>
+        </div>
+      </div>
     </div>
   );
 
@@ -181,7 +198,12 @@ function DashboardCard({ href, icon, title, description, color, comingSoon }: Da
   }
 
   return (
-    <Link href={href} className="block">
+    <Link
+      href={href}
+      className="block"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {content}
     </Link>
   );

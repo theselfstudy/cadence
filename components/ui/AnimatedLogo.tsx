@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Using app color palette
 const COLORS = ["#791D1E", "rgba(63, 89, 46, 0.5)", "#104B55", "#C4B7A6"]; // app-red, app-green/50, app-teal, app-taupe
-const HOVER_COLOR = "#F8F6F3"; // app-cream
-const HOVER_BG = "#4A2E59"; // app-plumb
 
 // Animation duration for full color cycle (in seconds)
 const CYCLE_DURATION = 8;
+// Rotation animation duration (in ms)
+const ROTATION_DURATION = 700;
 
 type LogoSize = "sm" | "md" | "lg";
 
@@ -69,10 +69,19 @@ const generateFillKeyframes = (offset: number) => {
 
 export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false }: AnimatedLogoProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const config = SIZE_CONFIG[size];
 
-  const showHoverState = hoverEffect && isHovered;
   const containerSize = config.svgSize + config.padding * 2;
+
+  // Handle hover animation
+  useEffect(() => {
+    if (hoverEffect && isHovered) {
+      setIsAnimating(true);
+    } else {
+      setIsAnimating(false);
+    }
+  }, [isHovered, hoverEffect]);
 
   // Inject keyframes styles
   const keyframesStyle = `
@@ -81,6 +90,21 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
     ${generateKeyframes(2)}
     ${generateKeyframes(3)}
     ${generateFillKeyframes(1)}
+
+    @keyframes logoSpinClockwise {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes logoSpinCounterClockwise {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(-360deg); }
+    }
+    .animate-spin-cw {
+      animation: logoSpinClockwise ${ROTATION_DURATION}ms ease-in-out forwards;
+    }
+    .animate-spin-ccw {
+      animation: logoSpinCounterClockwise ${ROTATION_DURATION}ms ease-in-out forwards;
+    }
   `;
 
   return (
@@ -90,13 +114,12 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
       onMouseLeave={() => hoverEffect && setIsHovered(false)}
     >
       <style>{keyframesStyle}</style>
-      {/* Container with optional background */}
+      {/* Container */}
       <div
-        className="rounded-full flex items-center justify-center transition-colors duration-300"
+        className="rounded-full flex items-center justify-center"
         style={{
           width: containerSize,
           height: containerSize,
-          backgroundColor: showHoverState ? HOVER_BG : "transparent",
         }}
       >
         {/* Concentric C Shapes SVG */}
@@ -106,50 +129,58 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
           viewBox="0 0 100 100"
           className="relative"
         >
-          {/* Outermost C - opens right (normal C shape) */}
-          <path
-            d="M78,22 A40,40 0 1 0 78,78"
-            stroke={showHoverState ? HOVER_COLOR : undefined}
-            strokeWidth={config.strokeWidth}
-            fill="none"
-            strokeLinecap="round"
-            style={{
-              animation: showHoverState ? "none" : `colorCycle3 ${CYCLE_DURATION}s ease-in-out infinite`,
-              stroke: showHoverState ? HOVER_COLOR : undefined,
-            }}
-          />
-          {/* Middle C - opens left (backwards C shape) */}
-          <path
-            d="M30,30 A28,28 0 1 1 30,70"
-            stroke={showHoverState ? HOVER_COLOR : undefined}
-            strokeWidth={config.strokeWidth}
-            fill="none"
-            strokeLinecap="round"
-            style={{
-              animation: showHoverState ? "none" : `colorCycle2 ${CYCLE_DURATION}s ease-in-out infinite`,
-              stroke: showHoverState ? HOVER_COLOR : undefined,
-            }}
-          />
-          {/* Innermost C - opens right (normal C shape) */}
-          <path
-            d="M61,39 A16,16 0 1 0 61,61"
-            stroke={showHoverState ? HOVER_COLOR : undefined}
-            strokeWidth={config.strokeWidth}
-            fill="none"
-            strokeLinecap="round"
-            style={{
-              animation: showHoverState ? "none" : `colorCycle0 ${CYCLE_DURATION}s ease-in-out infinite`,
-              stroke: showHoverState ? HOVER_COLOR : undefined,
-            }}
-          />
-          {/* Center heart */}
+          {/* Outermost C - rotates clockwise */}
+          <g
+            className={isAnimating ? "animate-spin-cw" : ""}
+            style={{ transformOrigin: "50px 50px" }}
+          >
+            <path
+              d="M78,22 A40,40 0 1 0 78,78"
+              strokeWidth={config.strokeWidth}
+              fill="none"
+              strokeLinecap="round"
+              style={{
+                animation: `colorCycle3 ${CYCLE_DURATION}s ease-in-out infinite`,
+              }}
+            />
+          </g>
+          {/* Middle C - rotates counterclockwise */}
+          <g
+            className={isAnimating ? "animate-spin-ccw" : ""}
+            style={{ transformOrigin: "50px 50px" }}
+          >
+            <path
+              d="M30,30 A28,28 0 1 1 30,70"
+              strokeWidth={config.strokeWidth}
+              fill="none"
+              strokeLinecap="round"
+              style={{
+                animation: `colorCycle2 ${CYCLE_DURATION}s ease-in-out infinite`,
+              }}
+            />
+          </g>
+          {/* Innermost C - rotates clockwise */}
+          <g
+            className={isAnimating ? "animate-spin-cw" : ""}
+            style={{ transformOrigin: "50px 50px" }}
+          >
+            <path
+              d="M61,39 A16,16 0 1 0 61,61"
+              strokeWidth={config.strokeWidth}
+              fill="none"
+              strokeLinecap="round"
+              style={{
+                animation: `colorCycle0 ${CYCLE_DURATION}s ease-in-out infinite`,
+              }}
+            />
+          </g>
+          {/* Center heart - stays still */}
           <path
             d="M50,56 C50,56 44,50 44,47 C44,44 46,42 50,46 C54,42 56,44 56,47 C56,50 50,56 50,56 Z"
             transform={`scale(${config.strokeWidth / 9})`}
             style={{
               transformOrigin: config.heartOrigin,
-              animation: showHoverState ? "none" : `fillCycle1 ${CYCLE_DURATION}s ease-in-out infinite`,
-              fill: showHoverState ? HOVER_COLOR : undefined,
+              animation: `fillCycle1 ${CYCLE_DURATION}s ease-in-out infinite`,
             }}
           />
         </svg>
