@@ -221,12 +221,12 @@ function TrustBanner({ stats }: TrustBannerProps) {
               <>, or {daysUntilFullInsights} more for change detection and co-occurrences</>
             )}
           </p>
-          {/* Progress dots */}
+          {/* Progress dots - shows progress toward 7 days for basic insights */}
           <div className="flex items-center gap-1 mt-3">
-            {Array.from({ length: 14 }).map((_, i) => (
+            {Array.from({ length: 7 }).map((_, i) => (
               <div
                 key={i}
-                className={`w-2 h-2 rounded-full ${
+                className={`w-2.5 h-2.5 rounded-full ${
                   i < stats.uniqueDaysLogged ? "bg-app-teal" : "bg-app-border"
                 }`}
               />
