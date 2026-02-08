@@ -176,7 +176,8 @@ export function ReportSectionModal({
   };
 
   const dateRange = getDateRange();
-  const isValid = selected.length > 0 && dateRange !== null;
+  const hasEntries = entries.length > 0;
+  const isValid = selected.length > 0 && dateRange !== null && hasEntries;
 
   // If no sections are enabled, show a message
   if (enabledSections.length === 0) {
@@ -451,8 +452,17 @@ export function ReportSectionModal({
 
         {/* Footer */}
         <div className="p-6 pt-4 space-y-3">
+          {/* No entries warning */}
+          {!hasEntries && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800 text-center">
+                ⚠️ Please submit at least one entry before generating a report.
+              </p>
+            </div>
+          )}
+
           {/* Validation message */}
-          {!isValid && (
+          {hasEntries && !isValid && (
             <p className="text-xs text-app-gray text-center">
               {selected.length === 0
                 ? "Select at least one category to continue"
