@@ -83,6 +83,15 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
     }
   }, [isHovered, hoverEffect]);
 
+  // Handle touch for mobile - trigger animation without blocking navigation
+  const handleTouchStart = () => {
+    if (hoverEffect) {
+      setIsAnimating(true);
+      // Reset after animation completes
+      setTimeout(() => setIsAnimating(false), ROTATION_DURATION);
+    }
+  };
+
   // Inject keyframes styles
   const keyframesStyle = `
     ${generateKeyframes(0)}
@@ -112,6 +121,7 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
       className={`flex flex-col items-center text-center ${className}`}
       onMouseEnter={() => hoverEffect && setIsHovered(true)}
       onMouseLeave={() => hoverEffect && setIsHovered(false)}
+      onTouchStart={handleTouchStart}
     >
       <style>{keyframesStyle}</style>
       {/* Container */}

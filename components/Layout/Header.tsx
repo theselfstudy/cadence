@@ -2,7 +2,7 @@
 
 import { SafeLink } from "@/components/ui/SafeLink";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSettings } from "@/stores/useSettings";
 import { APP_CONFIG } from "@/lib/constants";
@@ -23,8 +23,23 @@ import {
  */
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsHovered, setIsSettingsHovered] = useState(false);
+
+  // Handle touch navigation - ensures single tap works on mobile
+  // Trigger animation and navigate with tiny delay for animation to start
+  const handleSettingsTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault(); // Prevent the delayed click event
+    setIsSettingsHovered(true); // Ensure animation triggers
+    // Small delay lets animation start before navigation
+    setTimeout(() => router.push("/settings"), 50);
+  };
+
+  const handleLogoTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    router.push("/dashboard");
+  };
 
   return (
     <>
@@ -55,7 +70,11 @@ export function Header() {
               </button>
 
               {/* Logo / Brand */}
-              <SafeLink href="/dashboard" className="flex items-center gap-2 group">
+              <SafeLink
+                href="/dashboard"
+                className="flex items-center gap-2 group"
+                onTouchEnd={handleLogoTouchEnd}
+              >
                 <AnimatedLogo size="sm" hoverEffect />
                 <span className="text-xl font-semibold text-app-charcoal">
                   {APP_CONFIG.name}
@@ -74,6 +93,8 @@ export function Header() {
               aria-label="Settings"
               onMouseEnter={() => setIsSettingsHovered(true)}
               onMouseLeave={() => setIsSettingsHovered(false)}
+              onTouchStart={() => setIsSettingsHovered(true)}
+              onTouchEnd={handleSettingsTouchEnd}
             >
               <SettingsIcon isHovered={isSettingsHovered} className="!w-6 !h-6" />
             </SafeLink>
@@ -137,6 +158,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
         onClick={onClose}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onTouchStart={() => setIsHovered(true)}
         className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
           pathname === href
             ? "bg-app-green text-white"

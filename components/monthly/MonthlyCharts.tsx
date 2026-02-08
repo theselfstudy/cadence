@@ -719,10 +719,15 @@ function MobileMonthStrip({
     );
 
     if (todayEl) {
-      todayEl.scrollIntoView({
+      // Only scroll horizontally within the container - don't scroll the page vertically
+      const containerWidth = container.offsetWidth;
+      const elementLeft = todayEl.offsetLeft;
+      const elementWidth = todayEl.offsetWidth;
+      const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+
+      container.scrollTo({
+        left: Math.max(0, scrollPosition),
         behavior: "smooth",
-        inline: "center",
-        block: "nearest",
       });
       hasAutoScrolled.current = true;
     }
