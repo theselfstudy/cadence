@@ -35,58 +35,21 @@ export function TrustBanner({
     // Count complete vs ongoing cycles
     const completeCycles = cycles.filter(c => !c.isOngoing);
     const ongoingCycle = cycles.find(c => c.isOngoing);
-    
-    // Get date range from entries
-    const sortedDates = entries
-      .map(e => e.date)
-      .sort((a, b) => a.localeCompare(b));
-    
-    const dateRange = sortedDates.length >= 1
-      ? {
-          start: sortedDates[0],
-          end: sortedDates[sortedDates.length - 1],
-        }
-      : null;
-    
+
+    // Count unique days logged
+    const uniqueDaysLogged = new Set(entries.map(e => e.date)).size;
+
     // Determine if there is enough data for deep insights
     const hasEnoughData = completeCycles.length >= 2;
-    
+
     return {
       completeCycleCount: completeCycles.length,
       hasOngoingCycle: !!ongoingCycle,
-      dateRange,
       entryCount: entries.length,
+      uniqueDaysLogged,
       hasEnoughData,
     };
   }, [cycles, entries]);
-
-  // ============================================
-  // DATE FORMATTING
-  // ============================================
-  
-  const formatDate = (dateStr: string): string => {
-    const [year, month, day] = dateStr.split("-").map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString("en-US", { 
-      month: "short", 
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const formatDateRange = (): string => {
-    if (!bannerData.dateRange) return "";
-    
-    const start = formatDate(bannerData.dateRange.start);
-    const end = formatDate(bannerData.dateRange.end);
-    
-    // If same date, just show one
-    if (bannerData.dateRange.start === bannerData.dateRange.end) {
-      return start;
-    }
-    
-    return `${start} – ${end}`;
-  };
 
   // ============================================
   // CYCLE COUNT TEXT
@@ -190,11 +153,11 @@ export function TrustBanner({
   // RENDER: STANDARD VARIANT
   // Shown when >= 2 complete cycles
   // ============================================
-  
+
   return (
     <div className="bg-gradient-to-br from-app-cream to-app-white rounded-xl border border-app-border p-5 shadow-sm">
       {/* Header */}
-      <div className="flex items-start gap-3 mb-4">
+      <div className="flex items-start gap-3 mb-3">
         <div className="w-10 h-10 rounded-full bg-app-teal/10 flex items-center justify-center flex-shrink-0">
           <span className="text-xl" role="img" aria-label="Lock">🔒</span>
         </div>
@@ -202,57 +165,40 @@ export function TrustBanner({
           <h2 className="text-lg font-semibold text-app-charcoal">
             Your data, your patterns
           </h2>
-
-          {/* Helper function to join parts with separators dynamically */}
-          {/* Desktop */}
-          <p className="text-sm text-app-gray mt-0.5 hidden md:flex md:items-center md:gap-1.5 md:whitespace-nowrap">
-            {[
-              bannerData.dateRange ? formatDateRange() : null,
-              bannerData.entryCount > 0
-                ? `${bannerData.entryCount} ${bannerData.entryCount === 1 ? "entry" : "entries"}`
-                : null,
-              getCycleCountText(),
-            ]
-              .filter(Boolean)
-              .map((part, idx) => (
-                <span key={idx}>
-                  {idx > 0 && <>· </>}
-                  {part}
-                </span>
-              ))}
-          </p>
-
-          {/* Mobile */}
-          <p className="text-sm text-app-gray mt-0.5 flex flex-col md:hidden">
-            {[
-              [
-                bannerData.dateRange ? formatDateRange() : null,
-                bannerData.entryCount > 0
-                  ? `${bannerData.entryCount} ${bannerData.entryCount === 1 ? "entry" : "entries"}`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · "),
-              getCycleCountText(),
-            ].map((line, idx) => (
-              <span key={idx}>{line}</span>
-            ))}
+          <p className="text-sm text-app-gray mt-0.5">
+            {bannerData.entryCount > 0
+              ? `${bannerData.entryCount} ${bannerData.entryCount === 1 ? "entry" : "entries"} across ${bannerData.uniqueDaysLogged} day${bannerData.uniqueDaysLogged !== 1 ? "s" : ""}`
+              : "Start logging to see insights"}
           </p>
         </div>
       </div>
 
-      {/* Main message */}
-      <div className="bg-app-white/70 rounded-lg p-4 mb-4">
-        <p className="text-sm text-app-charcoal leading-relaxed">
-          Insights only come from your logged entries.{" "}
-        </p>
-      </div>
+      {/* Stats Cards */}
+      {bannerData.entryCount > 0 && (
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="bg-app-cream rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-app-charcoal">{bannerData.entryCount}</p>
+            <p className="text-xs text-app-gray">Total Entries</p>
+          </div>
+          <div className="bg-app-cream rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-app-charcoal">
+              {bannerData.completeCycleCount}
+              {bannerData.hasOngoingCycle && <span className="text-base font-normal text-app-gray"> + 1</span>}
+            </p>
+            <p className="text-xs text-app-gray">
+              {bannerData.hasOngoingCycle ? "Complete + Ongoing" : "Complete Cycles"}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Privacy footer */}
-      <PrivacyFooter 
-        storageText={getStorageText()} 
-        variant="full" 
-      />
+      <div className="mt-4">
+        <PrivacyFooter
+          storageText={getStorageText()}
+          variant="full"
+        />
+      </div>
     </div>
   );
 }

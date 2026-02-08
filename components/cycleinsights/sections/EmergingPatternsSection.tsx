@@ -419,7 +419,7 @@ function RecentView({ patterns }: RecentViewProps) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-app-gray">These items first appeared in your recent cycles.</p>
+      <p className="text-xs text-app-gray">These items appeared in your recent cycles.</p>
 
       <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
         {patterns.map((pattern) => (

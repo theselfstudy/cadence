@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useEntries, useEntriesRevision } from "@/stores/useEntries";
 import { useFreshData } from "@/hooks/useFreshData";
 import { useSettings } from "@/stores/useSettings";
-import { useSyncTracker } from "@/stores/useSyncTracker";
-import { SyncWithGoogleSheetsButton } from "@/components/sync";
+import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
 import { 
   DetectedCycle, 
   detectCycleBoundaries, 
@@ -17,7 +17,6 @@ import { TrustBanner } from "./sections/TrustBanner";
 import { ThisCycleSection } from "./sections/ThisCycleSection";
 import { ConsistentPatternsSection } from "./sections/ConsistentPatternsSection";
 import { EmergingPatternsSection } from "./sections/EmergingPatternsSection";
-import { CoOccurrenceSection } from "./sections/CoOccurrenceSection";
 import { NotableCyclesSection } from "./sections/NotableCyclesSection";
 import { DetailedViewsSection } from "./sections/DetailedViewsSection";
 import { EntriesSection } from "./sections/EntriesSection";
@@ -26,7 +25,6 @@ import { CollapsibleSection } from "./shared/CollapsibleSection";
 import {
   calculateConsistentPatterns,
   calculateEmergingPatterns,
-  calculateCoOccurrences,
   calculateNotableCycles,
 } from "@/lib/insightUtils";
 
@@ -47,7 +45,6 @@ export function CycleInsightsPage() {
   // const isHydrated = useEntriesHydrated();
   const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
   const periodTracking = useSettings((state) => state.periodTracking);
-  const { getLastSuccessfulSyncAt } = useSyncTracker();
   
   // ============================================
   // CYCLE DETECTION & CALCULATIONS
@@ -92,12 +89,6 @@ const detectedCycles = useMemo(() => {
     return calculateEmergingPatterns(entries, detectedCycles);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, detectedCycles, revision]);
-
-  // Calculate co-occurrences for badge count
-  const coOccurrences = useMemo(() => {
-    return calculateCoOccurrences(entries);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, revision]);
 
   // Calculate notable cycles for badge count
   const notableCycles = useMemo(() => {
@@ -161,34 +152,33 @@ const detectedCycles = useMemo(() => {
 
   return (
     <div className="px-3 py-4 sm:p-4 space-y-4 sm:space-y-5 max-w-4xl mx-auto overscroll-contain">
-      {/* Page Header */}
-      <div className="mb-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-app-charcoal">
-          Cycle Insights
-        </h1>
-        <p className="text-sm text-app-gray mt-1 max-w-prose">
-          Patterns and observations from your logged data
-        </p>
+      {/* Page Header with Sync Button */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-app-charcoal">Cycle Insights</h1>
+          <p className="text-app-gray">Patterns and observations from your logged data</p>
+          {isGoogleSheetConnected && (
+            <div className="mt-2">
+              <SyncStatusBadge />
+            </div>
+          )}
+        </div>
+        {isGoogleSheetConnected && (
+          <SyncWithGoogleSheetsButton variant="subtle" />
+        )}
       </div>
 
-
-      {/* Mode Indicator */}
-      <div className="p-3 bg-app-cream rounded-lg border border-app-border">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
-            <span className="text-sm text-app-charcoal">
-              {isGoogleSheetConnected
-                ? formatTimeSinceSync(getLastSuccessfulSyncAt())
-                : "Local storage only (Anonymous Mode)"}
-            </span>
-          </div>
-
-          {/* Sync with Google Sheets button - only for connected users */}
-          <div className="self-start sm:self-auto">
-            <SyncWithGoogleSheetsButton variant="subtle" />
-          </div>
-        </div>
+      {/* All Insights Note */}
+      <div className="bg-app-teal/5 rounded-lg p-3 flex items-center gap-2">
+        <svg className="w-4 h-4 text-app-plumb flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p className="text-sm text-app-charcoal">
+          Looking for all other trends? Head to{" "}
+          <Link href="/dashboard/allinsights" className="text-app-teal font-medium hover:underline">
+            All Insights
+          </Link>
+        </p>
       </div>
 
       {/* Section 0: Trust Banner - Always visible */}
@@ -242,23 +232,7 @@ const detectedCycles = useMemo(() => {
         />
       </CollapsibleSection>
 
-      {/* Section 4: What Happens Together */}
-      <CollapsibleSection
-        title="What Happens Together"
-        icon={<LinkIcon className="w-5 h-5" />}
-        badge={hasEnoughDataForDeepInsights && coOccurrences.length > 0 
-          ? `${coOccurrences.length} pair${coOccurrences.length !== 1 ? "s" : ""}` 
-          : undefined}
-        helpText="Events that frequently appear on the same day in your logs."
-        defaultExpanded={false}
-      >
-        <CoOccurrenceSection
-          entries={entries}
-          cycles={detectedCycles}
-        />
-      </CollapsibleSection>
-
-      {/* Section 5: Notable Cycles */}
+      {/* Section 4: Notable Cycles */}
       <CollapsibleSection
         title="Notable Cycles"
         icon={<FlagIcon className="w-5 h-5" />}
@@ -301,88 +275,6 @@ const detectedCycles = useMemo(() => {
           <EntriesSection entries={entries} />
         </div>
       </CollapsibleSection>
-    </div>
-  );
-}
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-
-function formatTimeSinceSync(lastSyncAt: string | null): string {
-  if (!lastSyncAt) return "Sheet connected and is not yet synced";
-
-  const ms = Date.now() - new Date(lastSyncAt).getTime();
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `Last synced ${days}d ago`;
-  if (hours > 0) return `Last synced ${hours}h ago`;
-  if (minutes > 0) return `Last synced ${minutes}m ago`;
-  return "Last synced just now";
-}
-
-// ============================================
-// PLACEHOLDER COMPONENTS
-// These will be replaced with real components in later phases
-// ============================================
-
-interface PlaceholderContentProps {
-  title: string;
-  description: string;
-  minCycles: number;
-  currentCycles: number;
-  icon: string;
-}
-
-function PlaceholderContent({
-  title,
-  description,
-  minCycles,
-  currentCycles,
-  icon,
-}: PlaceholderContentProps) {
-  const hasEnoughData = currentCycles >= minCycles;
-
-  if (!hasEnoughData) {
-    return (
-      <div className="bg-app-cream/30 rounded-lg p-6 text-center">
-        <span className="text-2xl block mb-2">{icon}</span>
-        <p className="text-sm text-app-charcoal font-medium mb-1">
-          More data needed
-        </p>
-        <p className="text-xs text-app-gray">
-          Log {minCycles - currentCycles} more complete cycle{minCycles - currentCycles !== 1 ? "s" : ""} to see {title.toLowerCase()}
-        </p>
-        
-        {/* Progress dots */}
-        <div className="flex items-center justify-center gap-1 mt-3">
-          {Array.from({ length: minCycles }).map((_, i) => (
-            <div
-              key={i}
-              className={`w-2 h-2 rounded-full ${
-                i < currentCycles ? "bg-app-teal" : "bg-app-border"
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-app-cream/30 rounded-lg p-6 text-center">
-      <span className="text-2xl block mb-2">{icon}</span>
-      <p className="text-sm text-app-charcoal font-medium mb-1">
-        {title}
-      </p>
-      <p className="text-xs text-app-gray">
-        {description}
-      </p>
-      <p className="text-xs text-app-teal mt-2 font-medium">
-        Coming in Phase 2-4
-      </p>
     </div>
   );
 }
@@ -450,25 +342,6 @@ function SparkleIcon({ className }: { className?: string }) {
   );
 }
 
-function LinkIcon({ className }: { className?: string }) {
-  return (
-    <svg 
-      className={className} 
-      fill="none" 
-      stroke="currentColor" 
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
-        strokeWidth={2} 
-        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" 
-      />
-    </svg>
-  );
-}
-
 function FlagIcon({ className }: { className?: string }) {
   return (
     <svg 
@@ -483,25 +356,6 @@ function FlagIcon({ className }: { className?: string }) {
         strokeLinejoin="round" 
         strokeWidth={2} 
         d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" 
-      />
-    </svg>
-  );
-}
-
-function ThoughtBubbleIcon({ className }: { className?: string }) {
-  return (
-    <svg 
-      className={className} 
-      fill="none" 
-      stroke="currentColor" 
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
-        strokeWidth={2} 
-        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" 
       />
     </svg>
   );

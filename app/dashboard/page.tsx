@@ -110,6 +110,13 @@ export default function DashboardPage() {
             color="plumb"
             // comingSoon
           />
+          <DashboardCard
+            href="/dashboard/allinsights"
+            icon="📈"
+            title="All Insights"
+            description="Patterns & trends for all your data"
+            color="teal"
+          />
           {isPeriodTrackingEnabled && (
             <DashboardCard
               href="/dashboard/cycleinsights"
