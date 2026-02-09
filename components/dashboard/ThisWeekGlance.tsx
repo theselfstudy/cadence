@@ -525,19 +525,24 @@ interface StatCardProps {
   children?: React.ReactNode;
 }
 
-function StatCard({ 
-  label, 
-  value, 
-  subtext, 
-  accentColor, 
-  valueSize = "normal", 
+function StatCard({
+  label,
+  value,
+  subtext,
+  accentColor,
+  valueSize = "normal",
   expandedContent,
-  children 
+  children
 }: StatCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const showContent = isExpanded || isHovered;
+  const isDesktop =
+    typeof window !== "undefined" && window.innerWidth >= 768;
+
+  const showContent = isDesktop
+    ? isExpanded || isHovered
+    : isExpanded;
 
   const accentClasses: Record<string, string> = {
     green: "bg-app-green",
@@ -606,11 +611,27 @@ function StatCard({
           )}
           {children}
 
+          {/* Mobile: conditional mount */}
+          {expandedContent && (
+            <div className="block md:hidden">
+              {showContent && (
+                <div className="mt-3 pt-3 border-t border-app-border">
+                  {expandedContent}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Desktop: preserve existing behavior */}
           {expandedContent && (
             <div
-              className={`overflow-hidden transition-all duration-200 ${
-                showContent ? "max-h-[500px] mt-3 pt-3 border-t border-app-border" : "max-h-0"
-              }`}
+              className={`
+                hidden md:block overflow-hidden
+                transition-[max-height,margin,padding] duration-300 ease-in-out
+                ${showContent
+                  ? "max-h-[500px] mt-3 pt-3 border-t border-app-border"
+                  : "max-h-0 mt-0 pt-0 border-t-0"}
+              `}
             >
               {expandedContent}
             </div>
