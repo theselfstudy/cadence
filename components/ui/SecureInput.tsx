@@ -107,7 +107,7 @@ export function SecureTextInput({
         </label>
       )}
 
-      <div className="relative">
+      <div>
         <input
           type={type}
           value={value}
@@ -132,15 +132,17 @@ export function SecureTextInput({
         />
 
         {showCharCount && (
-          <div
-            className={`
-              absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono
-              ${charStatus.isError ? 'text-app-red font-semibold' :
-                charStatus.isWarning ? 'text-amber-600' :
-                'text-app-gray'}
-            `}
-          >
-            {charStatus.count}
+          <div className="flex justify-end mt-1">
+            <span
+              className={`
+                text-xs font-mono
+                ${charStatus.isError ? 'text-app-red font-semibold' :
+                  charStatus.isWarning ? 'text-amber-600' :
+                  'text-app-gray'}
+              `}
+            >
+              {charStatus.count}
+            </span>
           </div>
         )}
       </div>
@@ -226,7 +228,7 @@ export function SecureTextarea({
         </label>
       )}
 
-      <div className="relative">
+      <div>
         <textarea
           value={value}
           onChange={handleChange}
@@ -250,15 +252,17 @@ export function SecureTextarea({
         />
 
         {showCharCount && (
-          <div
-            className={`
-              absolute right-3 bottom-3 text-xs font-mono
-              ${charStatus.isError ? 'text-app-red font-semibold' :
-                charStatus.isWarning ? 'text-amber-600' :
-                'text-app-gray'}
-            `}
-          >
-            {charStatus.count}
+          <div className="flex justify-end mt-1">
+            <span
+              className={`
+                text-xs font-mono
+                ${charStatus.isError ? 'text-app-red font-semibold' :
+                  charStatus.isWarning ? 'text-amber-600' :
+                  'text-app-gray'}
+              `}
+            >
+              {charStatus.count}
+            </span>
           </div>
         )}
       </div>
@@ -352,7 +356,7 @@ export function SecureSheetURLInput({
         </label>
       )}
 
-      <div className="relative">
+      <div>
         <input
           type="url"
           value={value}
@@ -375,27 +379,29 @@ export function SecureSheetURLInput({
           `}
         />
 
-        <div
-          className={`
-            absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono
-            ${charStatus.isError ? 'text-app-red font-semibold' :
-              charStatus.isWarning ? 'text-amber-600' :
-              'text-app-gray'}
-          `}
-        >
-          {charStatus.count}
+        <div className="flex justify-between items-center mt-1">
+          <div className="min-h-[20px]">
+            {displayError && (
+              <p className="text-xs text-app-red">{displayError}</p>
+            )}
+            {charStatus.isWarning && !displayError && (
+              <p className="text-xs text-amber-600">
+                {maxLength - value.length} characters remaining
+              </p>
+            )}
+          </div>
+          <span
+            className={`
+              text-xs font-mono
+              ${charStatus.isError ? 'text-app-red font-semibold' :
+                charStatus.isWarning ? 'text-amber-600' :
+                'text-app-gray'}
+            `}
+          >
+            {charStatus.count}
+          </span>
         </div>
       </div>
-
-      {displayError && (
-        <p className="mt-1 text-xs text-app-red">{displayError}</p>
-      )}
-
-      {charStatus.isWarning && !displayError && (
-        <p className="mt-1 text-xs text-amber-600">
-          {maxLength - value.length} characters remaining
-        </p>
-      )}
     </div>
   );
 }

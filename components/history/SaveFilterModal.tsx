@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { MAX_FILTER_NAME_LENGTH } from "@/stores/useSavedFilters";
+import { SecureTextInput } from "@/components/ui/SecureInput";
+import { containsFormulaInjection } from "@/lib/inputSecurity";
 
 // ============================================
 // TYPES
@@ -28,35 +30,34 @@ export function SaveFilterModal({
 }: SaveFilterModalProps) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Focus input when modal opens
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
+  const [hasFormulaInjection, setHasFormulaInjection] = useState(false);
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setName("");
       setError(null);
+      setHasFormulaInjection(false);
     }
   }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const trimmedName = name.trim();
-    
+
     if (!trimmedName) {
       setError("Please enter a name for this filter");
       return;
     }
-    
+
     if (trimmedName.length > MAX_FILTER_NAME_LENGTH) {
       setError(`⚠️ Name must be ${MAX_FILTER_NAME_LENGTH} characters or less`);
+      return;
+    }
+
+    if (containsFormulaInjection(trimmedName)) {
+      setError("Name contains invalid characters");
       return;
     }
 
@@ -64,13 +65,15 @@ export function SaveFilterModal({
     onClose();
   };
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const handleNameChange = (value: string) => {
     setName(value);
-    
+
     // Clear error when user starts typing
     if (error) setError(null);
-    
+
+    // Check for formula injection
+    setHasFormulaInjection(containsFormulaInjection(value));
+
     // Show warning if approaching limit
     if (value.length > MAX_FILTER_NAME_LENGTH) {
       setError(`⚠️ Name must be ${MAX_FILTER_NAME_LENGTH} characters or less`);
@@ -79,8 +82,7 @@ export function SaveFilterModal({
 
   if (!isOpen) return null;
 
-  const remainingChars = MAX_FILTER_NAME_LENGTH - name.length;
-  const isOverLimit = remainingChars < 0;
+  const isOverLimit = name.length > MAX_FILTER_NAME_LENGTH;
 
   return (
     <>
@@ -123,45 +125,15 @@ export function SaveFilterModal({
           {/* Form */}
           <form onSubmit={handleSubmit}>
             <div className="px-6 py-4">
-              <label
-                htmlFor="filter-name"
-                className="block text-sm font-medium text-DEFAULT mb-2"
-              >
-                Filter Name
-              </label>
-              <input
-                ref={inputRef}
-                id="filter-name"
-                type="text"
+              <SecureTextInput
                 value={name}
                 onChange={handleNameChange}
+                label="Filter Name"
                 placeholder="e.g., Work Week Symptoms"
-                maxLength={MAX_FILTER_NAME_LENGTH + 5} // Allow typing over to show error
-                className={`
-                  w-full px-4 py-3 rounded-xl border-2 transition-colors
-                  focus:outline-none focus:ring-0
-                  ${isOverLimit || error
-                    ? "border-app-red focus:border-app-red"
-                    : "border-app-border focus:border-app-green"
-                  }
-                `}
+                maxLength={MAX_FILTER_NAME_LENGTH}
+                showCharCount={true}
+                errorMessage={error || undefined}
               />
-              
-              {/* Character count & error */}
-              <div className="flex justify-between items-center mt-2">
-                <div className="min-h-[20px]">
-                  {error && (
-                    <p className="text-sm text-app-red">{error}</p>
-                  )}
-                </div>
-                <span
-                  className={`text-xs ${
-                    isOverLimit ? "text-app-red" : "text-app-gray"
-                  }`}
-                >
-                  {remainingChars} characters left
-                </span>
-              </div>
             </div>
 
             {/* Actions */}
@@ -169,15 +141,15 @@ export function SaveFilterModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-3 rounded-xl border-2 border-app-border 
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-app-border
                          text-DEFAULT font-medium hover:bg-app-cream transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={!name.trim() || isOverLimit}
-                className="flex-1 px-4 py-3 rounded-xl bg-app-green text-white 
+                disabled={!name.trim() || isOverLimit || hasFormulaInjection}
+                className="flex-1 px-4 py-3 rounded-xl bg-app-green text-white
                          font-medium hover:bg-app-plumb/90
                          disabled:opacity-50 disabled:cursor-not-allowed"
               >

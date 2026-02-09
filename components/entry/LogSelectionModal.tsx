@@ -142,7 +142,7 @@ export function LogSelectionModal({
             What would you like to log?
           </h2>
           <p className="text-sm text-app-gray text-center mt-1">
-            Select the sections for this entry
+            Select categories to log for this entry
           </p>
         </div>
 
@@ -247,7 +247,7 @@ export function LogSelectionModal({
                       d="M4 6h16M4 12h16M4 18h16"
                     />
                   </svg>
-                  Log Everything
+                  Select All Categories
                 </>
               )}
             </button>
@@ -259,7 +259,7 @@ export function LogSelectionModal({
           {/* Validation message */}
           {selected.length === 0 && (
             <p className="text-xs text-app-gray text-center">
-              Select at least one section to continue
+              Select at least one category to continue
             </p>
           )}
 

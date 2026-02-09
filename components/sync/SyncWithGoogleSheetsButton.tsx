@@ -10,6 +10,7 @@ import { useEntries } from "@/stores/useEntries";
 import { useButtonRateLimit } from "@/hooks/useRateLimit";
 import { OAuthErrorModal } from "@/components/ui/OAuthErrorModal";
 import { SheetDisconnectedModal } from "@/components/ui/SheetDisconnectedModal";
+import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import { startSync } from "@/lib/syncEngine";
 import { getSpreadsheetTitle } from "@/lib/googleSheets";
 import {
@@ -440,6 +441,24 @@ export function SyncWithGoogleSheetsButton({
         isOpen={showSheetDisconnected}
         onClose={() => setShowSheetDisconnected(false)}
       />
+
+      {/* Restore Loading Overlay */}
+      {isRestoring && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-app-charcoal/60 backdrop-blur-sm" />
+          <div className="relative bg-app-white rounded-2xl shadow-xl p-8 max-w-sm mx-4">
+            <div className="text-center">
+              <AnimatedLogo size="md" className="mb-4" spinning />
+              <h2 className="text-xl font-bold text-app-charcoal mb-2">
+                Restoring Your Data
+              </h2>
+              <p className="text-sm text-app-gray">
+                Loading your settings, filters, and entries...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

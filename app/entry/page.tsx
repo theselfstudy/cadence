@@ -318,8 +318,8 @@ function ConsolidatedMedicineLog({
                                 handleCustomDosageAdd(medicine.id);
                               }
                             }}
-                            placeholder="Enter custom dosage (max 60 chars)"
-                            showCharCount={false}
+                            placeholder="Enter custom dosage"
+                            showCharCount={true}
                             className="text-sm"
                           />
                         </div>
@@ -341,8 +341,8 @@ function ConsolidatedMedicineLog({
                         onChange={(value) =>
                           updateLogEntry(entry.medicineId, { dosage: value })
                         }
-                        placeholder="e.g., 2 pills, 200mg (max 60 chars)"
-                        showCharCount={false}
+                        placeholder="e.g., 2 pills, 200mg"
+                        showCharCount={true}
                         className="text-sm"
                       />
                     </div>
@@ -1287,7 +1287,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                   onChange={handleOneOffSymptomInputChange}
                   onKeyDown={handleOneOffSymptomKeyDown}
                   placeholder="Enter a symptom..."
-                  showCharCount={false}
+                  showCharCount={true}
                   className="text-sm"
                 />
               </div>

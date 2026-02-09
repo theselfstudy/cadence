@@ -177,6 +177,14 @@ export function ReportSectionModal({
 
   const dateRange = getDateRange();
   const hasEntries = entries.length > 0;
+
+  // Check if custom dates are in wrong order
+  const hasDateOrderError =
+    quickSelect === "custom" &&
+    customStartDate &&
+    customEndDate &&
+    new Date(customStartDate) > new Date(customEndDate);
+
   const isValid = selected.length > 0 && dateRange !== null && hasEntries;
 
   // If no sections are enabled, show a message
@@ -215,19 +223,27 @@ export function ReportSectionModal({
       <div className="absolute inset-0 bg-app-charcoal/40 backdrop-blur-[2px]" />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg bg-app-white rounded-2xl shadow-xl my-8">
+      <div className="relative w-full max-w-lg max-h-[calc(100vh-4rem)] bg-app-white rounded-2xl shadow-xl my-8 flex flex-col">
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-app-border">
+        <div className="p-6 pb-4 border-b border-app-border flex-shrink-0">
           <h2 className="text-xl font-bold text-app-charcoal">
             Generate Health Report
           </h2>
           <p className="text-sm text-app-gray mt-1">
-            Configure your report for clinical review
+            Configure your health report. Select a report period and categories
           </p>
+          {/* No entries warning */}
+          {!hasEntries && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800 text-center">
+                ⚠️ Please submit at least one entry before generating a report.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
           {/* Date Range Picker */}
           <div>
             <h3 className="text-sm font-semibold text-app-charcoal mb-3">
@@ -284,34 +300,53 @@ export function ReportSectionModal({
 
             {/* Custom Date Inputs */}
             {quickSelect === "custom" && (
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div>
-                  <label className="block text-xs text-app-gray mb-1">
+              <div className="grid grid-cols-2 gap-x-4 sm:gap-x-2 mt-3">
+                <div className="min-w-0">
+                  <label className="block text-xs text-app-gray mb-1 text-center">
                     Start Date
                   </label>
                   <input
                     type="date"
                     value={customStartDate}
+                    max={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white text-app-charcoal text-sm focus:outline-none focus:ring-2 focus:ring-app-teal"
+                    className={`w-full min-w-0 py-2 px-1 sm:px-3 rounded-lg border bg-app-white text-app-charcoal text-sm text-center focus:outline-none focus:ring-2 ${
+                      hasDateOrderError
+                        ? "border-red-400 focus:ring-red-300"
+                        : "border-app-border focus:ring-app-teal"
+                    }`}
                   />
                 </div>
-                <div>
-                  <label className="block text-xs text-app-gray mb-1">
+                <div className="min-w-0">
+                  <label className="block text-xs text-app-gray mb-1 text-center">
                     End Date
                   </label>
                   <input
                     type="date"
                     value={customEndDate}
+                    max={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-app-border bg-app-white text-app-charcoal text-sm focus:outline-none focus:ring-2 focus:ring-app-teal"
+                    className={`w-full min-w-0 py-2 px-1 sm:px-3 rounded-lg border bg-app-white text-app-charcoal text-sm text-center focus:outline-none focus:ring-2 ${
+                      hasDateOrderError
+                        ? "border-red-400 focus:ring-red-300"
+                        : "border-app-border focus:ring-app-teal"
+                    }`}
                   />
                 </div>
               </div>
             )}
 
-            {/* Date Range Display */}
-            {dateRange && (
+            {/* Date order error message */}
+            {hasDateOrderError && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-xs text-red-600 text-center">
+                  End date must be after start date
+                </p>
+              </div>
+            )}
+
+            {/* Date Range Display - only show if there are entries */}
+            {dateRange && hasEntries && (
               <div className="mt-3 p-3 bg-app-cream/50 rounded-lg">
                 <p className="text-xs text-app-gray">
                   Report will include data from{" "}
@@ -335,13 +370,13 @@ export function ReportSectionModal({
             )}
           </div>
 
-          {/* Data Categories */}
+          {/* Data Categories - 2x2 Grid */}
           <div>
             <h3 className="text-sm font-semibold text-app-charcoal mb-3">
               Data Categories
             </h3>
 
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               {enabledSections.map((section) => {
                 const isSelected = selected.includes(section.id);
                 return (
@@ -349,23 +384,17 @@ export function ReportSectionModal({
                     key={section.id}
                     type="button"
                     onClick={() => toggleSection(section.id)}
-                    className={`w-full p-3 rounded-lg text-left transition-all flex items-start gap-3 ${
+                    className={`p-3 rounded-lg text-center transition-all relative ${
                       isSelected
                         ? "bg-app-teal/10 border-2 border-app-teal"
                         : "bg-app-cream/50 border-2 border-transparent hover:border-app-border"
                     }`}
                   >
-                    {/* Checkbox */}
-                    <div
-                      className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                        isSelected
-                          ? "bg-app-teal text-white"
-                          : "bg-app-white border-2 border-app-border"
-                      }`}
-                    >
-                      {isSelected && (
+                    {/* Checkmark indicator */}
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-app-teal flex items-center justify-center">
                         <svg
-                          className="w-3 h-3"
+                          className="w-2.5 h-2.5 text-white"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -377,21 +406,14 @@ export function ReportSectionModal({
                             d="M5 13l4 4L19 7"
                           />
                         </svg>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{section.icon}</span>
-                        <span className="font-medium text-app-charcoal text-sm">
-                          {section.label}
-                        </span>
                       </div>
-                      <p className="text-xs text-app-gray mt-0.5">
-                        {section.description}
-                      </p>
-                    </div>
+                    )}
+
+                    {/* Icon and Label */}
+                    <span className="text-2xl block mb-1">{section.icon}</span>
+                    <span className="font-medium text-app-charcoal text-sm block">
+                      {section.label}
+                    </span>
                   </button>
                 );
               })}
@@ -401,7 +423,7 @@ export function ReportSectionModal({
 
         {/* All Categories Toggle */}
         {enabledSections.length > 1 && (
-          <div className="px-6 pb-4">
+          <div className="px-6 pb-4 flex-shrink-0">
             <button
               type="button"
               onClick={selectAllCategories}
@@ -426,7 +448,7 @@ export function ReportSectionModal({
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  All Categories Selected
+                  All Selected
                 </>
               ) : (
                 <>
@@ -443,7 +465,7 @@ export function ReportSectionModal({
                       d="M4 6h16M4 12h16M4 18h16"
                     />
                   </svg>
-                  All Categories
+                  Select All Categories
                 </>
               )}
             </button>
@@ -451,22 +473,15 @@ export function ReportSectionModal({
         )}
 
         {/* Footer */}
-        <div className="p-6 pt-4 space-y-3">
-          {/* No entries warning */}
-          {!hasEntries && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-800 text-center">
-                ⚠️ Please submit at least one entry before generating a report.
-              </p>
-            </div>
-          )}
-
+        <div className="p-6 pt-4 space-y-3 flex-shrink-0 border-t border-app-border">
           {/* Validation message */}
           {hasEntries && !isValid && (
             <p className="text-xs text-app-gray text-center">
               {selected.length === 0
                 ? "Select at least one category to continue"
-                : "Please select a valid date range"}
+                : hasDateOrderError
+                  ? "Fix the date range to continue"
+                  : "Please select a valid date range"}
             </p>
           )}
 

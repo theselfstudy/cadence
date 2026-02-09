@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { CollapsibleSection } from "@/components/cycleinsights/shared/CollapsibleSection";
 import { ChangeDetectionResult, groupChangeDetection, ItemCategory } from "@/lib/allInsightsUtils";
+import { BuildingInsightPlaceholder } from "./BuildingInsightPlaceholder";
 
 // ============================================
 // CHANGE DETECTION SECTION
@@ -13,8 +14,11 @@ import { ChangeDetectionResult, groupChangeDetection, ItemCategory } from "@/lib
 
 interface ChangeDetectionSectionProps {
   changes: ChangeDetectionResult[];
-  totalEntries: number;
+  uniqueDaysLogged: number;
   defaultExpanded?: boolean;
+  symptomsEnabled?: boolean;
+  stoolTrackingEnabled?: boolean;
+  medicineTrackingEnabled?: boolean;
 }
 
 type TabType = "symptom" | "bristol" | "medication";
@@ -43,27 +47,44 @@ const CATEGORY_COLORS: Record<TabType, { bg: string; bgLight: string; text: stri
   },
 };
 
-export function ChangeDetectionSection({ changes, totalEntries, defaultExpanded = true }: ChangeDetectionSectionProps) {
+export function ChangeDetectionSection({
+  changes,
+  uniqueDaysLogged,
+  defaultExpanded = true,
+  symptomsEnabled = true,
+  stoolTrackingEnabled = true,
+  medicineTrackingEnabled = true,
+}: ChangeDetectionSectionProps) {
   const [activeTab, setActiveTab] = useState<TabType>("symptom");
   const [isAtBottom, setIsAtBottom] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Hide section if not enough data (≥20 entries)
-  if (totalEntries < 20) {
-    return null;
-  }
+  const needsMoreData = uniqueDaysLogged < 14;
+
+  // Filter tabs based on enabled settings
+  const enabledTabs = TAB_CONFIG.filter((tab) => {
+    if (tab.id === "symptom") return symptomsEnabled;
+    if (tab.id === "bristol") return stoolTrackingEnabled;
+    if (tab.id === "medication") return medicineTrackingEnabled;
+    return true;
+  });
+
+  // Determine default tab (first enabled tab)
+  const defaultTab = enabledTabs.length > 0 ? enabledTabs[0].id : "symptom";
 
   const grouped = groupChangeDetection(changes);
   const hasChanges = changes.length > 0;
 
-  const currentChanges = grouped[activeTab];
+  // Ensure activeTab is valid (reset to first enabled tab if current tab is disabled)
+  const effectiveTab = enabledTabs.some((t) => t.id === activeTab) ? activeTab : defaultTab;
+  const currentChanges = grouped[effectiveTab];
   const tabCounts = {
     symptom: grouped.symptom.length,
     bristol: grouped.bristol.length,
     medication: grouped.medication.length,
   };
 
-  const colors = CATEGORY_COLORS[activeTab];
+  const colors = CATEGORY_COLORS[effectiveTab];
 
   const handleScroll = () => {
     if (scrollRef.current) {
@@ -75,7 +96,7 @@ export function ChangeDetectionSection({ changes, totalEntries, defaultExpanded 
   return (
     <CollapsibleSection
       title="What's Changing"
-      badge={hasChanges ? `${changes.length} changes` : undefined}
+      badge={!needsMoreData && hasChanges ? `${changes.length} changes` : undefined}
       helpText="Compares the last 2 weeks to the previous 2 weeks. Shows items that appeared significantly more or less often."
       defaultExpanded={defaultExpanded}
       icon={
@@ -109,32 +130,42 @@ export function ChangeDetectionSection({ changes, totalEntries, defaultExpanded 
         </svg>
       }
     >
-      {/* Sticky Tab Navigation */}
-      <div className="sticky top-0 bg-white z-10 -mx-4 px-4 pt-1 pb-0">
-        <div className="flex border-b border-app-border">
-          {TAB_CONFIG.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-                activeTab === tab.id
-                  ? CATEGORY_COLORS[tab.id].text
-                  : "text-app-gray hover:text-app-charcoal"
-              }`}
-            >
-              {tab.label}
-              {tabCounts[tab.id] > 0 && (
-                <span className="ml-1.5 text-xs bg-app-cream px-1.5 py-0.5 rounded-full">
-                  {tabCounts[tab.id]}
-                </span>
-              )}
-              {activeTab === tab.id && (
-                <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${CATEGORY_COLORS[tab.id].bg}`} />
-              )}
-            </button>
-          ))}
+      {needsMoreData ? (
+        <BuildingInsightPlaceholder
+          uniqueDaysLogged={uniqueDaysLogged}
+          title="Tracking your changes"
+          subtitle="Discover what symptoms and patterns are increasing or decreasing over time."
+        />
+      ) : (
+      <>
+      {/* Sticky Tab Navigation - only show if more than one tab enabled */}
+      {enabledTabs.length > 1 && (
+        <div className="sticky top-0 bg-white z-10 -mx-4 px-4 pt-1 pb-0">
+          <div className="flex border-b border-app-border">
+            {enabledTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
+                  effectiveTab === tab.id
+                    ? CATEGORY_COLORS[tab.id].text
+                    : "text-app-gray hover:text-app-charcoal"
+                }`}
+              >
+                {tab.label}
+                {tabCounts[tab.id] > 0 && (
+                  <span className="ml-1.5 text-xs bg-app-cream px-1.5 py-0.5 rounded-full">
+                    {tabCounts[tab.id]}
+                  </span>
+                )}
+                {effectiveTab === tab.id && (
+                  <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${CATEGORY_COLORS[tab.id].bg}`} />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Scrollable Tab Content */}
       <div
@@ -171,6 +202,8 @@ export function ChangeDetectionSection({ changes, totalEntries, defaultExpanded 
           helpful to notice these connections in your own experience.
         </p>
       </div>
+      </>
+      )}
     </CollapsibleSection>
   );
 }

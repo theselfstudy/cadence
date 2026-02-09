@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { CollapsibleSection } from "@/components/cycleinsights/shared/CollapsibleSection";
 import { ConsistencyResult, groupConsistencyResults, ItemCategory } from "@/lib/allInsightsUtils";
+import { BuildingInsightPlaceholder } from "./BuildingInsightPlaceholder";
 
 // ============================================
 // CONSISTENCY SECTION
@@ -13,9 +14,11 @@ import { ConsistencyResult, groupConsistencyResults, ItemCategory } from "@/lib/
 
 interface ConsistencySectionProps {
   consistencyData: ConsistencyResult[];
-  totalEntries: number;
   uniqueDaysLogged: number;
   defaultExpanded?: boolean;
+  symptomsEnabled?: boolean;
+  stoolTrackingEnabled?: boolean;
+  medicineTrackingEnabled?: boolean;
 }
 
 type TabType = "highly_consistent" | "moderate" | "variable";
@@ -52,16 +55,28 @@ const CATEGORY_COLORS: Record<ItemCategory, { bg: string; bgLight: string; text:
   },
 };
 
-export function ConsistencySection({ consistencyData, totalEntries, uniqueDaysLogged, defaultExpanded = true }: ConsistencySectionProps) {
+export function ConsistencySection({
+  consistencyData,
+  uniqueDaysLogged,
+  defaultExpanded = true,
+  symptomsEnabled = true,
+  stoolTrackingEnabled = true,
+  medicineTrackingEnabled = true,
+}: ConsistencySectionProps) {
   const [activeTab, setActiveTab] = useState<TabType>("highly_consistent");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [isAtBottom, setIsAtBottom] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Hide section if not enough data (≥20 entries)
-  if (totalEntries < 20) {
-    return null;
-  }
+  const needsMoreData = uniqueDaysLogged < 14;
+
+  // Filter categories based on enabled settings
+  const enabledCategories = CATEGORY_ORDER.filter((category) => {
+    if (category === "symptom") return symptomsEnabled;
+    if (category === "bristol") return stoolTrackingEnabled;
+    if (category === "medication") return medicineTrackingEnabled;
+    return true;
+  });
 
   const hasData = consistencyData.length > 0;
   const grouped = groupConsistencyResults(consistencyData);
@@ -70,20 +85,14 @@ export function ConsistencySection({ consistencyData, totalEntries, uniqueDaysLo
   const weeksTotal = Math.floor(uniqueDaysLogged / 7);
   const weekLabel = weeksTotal === 1 ? "week" : "weeks";
 
-  // Count items in each tab
+  // Count items in each tab (only for enabled categories)
+  const countForTab = (tab: TabType) => {
+    return enabledCategories.reduce((sum, category) => sum + grouped[tab][category].length, 0);
+  };
   const tabCounts: Record<TabType, number> = {
-    highly_consistent:
-      grouped.highly_consistent.symptom.length +
-      grouped.highly_consistent.bristol.length +
-      grouped.highly_consistent.medication.length,
-    moderate:
-      grouped.moderate.symptom.length +
-      grouped.moderate.bristol.length +
-      grouped.moderate.medication.length,
-    variable:
-      grouped.variable.symptom.length +
-      grouped.variable.bristol.length +
-      grouped.variable.medication.length,
+    highly_consistent: countForTab("highly_consistent"),
+    moderate: countForTab("moderate"),
+    variable: countForTab("variable"),
   };
 
   const currentCategories = grouped[activeTab];
@@ -107,7 +116,7 @@ export function ConsistencySection({ consistencyData, totalEntries, uniqueDaysLo
   return (
     <CollapsibleSection
       title="Consistency & Variability"
-      badge={hasData && weeksTotal > 0 ? `${weeksTotal} ${weekLabel} of data` : undefined}
+      badge={!needsMoreData && hasData && weeksTotal > 0 ? `${weeksTotal} ${weekLabel} of data` : undefined}
       helpText="Shows how regularly each item appears. Consistent items appear most days, moderate items occasionally, and variable items are unpredictable."
       defaultExpanded={defaultExpanded}
       icon={
@@ -116,6 +125,14 @@ export function ConsistencySection({ consistencyData, totalEntries, uniqueDaysLo
         </svg>
       }
     >
+      {needsMoreData ? (
+        <BuildingInsightPlaceholder
+          uniqueDaysLogged={uniqueDaysLogged}
+          title="Measuring your consistency"
+          subtitle="Learn which symptoms and patterns are steady versus those that come and go."
+        />
+      ) : (
+      <>
       {/* Sticky Tab Navigation */}
       <div className="sticky top-0 bg-white z-10 -mx-4 px-4 pt-1 pb-0">
         <div className="flex border-b border-app-border">
@@ -156,7 +173,7 @@ export function ConsistencySection({ consistencyData, totalEntries, uniqueDaysLo
           <EmptyState tab={activeTab} />
         ) : (
           <div className="space-y-4">
-            {CATEGORY_ORDER.map((category) => {
+            {enabledCategories.map((category) => {
               const categoryItems = currentCategories[category];
               const colors = CATEGORY_COLORS[category];
               const isExpanded = isCategoryExpanded(category);
@@ -216,6 +233,8 @@ export function ConsistencySection({ consistencyData, totalEntries, uniqueDaysLo
           helpful to notice these connections in your own experience.
         </p>
       </div>
+      </>
+      )}
     </CollapsibleSection>
   );
 }

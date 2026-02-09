@@ -16,6 +16,7 @@ interface AnimatedLogoProps {
   size?: LogoSize;
   className?: string;
   hoverEffect?: boolean;
+  spinning?: boolean; // Continuous spinning for loading states
 }
 
 const SIZE_CONFIG = {
@@ -67,7 +68,7 @@ const generateFillKeyframes = (offset: number) => {
   `;
 };
 
-export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false }: AnimatedLogoProps) {
+export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false, spinning = false }: AnimatedLogoProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const config = SIZE_CONFIG[size];
@@ -82,6 +83,9 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
       setIsAnimating(false);
     }
   }, [isHovered, hoverEffect]);
+
+  // Continuous spinning for loading states
+  const isContinuousSpinning = spinning;
 
   // Handle touch for mobile - trigger animation without blocking navigation
   const handleTouchStart = () => {
@@ -114,6 +118,12 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
     .animate-spin-ccw {
       animation: logoSpinCounterClockwise ${ROTATION_DURATION}ms ease-in-out forwards;
     }
+    .animate-spin-cw-continuous {
+      animation: logoSpinClockwise 1.5s linear infinite;
+    }
+    .animate-spin-ccw-continuous {
+      animation: logoSpinCounterClockwise 1.5s linear infinite;
+    }
   `;
 
   return (
@@ -141,7 +151,7 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
         >
           {/* Outermost C - rotates clockwise */}
           <g
-            className={isAnimating ? "animate-spin-cw" : ""}
+            className={isContinuousSpinning ? "animate-spin-cw-continuous" : isAnimating ? "animate-spin-cw" : ""}
             style={{ transformOrigin: "50px 50px" }}
           >
             <path
@@ -156,7 +166,7 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
           </g>
           {/* Middle C - rotates counterclockwise */}
           <g
-            className={isAnimating ? "animate-spin-ccw" : ""}
+            className={isContinuousSpinning ? "animate-spin-ccw-continuous" : isAnimating ? "animate-spin-ccw" : ""}
             style={{ transformOrigin: "50px 50px" }}
           >
             <path
@@ -171,7 +181,7 @@ export function AnimatedLogo({ size = "lg", className = "", hoverEffect = false 
           </g>
           {/* Innermost C - rotates clockwise */}
           <g
-            className={isAnimating ? "animate-spin-cw" : ""}
+            className={isContinuousSpinning ? "animate-spin-cw-continuous" : isAnimating ? "animate-spin-cw" : ""}
             style={{ transformOrigin: "50px 50px" }}
           >
             <path

@@ -37,7 +37,7 @@ export default function RootPage() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="text-center">
-        <AnimatedLogo size="md" className="mb-4" />
+        <AnimatedLogo size="md" className="mb-4" spinning />
         <p className="text-app-gray">Loading Cadence...</p>
       </div>
     </div>

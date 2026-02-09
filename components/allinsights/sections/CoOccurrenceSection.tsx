@@ -5,6 +5,7 @@ import type { StoredEntry } from "@/types";
 import { calculateCoOccurrences } from "@/lib/insightUtils";
 import type { CoOccurrence } from "@/lib/insightUtils";
 import { CollapsibleSection } from "@/components/cycleinsights/shared/CollapsibleSection";
+import { BuildingInsightPlaceholder } from "./BuildingInsightPlaceholder";
 
 // ============================================
 // CO-OCCURRENCE SECTION (All Insights Version)
@@ -25,13 +26,10 @@ export function CoOccurrenceSection({ entries, uniqueDaysLogged, defaultExpanded
     return calculateCoOccurrences(entries);
   }, [entries]);
 
-  // Hide section if not enough data (14 days minimum)
-  if (uniqueDaysLogged < 14) {
-    return null;
-  }
+  const needsMoreData = uniqueDaysLogged < 14;
 
-  // No co-occurrences found
-  if (coOccurrences.length === 0) {
+  // No co-occurrences found (but has enough data)
+  if (!needsMoreData && coOccurrences.length === 0) {
     return (
       <CollapsibleSection
         title="What Happens Together"
@@ -57,7 +55,7 @@ export function CoOccurrenceSection({ entries, uniqueDaysLogged, defaultExpanded
   return (
     <CollapsibleSection
       title="What Happens Together"
-      badge={`${coOccurrences.length} pairs`}
+      badge={!needsMoreData && coOccurrences.length > 0 ? `${coOccurrences.length} pairs` : undefined}
       helpText="Shows symptoms and medications that frequently appear on the same day. These patterns may help you notice connections."
       defaultExpanded={defaultExpanded}
       icon={
@@ -66,6 +64,14 @@ export function CoOccurrenceSection({ entries, uniqueDaysLogged, defaultExpanded
         </svg>
       }
     >
+      {needsMoreData ? (
+        <BuildingInsightPlaceholder
+          uniqueDaysLogged={uniqueDaysLogged}
+          title="Finding your connections"
+          subtitle="See which symptoms and medications tend to appear together on the same days."
+        />
+      ) : (
+      <>
       {/* Intro text */}
       <p className="text-sm text-app-gray mb-4">
         Some symptoms and events tend to show up at the same time.
@@ -99,6 +105,8 @@ export function CoOccurrenceSection({ entries, uniqueDaysLogged, defaultExpanded
           helpful to notice these connections in your own experience.
         </p>
       </div>
+      </>
+      )}
     </CollapsibleSection>
   );
 }

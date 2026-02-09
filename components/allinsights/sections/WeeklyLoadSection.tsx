@@ -2,6 +2,7 @@
 
 import { CollapsibleSection } from "@/components/cycleinsights/shared/CollapsibleSection";
 import { WeeklyLoadStats } from "@/lib/allInsightsUtils";
+import { BuildingInsightPlaceholder } from "./BuildingInsightPlaceholder";
 
 // ============================================
 // WEEKLY LOAD SECTION
@@ -13,8 +14,11 @@ import { WeeklyLoadStats } from "@/lib/allInsightsUtils";
 
 interface WeeklyLoadSectionProps {
   loadStats: WeeklyLoadStats;
-  totalEntries: number;
+  uniqueDaysLogged: number;
   defaultExpanded?: boolean;
+  symptomsEnabled?: boolean;
+  stoolTrackingEnabled?: boolean;
+  medicineTrackingEnabled?: boolean;
 }
 
 const RING_COLORS = {
@@ -35,11 +39,19 @@ const RING_COLORS = {
   },
 };
 
-export function WeeklyLoadSection({ loadStats, totalEntries, defaultExpanded = true }: WeeklyLoadSectionProps) {
-  // Hide section if not enough data (≥20 entries)
-  if (totalEntries < 20) {
-    return null;
-  }
+export function WeeklyLoadSection({
+  loadStats,
+  uniqueDaysLogged,
+  defaultExpanded = true,
+  symptomsEnabled = true,
+  stoolTrackingEnabled = true,
+  medicineTrackingEnabled = true,
+}: WeeklyLoadSectionProps) {
+  const needsMoreData = uniqueDaysLogged < 14;
+
+  // Count enabled categories to determine grid columns
+  const enabledCount = (symptomsEnabled ? 1 : 0) + (stoolTrackingEnabled ? 1 : 0) + (medicineTrackingEnabled ? 1 : 0);
+  const gridCols = enabledCount === 1 ? "grid-cols-1" : enabledCount === 2 ? "grid-cols-2" : "grid-cols-3";
 
   return (
     <CollapsibleSection
@@ -52,59 +64,81 @@ export function WeeklyLoadSection({ loadStats, totalEntries, defaultExpanded = t
         </svg>
       }
     >
-      <div className="grid grid-cols-3 gap-4">
-        {/* Symptom Load Ring */}
-        <LoadRing
-          label="Symptoms"
-          value={loadStats.symptomLoad.percentage}
-          subtext={`${loadStats.symptomLoad.daysWithSymptoms}/7 days`}
-          colorKey="symptom"
+      {needsMoreData ? (
+        <BuildingInsightPlaceholder
+          uniqueDaysLogged={uniqueDaysLogged}
+          title="Your weekly patterns are growing"
+          subtitle="See how your symptoms, Bristol types, and medications balance out each week."
         />
+      ) : (
+        <>
+          <div className={`grid ${gridCols} gap-4`}>
+            {/* Symptom Load Ring - only if symptoms enabled */}
+            {symptomsEnabled && (
+              <LoadRing
+                label="Symptoms"
+                value={loadStats.symptomLoad.percentage}
+                subtext={`${loadStats.symptomLoad.daysWithSymptoms}/7 days`}
+                colorKey="symptom"
+              />
+            )}
 
-        {/* Bristol Load Ring */}
-        <LoadRing
-          label="Bristol"
-          value={loadStats.bristolLoad.totalMovements > 0
-            ? Math.round(((loadStats.bristolLoad.totalMovements - loadStats.bristolLoad.nonBaselineMovements) / loadStats.bristolLoad.totalMovements) * 100)
-            : 0}
-          subtext={`${loadStats.bristolLoad.totalMovements - loadStats.bristolLoad.nonBaselineMovements}/${loadStats.bristolLoad.totalMovements} movements`}
-          colorKey="bristol"
-        />
+            {/* Bristol Load Ring - only if stool tracking enabled */}
+            {stoolTrackingEnabled && (
+              <LoadRing
+                label="Bristol"
+                value={loadStats.bristolLoad.totalMovements > 0
+                  ? Math.round(((loadStats.bristolLoad.totalMovements - loadStats.bristolLoad.nonBaselineMovements) / loadStats.bristolLoad.totalMovements) * 100)
+                  : 0}
+                subtext={`${loadStats.bristolLoad.totalMovements - loadStats.bristolLoad.nonBaselineMovements}/${loadStats.bristolLoad.totalMovements} movements`}
+                colorKey="bristol"
+              />
+            )}
 
-        {/* Medicine Load Ring */}
-        <LoadRing
-          label="Medicine"
-          value={Math.round((loadStats.medicineLoad.daysWithMedicine / 7) * 100)}
-          subtext={loadStats.medicineLoad.ratio}
-          colorKey="medicine"
-        />
-      </div>
-
-      {/* Legend */}
-      <div className="mt-4 pt-4 border-t border-app-border">
-        <div className="grid grid-cols-1 gap-2 text-xs text-app-gray">
-          <div className="flex items-start gap-2">
-            <div className={`w-3 h-3 rounded-full ${RING_COLORS.symptom.bg} flex-shrink-0 mt-0.5`} />
-            <span>Days with at least 1 symptom logged</span>
+            {/* Medicine Load Ring - only if medicine tracking enabled */}
+            {medicineTrackingEnabled && (
+              <LoadRing
+                label="Medicine"
+                value={Math.round((loadStats.medicineLoad.daysWithMedicine / 7) * 100)}
+                subtext={loadStats.medicineLoad.ratio}
+                colorKey="medicine"
+              />
+            )}
           </div>
-          <div className="flex items-start gap-2">
-            <div className={`w-3 h-3 rounded-full ${RING_COLORS.bristol.bg} flex-shrink-0 mt-0.5`} />
-            <span>Movements with normal Bristol types (3-4)</span>
-          </div>
-          <div className="flex items-start gap-2">
-            <div className={`w-3 h-3 rounded-full ${RING_COLORS.medicine.bg} flex-shrink-0 mt-0.5`} />
-            <span>Days with any medication logged</span>
-          </div>
-        </div>
-      </div>
 
-      {/* Disclaimer */}
-      <div className="bg-app-cream/50 rounded-lg p-3 mt-4">
-        <p className="text-xs text-app-gray">
-          These patterns show what occurs together, not what causes what. You might find it
-          helpful to notice these connections in your own experience.
-        </p>
-      </div>
+          {/* Legend */}
+          <div className="mt-4 pt-4 border-t border-app-border">
+            <div className="grid grid-cols-1 gap-2 text-xs text-app-gray">
+              {symptomsEnabled && (
+                <div className="flex items-start gap-2">
+                  <div className={`w-3 h-3 rounded-full ${RING_COLORS.symptom.bg} flex-shrink-0 mt-0.5`} />
+                  <span>Days with at least 1 symptom logged</span>
+                </div>
+              )}
+              {stoolTrackingEnabled && (
+                <div className="flex items-start gap-2">
+                  <div className={`w-3 h-3 rounded-full ${RING_COLORS.bristol.bg} flex-shrink-0 mt-0.5`} />
+                  <span>Movements with normal Bristol types (3-4)</span>
+                </div>
+              )}
+              {medicineTrackingEnabled && (
+                <div className="flex items-start gap-2">
+                  <div className={`w-3 h-3 rounded-full ${RING_COLORS.medicine.bg} flex-shrink-0 mt-0.5`} />
+                  <span>Days with any medication logged</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Disclaimer */}
+          <div className="bg-app-cream/50 rounded-lg p-3 mt-4">
+            <p className="text-xs text-app-gray">
+              These patterns show what occurs together, not what causes what. You might find it
+              helpful to notice these connections in your own experience.
+            </p>
+          </div>
+        </>
+      )}
     </CollapsibleSection>
   );
 }

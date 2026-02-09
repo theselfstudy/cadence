@@ -38,6 +38,9 @@ export function AllInsightsPage() {
   const renderKey = useFreshData();
   const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
   const periodTrackingEnabled = useSettings((state) => state.periodTracking.enabled);
+  const symptomsEnabled = useSettings((state) => state.symptoms.enabled);
+  const stoolTrackingEnabled = useSettings((state) => state.stoolTracking.enabled);
+  const medicineTrackingEnabled = useSettings((state) => state.medicineTracking.enabled);
   const isMobile = useIsMobile();
 
   // ============================================
@@ -61,7 +64,7 @@ export function AllInsightsPage() {
   }, [entries, revision, summaryStats.uniqueDaysLogged]);
 
   const consistencyMetrics = useMemo(() => {
-    if (summaryStats.uniqueDaysLogged < 7) return [];
+    if (summaryStats.uniqueDaysLogged < 14) return [];
     return calculateConsistencyMetrics(entries);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, revision, summaryStats.uniqueDaysLogged]);
@@ -104,20 +107,30 @@ export function AllInsightsPage() {
       )}
 
       {/* Section 1: Trust Banner / Summary Stats */}
-      <TrustBanner stats={summaryStats} />
-
-      {/* Section 2: Weekly Load (≥20 entries) - Right after TrustBanner */}
-      <WeeklyLoadSection
-        loadStats={weeklyLoadStats}
-        totalEntries={summaryStats.totalEntries}
-        defaultExpanded={true}
+      <TrustBanner
+        stats={summaryStats}
+        symptomsEnabled={symptomsEnabled}
+        medicineTrackingEnabled={medicineTrackingEnabled}
       />
 
-      {/* Section 3: Change Detection (≥20 entries) */}
+      {/* Section 2: Weekly Load (≥14 days) - Right after TrustBanner */}
+      <WeeklyLoadSection
+        loadStats={weeklyLoadStats}
+        uniqueDaysLogged={summaryStats.uniqueDaysLogged}
+        defaultExpanded={true}
+        symptomsEnabled={symptomsEnabled}
+        stoolTrackingEnabled={stoolTrackingEnabled}
+        medicineTrackingEnabled={medicineTrackingEnabled}
+      />
+
+      {/* Section 3: Change Detection (≥14 days) */}
       <ChangeDetectionSection
         changes={changeDetection}
-        totalEntries={summaryStats.totalEntries}
+        uniqueDaysLogged={summaryStats.uniqueDaysLogged}
         defaultExpanded={!isMobile}
+        symptomsEnabled={symptomsEnabled}
+        stoolTrackingEnabled={stoolTrackingEnabled}
+        medicineTrackingEnabled={medicineTrackingEnabled}
       />
 
       {/* Section 4: Co-Occurrences (14+ days) */}
@@ -127,12 +140,14 @@ export function AllInsightsPage() {
         defaultExpanded={!isMobile}
       />
 
-      {/* Section 5: Consistency & Variability (≥20 entries) */}
+      {/* Section 5: Consistency & Variability (≥14 days) */}
       <ConsistencySection
         consistencyData={consistencyMetrics}
-        totalEntries={summaryStats.totalEntries}
         uniqueDaysLogged={summaryStats.uniqueDaysLogged}
         defaultExpanded={!isMobile}
+        symptomsEnabled={symptomsEnabled}
+        stoolTrackingEnabled={stoolTrackingEnabled}
+        medicineTrackingEnabled={medicineTrackingEnabled}
       />
 
       {/* Section 6: Entries - Always show */}
@@ -159,12 +174,17 @@ export function AllInsightsPage() {
 
 interface TrustBannerProps {
   stats: ReturnType<typeof calculateSummaryStats>;
+  symptomsEnabled?: boolean;
+  medicineTrackingEnabled?: boolean;
 }
 
-function TrustBanner({ stats }: TrustBannerProps) {
+function TrustBanner({ stats, symptomsEnabled = true, medicineTrackingEnabled = true }: TrustBannerProps) {
   const hasData = stats.totalEntries > 0;
-  const daysUntilBasicInsights = Math.max(0, 7 - stats.uniqueDaysLogged);
-  const daysUntilFullInsights = Math.max(0, 14 - stats.uniqueDaysLogged);
+  const DAYS_FOR_INSIGHTS = 14;
+  const DAYS_FOR_REFINED_INSIGHTS = 28;
+  const daysUntilInsights = Math.max(0, DAYS_FOR_INSIGHTS - stats.uniqueDaysLogged);
+  const insightsUnlocked = stats.uniqueDaysLogged >= DAYS_FOR_INSIGHTS;
+  const refinedInsightsUnlocked = stats.uniqueDaysLogged >= DAYS_FOR_REFINED_INSIGHTS;
 
   return (
     <div className="card p-4">
@@ -185,29 +205,30 @@ function TrustBanner({ stats }: TrustBannerProps) {
         </div>
       </div>
 
-      {hasData && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-          <div className="bg-app-cream rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-app-charcoal">{stats.uniqueDaysLogged}</p>
-            <p className="text-xs text-app-gray">Days Logged</p>
-          </div>
-          <div className="bg-app-cream rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-app-charcoal">{stats.totalEntries}</p>
-            <p className="text-xs text-app-gray">Total Entries</p>
-          </div>
-          <div className="bg-app-cream rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-app-charcoal">{stats.uniqueSymptoms}</p>
-            <p className="text-xs text-app-gray">Symptoms Tracked</p>
-          </div>
-          <div className="bg-app-cream rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-app-charcoal">{stats.uniqueMedications}</p>
-            <p className="text-xs text-app-gray">Medications Logged</p>
-          </div>
-        </div>
-      )}
+      {hasData && (() => {
+        const enabledStats = [
+          { value: stats.uniqueDaysLogged, label: "Days Logged", show: true },
+          { value: stats.totalEntries, label: "Total Entries", show: true },
+          { value: stats.uniqueSymptoms, label: "Symptoms Tracked", show: symptomsEnabled },
+          { value: stats.uniqueMedications, label: "Medications Logged", show: medicineTrackingEnabled },
+        ].filter(stat => stat.show);
 
-      {/* Progress messaging */}
-      {hasData && daysUntilBasicInsights > 0 && (
+        const gridCols = enabledStats.length <= 2 ? "grid-cols-2" : enabledStats.length === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4";
+
+        return (
+          <div className={`grid ${gridCols} gap-3 mt-4`}>
+            {enabledStats.map((stat) => (
+              <div key={stat.label} className="bg-app-cream rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-app-charcoal">{stat.value}</p>
+                <p className="text-xs text-app-gray">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Progress messaging - before insights are unlocked */}
+      {hasData && daysUntilInsights > 0 && (
         <div className="mt-4 bg-app-cream/50 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
             <svg className="w-4 h-4 text-app-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,14 +237,11 @@ function TrustBanner({ stats }: TrustBannerProps) {
             <span className="text-sm font-medium text-app-charcoal">Unlocking Insights</span>
           </div>
           <p className="text-sm text-app-gray">
-            Log for {daysUntilBasicInsights} more day{daysUntilBasicInsights !== 1 ? "s" : ""} to unlock basic insights
-            {daysUntilFullInsights > 0 && stats.uniqueDaysLogged >= 7 && (
-              <>, or {daysUntilFullInsights} more for change detection and co-occurrences</>
-            )}
+            Log for {daysUntilInsights} more day{daysUntilInsights !== 1 ? "s" : ""} to unlock insights including change detection, co-occurrences, and consistency patterns.
           </p>
-          {/* Progress dots - shows progress toward 7 days for basic insights */}
-          <div className="flex items-center gap-1 mt-3">
-            {Array.from({ length: 7 }).map((_, i) => (
+          {/* Progress dots - shows progress toward 14 days */}
+          <div className="flex items-center gap-1 mt-3 flex-wrap">
+            {Array.from({ length: DAYS_FOR_INSIGHTS }).map((_, i) => (
               <div
                 key={i}
                 className={`w-2.5 h-2.5 rounded-full ${
@@ -232,13 +250,24 @@ function TrustBanner({ stats }: TrustBannerProps) {
               />
             ))}
           </div>
+          <p className="text-xs text-app-gray mt-2">
+            {stats.uniqueDaysLogged} of {DAYS_FOR_INSIGHTS} days
+          </p>
         </div>
       )}
 
-      {hasData && stats.uniqueDaysLogged >= 7 && daysUntilFullInsights > 0 && (
-        <p className="text-sm text-app-gray mt-3 bg-app-cream/50 rounded-lg p-2">
-          {daysUntilFullInsights} more day{daysUntilFullInsights !== 1 ? "s" : ""} to unlock change detection and co-occurrences
-        </p>
+      {/* Early insights caveat - between 14-28 days */}
+      {hasData && insightsUnlocked && !refinedInsightsUnlocked && (
+        <div className="mt-4 bg-app-teal/5 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <svg className="w-4 h-4 text-app-plumb flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-app-gray">
+              <span className="font-semibold text-app-plumb">Early insights unlocked!</span> These patterns are based on {stats.uniqueDaysLogged} days of data and will continue to refine as you log more entries. After 4 weeks, your insights will be more stable and reliable.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );
