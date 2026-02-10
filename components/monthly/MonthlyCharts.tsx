@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { StoredEntry } from "@/types";
 import type { 
   WeekWithinMonth, 
@@ -36,12 +36,16 @@ interface MonthlyChartsProps {
   selectedDays?: number[];
   /** Callback when a day is clicked */
   onDayClick?: (day: number) => void;
+  /** Callback to clear all selected days */
+  onClearFilter?: () => void;
   /** Custom products from settings for name lookup */
   customProducts?: Record<string, { id: string; name: string }[]>;
   /** Medicines from settings to check period category */
   medicines?: { id: string; name: string; categories: string[] }[];
   /** Current month range for date context */
   monthRange?: { year: number; month: number; label: string };
+  /** User's preferred week start day */
+  weekStartDay?: "sunday" | "monday";
 }
 
 export function MonthlyCharts({
@@ -55,7 +59,9 @@ export function MonthlyCharts({
   customProducts = {},
   medicines = [],
   onDayClick,
+  onClearFilter,
   monthRange,
+  weekStartDay = "sunday",
 }: MonthlyChartsProps) {
   const [activeChart, setActiveChart] = useState<"symptoms" | "bristol" | "cycle" | "medicine">("symptoms");
 
@@ -107,13 +113,22 @@ export function MonthlyCharts({
           <span>📅</span>
           Monthly Charts
           {selectedDays.length > 0 && (
-            <span className="text-xs font-normal text-app-teal">
-              ({selectedDays.length} day{selectedDays.length !== 1 ? "s" : ""} selected)
-            </span>
+            <>
+              <span className="text-xs font-normal text-app-teal">
+                ({selectedDays.length} day{selectedDays.length !== 1 ? "s" : ""} selected)
+              </span>
+              <button
+                type="button"
+                onClick={onClearFilter}
+                className="text-xs font-medium text-app-gray hover:text-app-charcoal transition-colors"
+              >
+                Clear
+              </button>
+            </>
           )}
         </h3>
         <p className="text-xs text-app-gray mt-0.5">
-          {selectedDays.length > 0 
+          {selectedDays.length > 0
             ? "Showing data for selected date range"
             : "Click on the tabs to view each section's data"}
         </p>
@@ -155,6 +170,8 @@ export function MonthlyCharts({
             entries={entries}
             monthLabel={monthRange?.label}
             cycleEnabled={enabledSections.cycle}
+            weekStartDay={weekStartDay}
+            monthRange={monthRange}
           />
         )}
         {validActiveChart === "cycle" && (
@@ -375,6 +392,8 @@ interface SymptomFrequencyChartProps {
   monthLabel?: string;
   entries?: StoredEntry[];
   cycleEnabled?: boolean;
+  weekStartDay?: "sunday" | "monday";
+  monthRange?: { year: number; month: number; label: string };
 }
 
 function SymptomFrequencyChart({
@@ -386,6 +405,8 @@ function SymptomFrequencyChart({
   monthLabel,
   entries = [],
   cycleEnabled = false,
+  weekStartDay = "sunday",
+  monthRange,
 }: SymptomFrequencyChartProps) {
   const [viewMode, setViewMode] = useState<"table" | "heatmap">("heatmap");
 
@@ -503,6 +524,8 @@ function SymptomFrequencyChart({
           monthLabel={monthLabel ?? ""}
           entries={entries}
           cycleEnabled={cycleEnabled}
+          weekStartDay={weekStartDay}
+          monthRange={monthRange}
         />
       )}
 
@@ -662,6 +685,8 @@ interface MobileMonthStripProps {
   onDayDrillDown?: (day: number) => void;
   mobileDrillDownDay?: number | null;
   entries?: StoredEntry[];
+  weekStartDay?: "sunday" | "monday";
+  monthRange?: { year: number; month: number; label: string };
 }
 
 function MobileMonthStrip({
@@ -671,19 +696,30 @@ function MobileMonthStrip({
   onDayDrillDown,
   mobileDrillDownDay,
   entries = [],
+  weekStartDay = "sunday",
+  monthRange,
 }: MobileMonthStripProps) {
-  const stripRef = useRef<HTMLDivElement>(null);
-  const hasAutoScrolled = useRef(false);
-  const today = new Date().getDate();
-
   // Build a map of day -> phase for menstrual highlighting
+  // Priority: menstrual > ovulation > follicular > luteal > not-sure
   const dayPhaseMap = useMemo(() => {
+    const phasePriority: Record<string, number> = {
+      menstrual: 5,
+      ovulation: 4,
+      follicular: 3,
+      luteal: 2,
+      "not-sure": 1,
+    };
     const map: Record<number, string | undefined> = {};
     for (const entry of entries) {
       const entryDate = new Date(entry.date + "T12:00:00");
       const day = entryDate.getDate();
       if (entry.cyclePhase) {
-        map[day] = entry.cyclePhase;
+        const existingPhase = map[day];
+        const existingPriority = existingPhase ? (phasePriority[existingPhase] ?? 0) : 0;
+        const newPriority = phasePriority[entry.cyclePhase] ?? 0;
+        if (newPriority > existingPriority) {
+          map[day] = entry.cyclePhase;
+        }
       }
     }
     return map;
@@ -708,100 +744,113 @@ function MobileMonthStrip({
     });
   }, [allSymptomData]);
 
-  useEffect(() => {
-    if (hasAutoScrolled.current) return;
+  // Calculate calendar grid layout
+  const { firstDayOfWeek, dayLabels } = useMemo(() => {
+    // Get year and month from monthRange or parse from monthLabel
+    let year: number;
+    let month: number;
 
-    const container = stripRef.current;
-    if (!container) return;
-
-    const todayEl = container.querySelector<HTMLElement>(
-      `[data-day="${today}"]`
-    );
-
-    if (todayEl) {
-      // Only scroll horizontally within the container - don't scroll the page vertically
-      const containerWidth = container.offsetWidth;
-      const elementLeft = todayEl.offsetLeft;
-      const elementWidth = todayEl.offsetWidth;
-      const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
-
-      container.scrollTo({
-        left: Math.max(0, scrollPosition),
-        behavior: "smooth",
-      });
-      hasAutoScrolled.current = true;
+    if (monthRange) {
+      year = monthRange.year;
+      month = monthRange.month;
+    } else {
+      // Parse from monthLabel like "January 2026"
+      const parts = monthLabel.split(" ");
+      const monthNames = ["January", "February", "March", "April", "May", "June",
+                          "July", "August", "September", "October", "November", "December"];
+      month = monthNames.indexOf(parts[0]);
+      year = parseInt(parts[1], 10);
     }
-  }, [today]);
+
+    // First day of month (0 = Sunday, 1 = Monday, etc.)
+    const firstDayRaw = new Date(year, month, 1).getDay();
+
+    // Adjust for week start preference
+    const firstDayOfWeek = weekStartDay === "monday"
+      ? (firstDayRaw === 0 ? 6 : firstDayRaw - 1) // Shift Sunday (0) to end (6)
+      : firstDayRaw;
+
+    // Day labels based on week start preference
+    const dayLabels = weekStartDay === "monday"
+      ? ["M", "T", "W", "T", "F", "S", "S"]
+      : ["S", "M", "T", "W", "T", "F", "S"];
+
+    return { firstDayOfWeek, dayLabels };
+  }, [monthLabel, monthRange, weekStartDay]);
 
   return (
     <div className="md:hidden">
       {/* Month label */}
-      <p className="text-xs font-medium text-app-gray px-3 pt-2">
+      <p className="text-xs font-medium text-app-gray px-3 pt-2 pb-2">
         {monthLabel}
       </p>
 
-      {/* Strip */}
-      <div
-        ref={stripRef}
-        className="overflow-x-auto overscroll-x-contain touch-pan-x"
-      >
-        <div className="flex gap-2 px-3 pt-5 pb-3 min-w-max">
+      {/* Calendar Grid */}
+      <div className="px-3 pb-3">
+        {/* Day of week headers */}
+        <div className="grid grid-cols-7 gap-1 mb-1">
+          {dayLabels.map((label, i) => (
+            <div key={i} className="text-center text-[0.65rem] font-medium text-app-gray py-1">
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 gap-1">
+          {/* Empty cells for days before month starts */}
+          {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+            <div key={`empty-${i}`} className="h-9" />
+          ))}
+
+          {/* Day cells */}
           {aggregatedDays.map((day) => {
             const isMenstrual = dayPhaseMap[day.day] === "menstrual";
-            // Use simple logged check - if any symptom logged, show colored background
-            const bgStyle = day.logged
-              ? isMenstrual
-                ? "bg-app-red/20"
-                : "bg-app-teal/50"
-              : "bg-app-border";
-
             const isSelected = selectedDays.includes(day.day);
             const isDrillDown = mobileDrillDownDay === day.day;
 
+            // Background style based on state
+            const getBgStyle = () => {
+              if (isDrillDown) {
+                return isMenstrual
+                  ? "bg-app-red/30 ring-2 ring-app-red shadow-md"
+                  : "bg-app-teal/60 ring-2 ring-app-teal shadow-md";
+              }
+              if (day.logged) {
+                return isMenstrual ? "bg-app-red/20" : "bg-app-teal/50";
+              }
+              return "bg-app-border/50";
+            };
+
             return (
-              <div
+              <button
                 key={day.day}
-                className="relative flex items-center justify-center"
+                type="button"
+                data-day={day.day}
+                onClick={() => onDayDrillDown?.(day.day)}
+                className={`
+                  h-9 rounded-md text-xs font-medium
+                  flex flex-col items-center justify-center
+                  ${getBgStyle()}
+                  ${isMenstrual && !isDrillDown ? "border border-app-red/50" : ""}
+                  ${isSelected && !isDrillDown ? "ring-1 ring-app-teal" : ""}
+                  transition-all active:scale-95
+                `}
               >
-                {/* Ghost label (overlay, does NOT affect layout) - show every day */}
-                <span className="absolute -top-5 text-[0.6rem] text-app-gray/50 select-none">
+                <span className={`text-[0.65rem] ${
+                  day.logged
+                    ? isMenstrual ? "text-app-red" : "text-app-cream"
+                    : "text-app-gray"
+                }`}>
                   {day.day}
                 </span>
-
-                <button
-                  type="button"
-                  data-day={day.day}
-                  onClick={() => onDayDrillDown?.(day.day)}
-                  className={`
-                    w-9 h-9 rounded-md
-                    flex items-center justify-center
-                    ${bgStyle}
-                    ${isMenstrual ? "border border-app-red" : ""}
-                    ${isSelected ? "ring-1 ring-app-teal" : ""}
-                    ${isDrillDown ? "ring-2 shadow-md scale-95" : ""}
-                    ${isDrillDown && isMenstrual ? "ring-app-red" : ""}
-                    ${isDrillDown && !isMenstrual ? "ring-app-teal" : ""}
-                    transition-colors active:scale-95
-                  `}
-                >
-                  {/* Show checkmark if any symptom logged */}
-                  {day.logged && (
-                    <svg
-                      className={`w-4 h-4 ${isMenstrual ? "text-app-red" : "text-app-cream"}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
+                {/* Show dot indicator if symptom logged */}
+                {day.logged && !isDrillDown && (
+                  <span className={`w-1 h-1 rounded-full mt-0.5 ${
+                    isMenstrual ? "bg-app-red" : "bg-app-cream"
+                  }`} />
+                )}
+              </button>
             );
           })}
         </div>
@@ -821,6 +870,8 @@ interface MonthlySymptomHeatMapProps {
   monthLabel: string;
   entries?: StoredEntry[];
   cycleEnabled?: boolean;
+  weekStartDay?: "sunday" | "monday";
+  monthRange?: { year: number; month: number; label: string };
 }
 
 function MonthlySymptomHeatMap({
@@ -830,12 +881,51 @@ function MonthlySymptomHeatMap({
   monthLabel,
   entries = [],
   cycleEnabled = false,
+  weekStartDay = "sunday",
+  monthRange,
 }: MonthlySymptomHeatMapProps) {
   const [hoveredCell, setHoveredCell] = useState<{
     symptom: string;
     day: number;
   } | null>(null);
   const [mobileSelectedDay, setMobileSelectedDay] = useState<number | null>(null);
+
+  // Auto-expand when a single day is selected from the main calendar (mobile UX)
+  useEffect(() => {
+    if (selectedDays.length === 1) {
+      setMobileSelectedDay(selectedDays[0]);
+    } else if (selectedDays.length === 0) {
+      // Clear when no days selected (user cleared filter)
+      setMobileSelectedDay(null);
+    }
+    // Don't auto-change when multiple days selected - let user manually explore
+  }, [selectedDays]);
+
+  // Build a map of day -> phase for menstrual highlighting (desktop)
+  // Priority: menstrual > ovulation > follicular > luteal > not-sure
+  const dayPhaseMap = useMemo(() => {
+    const phasePriority: Record<string, number> = {
+      menstrual: 5,
+      ovulation: 4,
+      follicular: 3,
+      luteal: 2,
+      "not-sure": 1,
+    };
+    const map: Record<number, string | undefined> = {};
+    for (const entry of entries) {
+      const entryDate = new Date(entry.date + "T12:00:00");
+      const day = entryDate.getDate();
+      if (entry.cyclePhase) {
+        const existingPhase = map[day];
+        const existingPriority = existingPhase ? (phasePriority[existingPhase] ?? 0) : 0;
+        const newPriority = phasePriority[entry.cyclePhase] ?? 0;
+        if (newPriority > existingPriority) {
+          map[day] = entry.cyclePhase;
+        }
+      }
+    }
+    return map;
+  }, [entries]);
 
   // Handle mobile day tap - toggle selection
   const handleMobileDayTap = (day: number) => {
@@ -920,6 +1010,8 @@ function MonthlySymptomHeatMap({
         onDayDrillDown={handleMobileDayTap}
         mobileDrillDownDay={mobileSelectedDay}
         entries={entries}
+        weekStartDay={weekStartDay}
+        monthRange={monthRange}
       />
 
       {/* Mobile drill-down details */}
@@ -947,14 +1039,22 @@ function MonthlySymptomHeatMap({
               </div>
 
               <div className="flex">
-                {daysToShow.map((day) => (
-                  <div
-                    key={day}
-                    className="w-8 h-8 mx-0.5 flex items-center justify-center text-xs font-medium text-app-gray border-r border-app-border/50 last:border-r-0"
-                  >
-                    {day}
-                  </div>
-                ))}
+                {daysToShow.map((day) => {
+                  const isMenstrual = dayPhaseMap[day] === "menstrual";
+                  const isSelected = selectedDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => onDayClick?.(day)}
+                      className={`w-8 h-8 mx-0.5 flex items-center justify-center text-xs font-medium border-r border-app-border/50 last:border-r-0 rounded-md cursor-pointer hover:bg-app-teal/20 transition-colors ${
+                        isMenstrual ? "text-app-red border border-app-red/50" : "text-app-gray"
+                      } ${isSelected ? "ring-1 ring-app-teal bg-app-teal/10" : ""}`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -985,6 +1085,8 @@ function MonthlySymptomHeatMap({
                       const isSelected =
                         selectedDays.includes(day.day);
 
+                      const isMenstrual = dayPhaseMap[day.day] === "menstrual";
+
                       const intensityStyle = getIntensityStyle(
                         day.intensity,
                         day.logged
@@ -998,6 +1100,7 @@ function MonthlySymptomHeatMap({
                             flex items-center justify-center
                             rounded-md text-[0.65rem] font-semibold
                             ${intensityStyle}
+                            ${isMenstrual ? "border border-app-red/50" : ""}
                             ${isHovered ? "ring-1 ring-app-charcoal" : ""}
                             ${isSelected ? "ring-1 ring-app-teal" : ""}
                             cursor-pointer transition-all
@@ -1032,18 +1135,14 @@ function MonthlySymptomHeatMap({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded bg-app-teal/50 flex items-center justify-center">
-            <svg className="w-2.5 h-2.5 text-app-cream" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
+            <span className="w-1 h-1 rounded-full bg-app-cream" />
           </div>
           <span>Logged</span>
         </div>
         {cycleEnabled && (
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-4 rounded bg-app-red/20 border border-app-red flex items-center justify-center">
-              <svg className="w-2.5 h-2.5 text-app-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
+              <span className="w-1 h-1 rounded-full bg-app-red" />
             </div>
             <span>Logged (Period)</span>
           </div>
@@ -1068,6 +1167,12 @@ function MonthlySymptomHeatMap({
           <div className="w-4 h-4 rounded bg-app-teal" />
           <span>High Intensity</span>
         </div>
+        {cycleEnabled && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded bg-app-teal/50 border border-app-red/50" />
+            <span>Period Day</span>
+          </div>
+        )}
       </div>
     </div>
   );

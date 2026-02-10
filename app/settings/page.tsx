@@ -1198,6 +1198,7 @@ function SettingsPageContent() {
             setPendingSheetName(null);
             setPendingAccessToken(null);
           }}
+          sheetName={pendingSheetName}
         />
       )}
 

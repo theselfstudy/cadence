@@ -696,6 +696,103 @@ function CyclePhaseCard({
             {showContent && (
               <div className="mt-3 pt-3 border-t border-app-border/50 space-y-2">
                 {/* Phase Breakdown - Shows full month context with highlighting for selection */}
+                {hasAnyPhaseData && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-2">
+                      {hasDateFilter && mainDisplay.highlightedPhases.size > 0
+                        ? "Phase Breakdown (selected highlighted)"
+                        : "Phase Breakdown"}
+                    </p>
+                    <div className="space-y-1">
+                      {(() => {
+                        const phaseOrder = ["menstrual", "follicular", "ovulation", "luteal", "not_sure"];
+                        const phaseLabels: Record<string, string> = {
+                          menstrual: "Period",
+                          follicular: "Follicular",
+                          ovulation: "Ovulation",
+                          luteal: "Luteal",
+                          not_sure: "Unsure",
+                        };
+
+                        // Get all phases from the full month for context
+                        const allPhasesInMonth = new Set(
+                          Object.keys(fullMonthPhaseDistribution).filter(
+                            p => (fullMonthPhaseDistribution[p] || 0) > 0
+                          )
+                        );
+
+                        return phaseOrder
+                          .filter((phase) => allPhasesInMonth.has(phase))
+                          .map((phase) => {
+                            // When filtered, show selected days count; otherwise show full month count
+                            const days = hasDateFilter
+                              ? (effectivePhaseDistribution[phase] || 0)
+                              : (fullMonthPhaseDistribution[phase] || 0);
+                            const fullMonthDays = fullMonthPhaseDistribution[phase] || 0;
+
+                            const label = phaseLabels[phase];
+                            const isMenstrual = phase === "menstrual";
+                            const isHighlighted = mainDisplay.highlightedPhases.has(phase);
+
+                            // Determine border style for highlighted phases
+                            const borderClass = isHighlighted
+                              ? isMenstrual
+                                ? "border-2 border-app-red"
+                                : "border-2 border-app-teal"
+                              : "border-2 border-transparent";
+
+                            return (
+                              <div
+                                key={phase}
+                                className={`flex justify-between items-center p-2 rounded-lg ${
+                                  isMenstrual ? "bg-app-red/10" : "bg-app-teal/10"
+                                } ${borderClass}`}
+                              >
+                                <span className={`text-sm font-medium ${isMenstrual ? "text-app-red" : "text-app-charcoal"}`}>
+                                  {label}
+                                </span>
+                                <span className={`text-sm font-medium ${
+                                  days > 0
+                                    ? isMenstrual ? "text-app-red" : "text-app-teal"
+                                    : "text-app-gray"
+                                }`}>
+                                  {hasDateFilter ? (
+                                    // Show "X of Y days" when filtered
+                                    days > 0
+                                      ? `${days}d` + (fullMonthDays !== days ? ` of ${fullMonthDays}d` : "")
+                                      : `— of ${fullMonthDays}d`
+                                  ) : (
+                                    // Show just days when not filtered
+                                    `${days}d`
+                                  )}
+                                </span>
+                              </div>
+                            );
+                          });
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Highest Intensity Symptom */}
+                {highestIntensity && (
+                  <div className={`p-2 rounded-lg ${highestIntensity.isPeriodRelated ? "bg-app-red/10" : "bg-app-teal/10"}`}>
+                    <p className="text-xs text-app-gray">Most Intense Symptom</p>
+                    <p className={`text-sm font-medium ${highestIntensity.isPeriodRelated ? "text-app-red" : "text-app-teal"}`}>
+                      {highestIntensity.name}{" "}
+                      <span className="text-app-charcoal">
+                        (avg {highestIntensity.avgIntensity}/10)
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                {/* No data state */}
+                {!hasAnyPhaseData && (
+                  <p className="text-xs text-app-gray italic">
+                    {hasDateFilter ? "No cycle data in selected range" : "Log cycle phases to see breakdown"}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -937,6 +1034,102 @@ function NewThisMonthCard({
             {showContent && (
               <div className="mt-3 pt-3 border-t border-app-border/50 space-y-2">
                 {/* New Symptoms Pills */}
+                {hasNewSymptoms && newCount > 1 && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-1">All New Symptoms</p>
+                    <div className="flex flex-wrap gap-1">
+                      {comparison.symptoms.newSymptoms.map((symptom) => (
+                        <span
+                          key={symptom.name}
+                          className={`px-2 py-0.5 text-xs rounded-full ${
+                            symptom.isPeriodRelated
+                              ? "bg-app-red/10 text-app-red"
+                              : "bg-app-teal/10 text-app-teal"
+                          }`}
+                        >
+                          {symptom.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Resolved Symptoms */}
+                {hasResolvedSymptoms && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-1">
+                      Resolved
+                      <span className="text-app-gray/60 ml-1">(0 logs this month)</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {comparison.symptoms.resolvedSymptoms.slice(0, 6).map((symptom) => (
+                        <span
+                          key={symptom.name}
+                          className={`px-2 py-0.5 text-xs rounded-full ${
+                            symptom.isPeriodRelated
+                              ? "bg-app-red/10 text-app-red"
+                              : "bg-app-teal/10 text-app-teal"
+                          }`}
+                        >
+                          {symptom.name}
+                        </span>
+                      ))}
+                      {comparison.symptoms.resolvedSymptoms.length > 6 && (
+                        <span className="px-2 py-0.5 text-xs text-app-gray">
+                          +{comparison.symptoms.resolvedSymptoms.length - 6}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Last Month's Top Symptoms */}
+                {lastMonthTopSymptoms.length > 0 && (
+                  <div>
+                    <p className="text-xs text-app-gray mb-1">Last Month&apos;s Top 5</p>
+                    <div className="bg-app-cream rounded-md overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-app-border/50">
+                            <th className="py-1.5 px-2 text-left text-app-gray font-medium">Symptom</th>
+                            <th className="py-1.5 px-2 text-right text-app-gray font-medium">Count</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lastMonthTopSymptoms.slice(0, 5).map((symptom) => (
+                            <tr key={symptom.name} className="border-b border-app-border/50 last:border-0">
+                              <td className="py-1.5 px-2 text-app-charcoal truncate max-w-[100px]">
+                                {symptom.name}
+                              </td>
+                              <td className="py-1.5 px-2 text-app-gray text-right font-medium">
+                                {symptom.count}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Intensity change indicator */}
+                {comparison.symptoms.intensityChange !== null && comparison.symptoms.intensityChange !== 0 && (
+                  <div className="pt-2 border-t border-app-border">
+                    <p className="text-xs text-app-gray">
+                      Average intensity{" "}
+                      <span className={comparison.symptoms.intensityChange < 0 ? "text-app-teal" : "text-app-red"}>
+                        {comparison.symptoms.intensityChange < 0 ? "↓" : "↑"}{" "}
+                        {Math.abs(comparison.symptoms.intensityChange).toFixed(1)}
+                      </span>{" "}
+                      vs last month
+                    </p>
+                  </div>
+                )}
+
+                {/* No symptoms either month */}
+                {topSymptoms.length === 0 && lastMonthTopSymptoms.length === 0 && (
+                  <p className="text-xs text-app-gray italic">No symptoms logged either month</p>
+                )}
               </div>
             )}
           </div>

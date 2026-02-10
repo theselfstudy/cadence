@@ -25,6 +25,8 @@ interface WeeklyChartsProps {
   onDayClick?: (day: string) => void;
   /** Currently selected days for filtering */
   selectedDays?: string[];
+  /** Callback to clear all selected days */
+  onClearFilter?: () => void;
   /** Custom products from settings for name lookup */
   customProducts?: Record<string, { id: string; name: string }[]>;
   /** Medicines from settings to check period category */
@@ -42,6 +44,7 @@ export function WeeklyCharts({
   customProducts = {},
   medicines = [],
   onDayClick,
+  onClearFilter,
   weekLabel,
 }: WeeklyChartsProps) {
   const [activeChart, setActiveChart] = useState<"symptoms" | "bowel" | "cycle" | "medicine">("symptoms");
@@ -90,9 +93,25 @@ export function WeeklyCharts({
         <h3 className="text-sm font-semibold text-app-charcoal flex items-center gap-2">
           <span>📅</span>
           Weekly Charts
+          {selectedDays.length > 0 && (
+            <>
+              <span className="text-xs font-normal text-app-teal">
+                ({selectedDays.length} day{selectedDays.length !== 1 ? "s" : ""} selected)
+              </span>
+              <button
+                type="button"
+                onClick={onClearFilter}
+                className="text-xs font-medium text-app-gray hover:text-app-charcoal transition-colors"
+              >
+                Clear
+              </button>
+            </>
+          )}
         </h3>
         <p className="text-xs text-app-gray mt-0.5">
-          {onDayClick ? "Click on the tabs to view each sections data" : ""}
+          {selectedDays.length > 0
+            ? "Showing data for selected days"
+            : "Click on the tabs to view each section's data"}
         </p>
       </div>
       {/* Tab Navigation */}

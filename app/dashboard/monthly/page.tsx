@@ -518,6 +518,12 @@ export default function MonthlyPage() {
               phaseRanges={phaseRanges}
               monthRange={monthRange}
               enabledSections={enabledSections}
+              selectedDates={selectedDays.map(day => {
+                const month = String(monthRange.month + 1).padStart(2, '0');
+                const dayStr = String(day).padStart(2, '0');
+                return `${monthRange.year}-${month}-${dayStr}`;
+              })}
+              selectedDaysInCurrentMonth={selectedDays}
             />
           </div>
         )}
@@ -544,9 +550,11 @@ export default function MonthlyPage() {
               enabledSections={enabledSections}
               selectedDays={selectedDays}
               onDayClick={toggleDay}
+              onClearFilter={selectAllDays}
               customProducts={settings.periodTracking.productTracking?.customProducts}
               medicines={settings.medicineTracking.medicines}
               monthRange={monthRange}
+              weekStartDay={weekStartDay}
             />
           </div>
         )}
@@ -789,12 +797,13 @@ function MonthCalendarFilter({
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between mb-2"
       >
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-app-charcoal">Filter by Day</p>
-          <span className="text-xs text-app-gray">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <p className="text-sm font-medium text-app-charcoal whitespace-nowrap">Filter by Day</p>
+          {/* Desktop: full text */}
+          <span className="hidden md:inline text-xs text-app-gray">
             {periodTrackingEnabled && totalPeriodDays > 0 && (
               <>
-                <span className="text-app-red ml-1">
+                <span className="text-app-red">
                   {totalPeriodDays} period day{totalPeriodDays !== 1 ? "s" : ""} logged
                 </span>
                 {" • "}
@@ -802,22 +811,31 @@ function MonthCalendarFilter({
             )}
             {totalDaysWithEntries} total day{totalDaysWithEntries !== 1 ? "s" : ""} logged
           </span>
-
+          {/* Mobile: abbreviated text */}
+          <span className="md:hidden text-xs text-app-gray truncate">
+            {periodTrackingEnabled && totalPeriodDays > 0 && (
+              <>
+                <span className="text-app-red">{totalPeriodDays} period</span>
+                {" • "}
+              </>
+            )}
+            {totalDaysWithEntries} total
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {selectedDays.length > 0 && (
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectAll();
               }}
-              className="text-xs text-app-teal hover:text-app-teal/80 cursor-pointer"
+              className="text-xs text-app-teal hover:text-app-teal/80 cursor-pointer whitespace-nowrap"
             >
               Clear ({selectedDays.length})
             </span>
           )}
           <svg
-            className={`w-4 h-4 text-app-gray transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-app-gray transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

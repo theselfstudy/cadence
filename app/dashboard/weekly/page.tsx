@@ -549,6 +549,7 @@ export default function WeeklyPage() {
               enabledSections={enabledSections}
               onDayClick={handleToggleDay}
               selectedDays={selectedDays}
+              onClearFilter={handleSelectAllDays}
               customProducts={settings.periodTracking.productTracking?.customProducts}
               medicines={settings.medicineTracking.medicines}
               weekLabel={weekRange.label}
