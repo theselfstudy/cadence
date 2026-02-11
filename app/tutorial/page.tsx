@@ -1,105 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/stores/useSettings";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 
 /**
- * Tutorial steps configuration
- * Each step has an id, title, description, illustration, and optional condition
- * Conditions reference settings to show/hide steps dynamically
+ * Tutorial steps configuration (consolidated from 12 to 6 steps)
+ * Entry features and insights are shown in internal carousels/grids
  */
 const TUTORIAL_STEPS = [
   {
     id: "welcome",
     title: "Welcome to Cadence!",
     description:
-      "Let's take a quick tour of how to use the app. This will only take a couple of minutes, and we'll tailor it to the features you've enabled!",
+      "Let's take a quick tour of how to use the app. This will only take a minute!",
     illustration: "welcome",
   },
   {
     id: "log-selection",
     title: "Choose What to Log",
     description:
-      "Each time you create an entry, you'll first select which sections you want to log in the moment. If you want to log everything, tap the \"Log Everything\" button, and it'll quick-select all your setup categories for you.",
+      "Select which sections you want to log. Tap \"Select All Categories\" to quick-select everything.",
     illustration: "log-selection",
-    // This step dynamically shows the user's enabled sections
     dynamicContent: "logSelection",
   },
   {
-    id: "time",
-    title: "Recording Time",
-    description:
-      "Every entry tracks when it started and ended. Use the hour and minute inputs, or tap 'Now' to quickly fill in the current time. This helps you spot patterns based on time of day.",
-    illustration: "time",
+    id: "entry-features",
+    title: "Creating an Entry",
+    description: "", // Dynamic - set based on enabled features count
+    illustration: "entry-features",
+    dynamicContent: "entryFeatures",
   },
   {
-    id: "bristol",
-    title: "Bristol Stool Scale",
+    id: "insights",
+    title: "Your Insights & History",
     description:
-      "Select the type (1-7) that best matches your stool, then note how you felt afterward: complete relief, discomfort, urgency, and more. This data helps track digestive patterns over time.",
-    illustration: "bristol",
-    condition: "stoolTracking",
-  },
-  {
-    id: "period",
-    title: "Cycle Tracking",
-    description:
-      "Log your current cycle phase: Menstrual, Follicular, Ovulation, or Luteal. During menstruation, you can also track flow level and any products you're using.",
-    illustration: "period",
-    condition: "periodTracking",
-  },
-  {
-    id: "symptoms",
-    title: "Tracking Symptoms",
-    description:
-      "Tap any symptoms you're experiencing to select them. If you've enabled intensity tracking, you can rate severity on a scale.",
-    illustration: "symptoms",
-  },
-  {
-    id: "medicine",
-    title: "Medicine Log",
-    description:
-      "Log any medications you're taking with your entry. Select from your configured medicines, choose a dosage, and for time-sensitive medications, record when you took them.",
-    illustration: "medicine",
-    condition: "medicineTracking",
-  },
-  {
-    id: "notes",
-    title: "Notes & Finishing Up",
-    description:
-      "Add any additional observations like what you ate, how you're feeling, or things you'd like to remember. Don't forget to set your End Time before submitting!",
-    illustration: "notes",
-  },
-  {
-    id: "history",
-    title: "Viewing Your History",
-    description:
-      "All your entries appear in History. Filter by date range, use advanced filters to find specific symptoms or patterns, switch between card and table views, and export to CSV anytime.",
-    illustration: "history",
-    dynamicContent: "history",
+      "Cadence offers several ways to view and analyze your data. Access these from the menu on the top left of any page.",
+    illustration: "insights",
+    dynamicContent: "insights",
   },
   {
     id: "sync",
     title: "Optional Cloud Backup",
     description:
-      "Connect a Google Sheet in Settings to automatically sync your entries to the cloud. Your data stays safe even if you clear your browser, and you can access it from any device when linked to the same Google Sheet.",
+      "Connect a Google Sheet in Settings to sync your entries to the cloud. Your data stays safe even if you clear your browser.",
     illustration: "sync",
-  },
-  {
-    id: "sync-buttons",
-    title: "Sync Buttons Around the App",
-    description:
-      "Use the \"🔄 Sync with Google Sheets\" buttons in the app to back up your data and preferences. You'll be asked to sign in with the Google account connected to your sheet so everything stays in sync.",
-    illustration: "sync-buttons",
-    condition:"sheetConnect"
+    dynamicContent: "syncCombined",
   },
   {
     id: "done",
     title: "You're All Set!",
     description:
-      "That's everything you need to know! Head to Settings anytime to adjust your preferences. Happy logging!",
+      "That's everything! Head to Settings anytime to adjust your preferences. Happy logging!",
     illustration: "done",
   },
 ];
@@ -114,23 +67,90 @@ export default function TutorialPage() {
     completeTutorial 
   } = useSettings();
   const [currentStep, setCurrentStep] = useState(0);
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
-  // Filter steps based on user settings
-  const activeSteps = TUTORIAL_STEPS.filter((step) => {
-    if (!step.condition) return true;
-    if (step.condition === "periodTracking") return periodTracking?.enabled;
-    if (step.condition === "stoolTracking") return stoolTracking?.enabled;
-    if (step.condition === "medicineTracking") {
-      return medicineTracking?.enabled && (medicineTracking?.medicines?.length ?? 0) > 0;
+  // All 6 steps are always shown (conditionals handled internally)
+  const activeSteps = TUTORIAL_STEPS;
+
+  // Reset carousel when leaving entry-features step
+  const step = activeSteps[currentStep];
+  useEffect(() => {
+    if (step?.id !== "entry-features") {
+      setCarouselIndex(0);
     }
-    if (step.condition === "sheetConnect") {
-      return isGoogleSheetConnected;
-  }
-    return true;
-  });
+  }, [step?.id]);
+
+  // Build list of entry features for carousel
+  const entryFeatures = useMemo(() => {
+    const features: Array<{
+      id: string;
+      title: string;
+      shortDescription: string;
+      illustration: string;
+    }> = [];
+
+    // Time is always first
+    features.push({
+      id: "time",
+      title: "Recording Time",
+      shortDescription: "Track when entries start and end. Tap 'Now' for quick input.",
+      illustration: "time",
+    });
+
+    // Conditional tracking features
+    if (stoolTracking?.enabled) {
+      features.push({
+        id: "bristol",
+        title: "Bristol Stool Scale",
+        shortDescription: "Select type 1-7 and how you felt to track digestive patterns.",
+        illustration: "bristol",
+      });
+    }
+
+    if (periodTracking?.enabled) {
+      features.push({
+        id: "period",
+        title: "Cycle Tracking",
+        shortDescription: "Log your cycle phase, flow level, and products used.",
+        illustration: "period",
+      });
+    }
+
+    // Symptoms always included
+    features.push({
+      id: "symptoms",
+      title: "Tracking Symptoms",
+      shortDescription: "Select symptoms and optionally rate their intensity.",
+      illustration: "symptoms",
+    });
+
+    if (medicineTracking?.enabled && (medicineTracking?.medicines?.length ?? 0) > 0) {
+      features.push({
+        id: "medicine",
+        title: "Medicine Log",
+        shortDescription: "Log medications with dosage and timing.",
+        illustration: "medicine",
+      });
+    }
+
+    // Notes is always last
+    features.push({
+      id: "notes",
+      title: "Notes",
+      shortDescription: "Add observations and set your end time before submitting.",
+      illustration: "notes",
+    });
+
+    return features;
+  }, [stoolTracking?.enabled, periodTracking?.enabled, medicineTracking?.enabled, medicineTracking?.medicines?.length]);
+
+  // Dynamic description for entry-features step
+  const getEntryFeaturesDescription = () => {
+    const count = entryFeatures.length;
+    return `Here's what you can log in each entry. Click the arrows to see all ${count} features.`;
+  };
 
   const totalSteps = activeSteps.length;
-  const step = activeSteps[currentStep];
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
 
@@ -192,11 +212,20 @@ export default function TutorialPage() {
         <div className="card flex-1 flex flex-col">
           {/* Illustration */}
           <div className="flex-1 flex items-center justify-center py-8">
-            <TutorialIllustration 
-              type={step.illustration} 
-              context={dynamicContext}
-              dynamicContent={step.dynamicContent}
-            />
+            {step.id === "entry-features" ? (
+              <FeatureCarousel
+                features={entryFeatures}
+                currentIndex={carouselIndex}
+                onIndexChange={setCarouselIndex}
+                context={dynamicContext}
+              />
+            ) : (
+              <TutorialIllustration
+                type={step.illustration}
+                context={dynamicContext}
+                dynamicContent={step.dynamicContent}
+              />
+            )}
           </div>
 
           {/* Text content */}
@@ -206,13 +235,9 @@ export default function TutorialPage() {
             </h1>
 
             <p className="text-app-gray max-w-md mx-auto leading-relaxed">
-              {step.description}
-              {step.id === "symptoms" && dynamicContext.periodTracking && (
-                <>
-                  {" "}
-                  Period-related symptoms are color-coded when you're in your menstrual phase.
-                </>
-              )}
+              {step.id === "entry-features"
+                ? getEntryFeaturesDescription()
+                : step.description}
             </p>
           </div>
 
@@ -696,7 +721,7 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
         <div className="flex justify-center">
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-app-teal text-white text-xs font-medium rounded-lg">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Export CSV
@@ -706,68 +731,138 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
     ),
 
     // ==========================================
-    // SYNC / GOOGLE SHEETS
+    // INSIGHTS - Dynamic based on settings
+    // ==========================================
+    insights: (
+      <div className="w-full max-w-xs space-y-3">
+        {/* Hamburger menu hint */}
+        <div className="flex items-center gap-2 p-3 bg-app-cream rounded-lg">
+          <div className="w-7 h-7 bg-white rounded border border-app-border flex flex-col justify-center items-center gap-0.5 p-1.5">
+            <div className="w-3.5 h-0.5 bg-app-charcoal rounded" />
+            <div className="w-3.5 h-0.5 bg-app-charcoal rounded" />
+            <div className="w-3.5 h-0.5 bg-app-charcoal rounded" />
+          </div>
+          <p className="text-xs text-app-gray">Access from the menu on any page</p>
+        </div>
+
+        {/* Insights grid - dynamic based on settings */}
+        <div className="grid grid-cols-2 gap-2">
+          <InsightCard title="Weekly View" icon="📅" />
+          <InsightCard title="Monthly View" icon="📊" />
+          <InsightCard title="All Insights" icon="💡" />
+          {context.periodTracking && (
+            <InsightCard title="Cycle Insights" icon="🌸" />
+          )}
+          <InsightCard title="History" icon="📋" />
+        </div>
+
+        {/* Data hint */}
+        <p className="text-xs text-app-gray text-center">
+          Insights get richer as you log more entries
+        </p>
+      </div>
+    ),
+
+    // ==========================================
+    // SYNC / GOOGLE SHEETS (Combined with sync-buttons)
     // ==========================================
     sync: (
-      <div className="w-full max-w-xs">
+      <div className="w-full max-w-xs space-y-4">
+        {/* Main sync diagram */}
         <div className="relative">
           {/* Device */}
-          <div className="bg-white rounded-xl p-4 border-2 border-app-border shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-app-cream flex items-center justify-center">
-                <svg className="w-4 h-4 text-app-charcoal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+          <div className="bg-white rounded-xl p-3 border-2 border-app-border shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-lg bg-app-cream flex items-center justify-center">
+                <svg className="w-3 h-3 text-app-charcoal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-app-charcoal">Your Entries</span>
+              <span className="text-xs font-medium text-app-charcoal">Your Entries</span>
             </div>
-            
-            {/* Mini entries */}
-            <div className="space-y-1.5">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-2 bg-app-cream rounded-full" style={{ width: `${90 - i * 15}%` }} />
+            <div className="space-y-1">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-1.5 bg-app-cream rounded-full" style={{ width: `${90 - i * 20}%` }} />
               ))}
             </div>
           </div>
 
           {/* Sync arrow */}
-          <div className="flex justify-center my-3">
-            <div 
-              className="w-10 h-10 rounded-full bg-app-teal/10 flex items-center justify-center"
+          <div className="flex justify-center my-2">
+            <div
+              className="w-8 h-8 rounded-full bg-app-teal/10 flex items-center justify-center"
               style={{ animation: "pulse 2s ease-in-out infinite" }}
             >
-              <svg className="w-5 h-5 text-app-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+              <svg className="w-4 h-4 text-app-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
               </svg>
             </div>
           </div>
 
           {/* Cloud */}
-          <div className="bg-gradient-to-br from-app-green/10 to-app-teal/10 rounded-xl p-4 border border-app-teal/30">
+          <div className="bg-gradient-to-br from-app-green/10 to-app-teal/10 rounded-xl p-3 border border-app-teal/30">
             <div className="flex items-center gap-2">
-              <svg className="w-8 h-8 text-app-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+              <svg className="w-6 h-6 text-app-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                       d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
               </svg>
               <div>
-                <p className="text-sm font-medium text-app-charcoal">Google Sheets</p>
+                <p className="text-xs font-medium text-app-charcoal">Google Sheets</p>
                 <p className="text-xs text-app-gray">Automatic backup</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Optional badge */}
-        <p className="text-xs text-app-gray text-center mt-3">
-          This is optional. Your data always stays on your device
+        {/* Conditional: Sync buttons preview - only if already connected */}
+        {context.isGoogleSheetConnected && (
+          <div className="bg-white rounded-xl border border-app-border overflow-hidden animate-slideUp">
+            <div className="px-3 py-2 bg-app-cream border-b border-app-border">
+              <p className="text-xs font-medium text-app-charcoal text-center">
+                Sync buttons in the app
+              </p>
+            </div>
+            <div className="p-3 space-y-3">
+              {/* Settings page - primary button style */}
+              <div className="space-y-1">
+                <span className="text-xs text-app-gray">Settings page</span>
+                <div className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-app-green text-white text-sm font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Sync with Google Sheets
+                </div>
+              </div>
+
+              {/* Dashboard - subtle button style */}
+              <div className="space-y-1">
+                <span className="text-xs text-app-gray">Dashboard</span>
+                <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-app-teal/10 text-app-teal text-sm">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Sync with Google Sheets
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Footer text */}
+        <p className="text-xs text-app-gray text-center">
+          {context.isGoogleSheetConnected
+            ? "Your sheet is connected! Use sync buttons to back up anytime."
+            : "This is optional. Your data always stays on your device."}
         </p>
       </div>
     ),
 
     // ==========================================
-    // SYNC BUTTONS - Shows button variants
+    // SYNC BUTTONS (kept for backwards compatibility but not used)
     // ==========================================
     "sync-buttons": (
       <div className="w-full max-w-xs">
@@ -879,6 +974,141 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
   return (
     <div className="w-full max-w-sm mx-auto flex items-center justify-center">
       {illustrations[type] || illustrations.welcome}
+    </div>
+  );
+}
+
+// ============================================
+// Feature Carousel Component
+// ============================================
+
+interface FeatureCarouselProps {
+  features: Array<{
+    id: string;
+    title: string;
+    shortDescription: string;
+    illustration: string;
+  }>;
+  currentIndex: number;
+  onIndexChange: (index: number) => void;
+  context: DynamicContext;
+}
+
+function FeatureCarousel({
+  features,
+  currentIndex,
+  onIndexChange,
+  context,
+}: FeatureCarouselProps) {
+  const currentFeature = features[currentIndex];
+  const isFirst = currentIndex === 0;
+  const isLast = currentIndex === features.length - 1;
+
+  const handlePrev = () => {
+    if (!isFirst) onIndexChange(currentIndex - 1);
+  };
+
+  const handleNext = () => {
+    if (!isLast) onIndexChange(currentIndex + 1);
+  };
+
+  return (
+    <div className="w-full max-w-sm">
+      {/* Carousel container */}
+      <div className="relative">
+        {/* Left arrow */}
+        <button
+          onClick={handlePrev}
+          disabled={isFirst}
+          className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 z-10
+            w-8 h-8 rounded-full flex items-center justify-center transition-all
+            ${isFirst
+              ? "text-app-border cursor-not-allowed"
+              : "text-app-gray hover:text-app-charcoal hover:bg-app-cream"
+            }`}
+          aria-label="Previous feature"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        {/* Feature content with animation */}
+        <div key={currentFeature.id} className="animate-fadeIn px-8">
+          {/* Feature illustration */}
+          <div className="mb-4">
+            <TutorialIllustration type={currentFeature.illustration} context={context} />
+          </div>
+
+          {/* Feature info */}
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-app-charcoal mb-2">
+              {currentFeature.title}
+            </h3>
+            <p className="text-sm text-app-gray leading-relaxed">
+              {currentFeature.shortDescription}
+            </p>
+          </div>
+        </div>
+
+        {/* Right arrow */}
+        <button
+          onClick={handleNext}
+          disabled={isLast}
+          className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 z-10
+            w-8 h-8 rounded-full flex items-center justify-center transition-all
+            ${isLast
+              ? "text-app-border cursor-not-allowed"
+              : "text-app-gray hover:text-app-charcoal hover:bg-app-cream"
+            }`}
+          aria-label="Next feature"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Dot indicators */}
+      <div className="flex items-center justify-center gap-2 mt-6">
+        {features.map((feature, index) => (
+          <button
+            key={feature.id}
+            onClick={() => onIndexChange(index)}
+            className={`h-2 rounded-full transition-all ${
+              index === currentIndex
+                ? "bg-app-teal w-4"
+                : index < currentIndex
+                ? "bg-app-teal/50 w-2"
+                : "bg-app-border w-2"
+            }`}
+            aria-label={`Go to ${feature.title}`}
+          />
+        ))}
+      </div>
+
+      {/* Feature counter */}
+      <p className="text-xs text-app-gray text-center mt-2">
+        {currentIndex + 1} of {features.length} features
+      </p>
+    </div>
+  );
+}
+
+// ============================================
+// Insight Card Component
+// ============================================
+
+interface InsightCardProps {
+  title: string;
+  icon: string;
+}
+
+function InsightCard({ title, icon }: InsightCardProps) {
+  return (
+    <div className="bg-white rounded-lg p-3 border border-app-border flex items-center gap-2">
+      <span className="text-lg">{icon}</span>
+      <span className="text-xs font-medium text-app-charcoal">{title}</span>
     </div>
   );
 }

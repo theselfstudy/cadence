@@ -967,6 +967,19 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         <h2 className="text-lg font-semibold text-app-charcoal mb-4">
           🧻 Bristol Stool Scale
         </h2>
+        <div className="flex items-center gap-1.5 text-xs text-app-gray mb-3">
+          <span>💡</span>
+          <span>
+            <a
+              href="https://www.webmd.com/digestive-disorders/poop-chart-bristol-stool-scale"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-app-teal hover:text-app-teal/80 underline"
+            >
+              Click here to learn more about the Bristol Scale →
+            </a>
+          </span>
+        </div>
 
         {/* Bristol Type - Circular Buttons */}
         <div className="mb-6">
@@ -990,8 +1003,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
               {type.type}
             </button>
           ))}
-        </div>
-
+          </div>
           {bristolType && (
             <div className="mt-3 p-3 bg-app-cream rounded-lg">
               <p className="text-sm font-medium text-app-charcoal">

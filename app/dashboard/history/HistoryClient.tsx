@@ -9,7 +9,6 @@ import { useEntries, useEntriesRevision } from "@/stores/useEntries";
 // import { useEntries, useEntriesHydrated, useEntriesRevision } from "@/stores/useEntries";
 import { useSettings } from "@/stores/useSettings";
 // import { useSavedFilters } from "@/stores/useSavedFilters";
-import { useSyncTracker } from "@/stores/useSyncTracker";
 import { downloadEntriesAsCSV, calculateSummaryStats } from "@/lib/csvExport";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
 import { useFreshData } from "@/hooks/useFreshData";
@@ -17,7 +16,7 @@ import { FilterBar } from "@/components/history";
 import { CYCLE_PHASES } from "@/lib/constants";
 import { getLocalDateString } from '@/lib/dateUtils';
 import { EntryCard } from '@/components/ui/EntryCard';
-import { SyncWithGoogleSheetsButton } from '@/components/sync';
+import { SyncWithGoogleSheetsButton, SyncStatusBadge } from '@/components/sync';
 
 
 // ============================================
@@ -55,7 +54,6 @@ export default function HistoryPage() {
   const revision = useEntriesRevision();
   const renderKey = useFreshData();
   const { isGoogleSheetConnected, timeFormat } = useSettings();
-  const { getLastSuccessfulSyncAt } = useSyncTracker();
 
   const settings = useSettings();
 
@@ -245,10 +243,10 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Page Header with Sync Button */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2">
             <Link href="/dashboard" className="text-app-gray hover:text-app-charcoal">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -256,64 +254,34 @@ export default function HistoryPage() {
             </Link>
             <h1 className="text-2xl font-bold text-app-charcoal">History</h1>
           </div>
-          <p className="text-app-gray">
-            {filteredEntries.length} of {entries.length} entries
-            {dateRangeFilter !== "all" && ` (${getFilterLabel(dateRangeFilter)})`}
-            {activeFilterCount > 0 && (
-              <span className="text-app-teal">
-                {" "}· {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active
-              </span>
-            )}
-          </p>
+          <p className="text-app-gray mt-1">Browse and export all your logged entries</p>
+          {isGoogleSheetConnected && (
+            <div className="mt-2">
+              <SyncStatusBadge />
+            </div>
+          )}
         </div>
-        
-        {/* Export Button */}
-        <button
-          onClick={handleExport}
-          disabled={filteredEntries.length === 0}
-          className="
-            flex items-center justify-center gap-2
-            px-4 py-3
-            bg-app-teal text-white rounded-lg
-            hover:bg-app-teal/90
-            disabled:opacity-50 disabled:cursor-not-allowed
-            transition-colors
-            w-full sm:w-auto
-            "
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Export CSV
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Filter count badge */}
+          {activeFilterCount > 0 && (
+            <span className="text-sm text-app-teal">
+              {activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active
+            </span>
+          )}
+          {isGoogleSheetConnected && (
+            <SyncWithGoogleSheetsButton variant="subtle" />
+          )}
+        </div>
       </div>
 
       {/* Anonymous Backup Prompt */}
       {showBackupPrompt && (
-        <BackupPromptBanner 
+        <BackupPromptBanner
           onExport={handleExport}
           onDismiss={dismissBackupPrompt}
           entryCount={entries.length}
         />
       )}
-
-      {/* Mode Indicator */}
-      <div className="p-3 bg-app-cream rounded-lg border border-app-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
-            <span className="text-sm text-app-charcoal">
-              {isGoogleSheetConnected
-                ? formatTimeSinceSync(getLastSuccessfulSyncAt())
-                : "Local storage only (Anonymous Mode)"}
-            </span>
-          </div>
-
-          {/* Sync with Google Sheets button - only for connected users */}
-          <SyncWithGoogleSheetsButton variant="subtle" />
-        </div>
-      </div>
 
       {/* Filters & Controls */}
       <div className="card">
@@ -336,7 +304,7 @@ export default function HistoryPage() {
             ))}
           </div>
 
-          {/* Stats Toggle */}
+          {/* Stats Toggle & Export */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowStats(!showStats)}
@@ -347,15 +315,33 @@ export default function HistoryPage() {
                   ? "bg-app-plumb text-white"
                   : "bg-app-cream text-app-charcoal hover:bg-app-border"}
               `}
+              title={showStats ? "Hide statistics" : "Show statistics"}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
+              <span className="hidden sm:inline">Stats</span>
+            </button>
 
-              <span className="sm:hidden">
-                {showStats ? "Hide stats" : "Show stats"}
-              </span>
+            {/* Export CSV Button */}
+            <button
+              onClick={handleExport}
+              disabled={filteredEntries.length === 0}
+              className="
+                flex items-center gap-2
+                px-3 py-2 text-sm rounded-lg transition-colors
+                bg-app-teal text-white
+                hover:bg-app-teal/70
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
+              title="Export filtered entries to CSV"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span className="hidden sm:inline">Export CSV</span>
             </button>
           </div>
         </div>
@@ -1094,27 +1080,13 @@ function HistorySkeleton() {
 // UTILITY FUNCTIONS
 // ============================================
 
-function formatTimeSinceSync(lastSyncAt: string | null): string {
-  if (!lastSyncAt) return "Sheet connected and is not yet synced";
-
-  const ms = Date.now() - new Date(lastSyncAt).getTime();
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `Last synced ${days}d ago`;
-  if (hours > 0) return `Last synced ${hours}h ago`;
-  if (minutes > 0) return `Last synced ${minutes}m ago`;
-  return "Last synced just now";
-}
-
 function getFilterLabel(filter: DateRangeFilter): string {
   switch (filter) {
     case "7": return "7 Days";
     case "30": return "30 Days";
     case "90": return "90 Days";
     case "all": return "All Time";
-    case "custom": return "Custom";
+    case "custom": return "Input Custom";
     default: return filter;
   }
 }

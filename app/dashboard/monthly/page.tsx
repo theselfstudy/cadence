@@ -29,8 +29,7 @@ import { FilterBar } from "@/components/history";
 
 import type { StoredEntry, TimeFormat } from "@/types";
 import { EntryCard } from "@/components/ui/EntryCard";
-import { SyncWithGoogleSheetsButton } from "@/components/sync";
-import { useSyncTracker } from "@/stores/useSyncTracker";
+import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
 
 // ============================================
 // TYPES
@@ -57,7 +56,6 @@ export default function MonthlyPage() {
   const medicineTrackingEnabled = useSettings((state) => state.medicineTracking.enabled);
   const symptomsEnabled = useSettings((state) => state.symptoms.enabled);
   const isGoogleSheetConnected = useSettings((state) => state.isGoogleSheetConnected);
-  const { getLastSuccessfulSyncAt } = useSyncTracker();
 
   const settings = useSettings();
 
@@ -386,39 +384,34 @@ export default function MonthlyPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link href="/dashboard" className="text-app-gray hover:text-app-charcoal">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <h1 className="text-2xl font-bold text-app-charcoal">Monthly View</h1>
-        </div>
-
-        {/* Filter count badge */}
-        {totalFilterCount > 0 && (
-          <span className="text-sm text-app-teal">
-            {totalFilterCount} filter{totalFilterCount !== 1 ? "s" : ""} active
-          </span>
-        )}
-      </div>
-
-      {/* Mode Indicator */}
-      <div className="p-3 bg-app-cream rounded-lg border border-app-border">
-        <div className="flex items-center justify-between">
+      {/* Page Header with Sync Button */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isGoogleSheetConnected ? "bg-app-teal" : "bg-app-gray"}`} />
-            <span className="text-sm text-app-charcoal">
-              {isGoogleSheetConnected
-                ? formatTimeSinceSync(getLastSuccessfulSyncAt())
-                : "Local storage only (Anonymous Mode)"}
-            </span>
+            <Link href="/dashboard" className="text-app-gray hover:text-app-charcoal">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            <h1 className="text-2xl font-bold text-app-charcoal">Monthly View</h1>
           </div>
-
-          {/* Sync with Google Sheets button - only for connected users */}
-          <SyncWithGoogleSheetsButton variant="subtle" />
+          <p className="text-app-gray mt-1">Summary and trends per month</p>
+          {isGoogleSheetConnected && (
+            <div className="mt-2">
+              <SyncStatusBadge />
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Filter count badge */}
+          {totalFilterCount > 0 && (
+            <span className="text-sm text-app-teal">
+              {totalFilterCount} filter{totalFilterCount !== 1 ? "s" : ""} active
+            </span>
+          )}
+          {isGoogleSheetConnected && (
+            <SyncWithGoogleSheetsButton variant="subtle" />
+          )}
         </div>
       </div>
 
@@ -1151,20 +1144,6 @@ function MonthlyPageSkeleton() {
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
-
-function formatTimeSinceSync(lastSyncAt: string | null): string {
-  if (!lastSyncAt) return "Sheet connected and is not yet synced";
-
-  const ms = Date.now() - new Date(lastSyncAt).getTime();
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `Last synced ${days}d ago`;
-  if (hours > 0) return `Last synced ${hours}h ago`;
-  if (minutes > 0) return `Last synced ${minutes}m ago`;
-  return "Last synced just now";
-}
 
 function formatDate(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);

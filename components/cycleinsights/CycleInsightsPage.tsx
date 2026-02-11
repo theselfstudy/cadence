@@ -153,12 +153,19 @@ const detectedCycles = useMemo(() => {
   // }
 
   return (
-    <div className="px-3 py-4 sm:p-4 space-y-4 sm:space-y-5 max-w-4xl mx-auto overscroll-contain">
+    <div className="space-y-6">
       {/* Page Header with Sync Button */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-app-charcoal">Cycle Insights</h1>
-          <p className="text-app-gray">Patterns and observations from your logged data</p>
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard" className="text-app-gray hover:text-app-charcoal">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            <h1 className="text-2xl font-bold text-app-charcoal">Cycle Insights</h1>
+          </div>
+          <p className="text-app-gray mt-1">Cycle patterns and observations from your logged data</p>
           {isGoogleSheetConnected && (
             <div className="mt-2">
               <SyncStatusBadge />
