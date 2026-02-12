@@ -282,6 +282,23 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
               </li>
             ))}
           </ul>
+          <div className="mt-3 pt-3 border-t border-app-border/50 flex items-center justify-center gap-2 px-4 py-1.5">
+            <SafeLink
+              href="https://github.com/thecrimsonelephant/cadence-privacy/blob/main/FAQ.md"
+              onClick={onClose}
+              className="text-sm text-app-charcoal/70 hover:text-app-charcoal hover:underline transition-colors"
+            >
+              FAQ
+            </SafeLink>
+            <span className="text-app-charcoal/40">&bull;</span>
+            <SafeLink
+              href="https://github.com/thecrimsonelephant/cadence-privacy/blob/main/index.md"
+              onClick={onClose}
+              className="text-sm text-app-charcoal/70 hover:text-app-charcoal hover:underline transition-colors"
+            >
+              Privacy Notice
+            </SafeLink>
+          </div>
         </div>
       </div>
     </>
