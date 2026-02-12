@@ -6,6 +6,12 @@ import { SuccessModal } from "@/components/ui/SuccessModal";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import { useRateLimit } from "@/hooks/useRateLimit";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const NAME_MAX_LENGTH = 100;
+const EMAIL_MAX_LENGTH = 200;
+const MESSAGE_MAX_LENGTH = 500;
+
 export default function ContactPage() {
   const [isClient, setIsClient] = useState(false);
   const [name, setName] = useState("");
@@ -15,6 +21,9 @@ export default function ContactPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [nameValid, setNameValid] = useState(true);
+  const [messageValid, setMessageValid] = useState(true);
 
   const rateLimit = useRateLimit({
     maxRequests: 3,
@@ -22,6 +31,21 @@ export default function ContactPage() {
     key: "contact-form",
     storageType: "localStorage",
   });
+
+  const isEmailFormatValid = email.trim() === "" || EMAIL_REGEX.test(email.trim());
+  const isNameOverLimit = name.length > NAME_MAX_LENGTH;
+  const isEmailOverLimit = email.length > EMAIL_MAX_LENGTH;
+  const isMessageOverLimit = message.length > MESSAGE_MAX_LENGTH;
+
+  const isFormDisabled =
+    loading ||
+    rateLimit.isRateLimited ||
+    isNameOverLimit ||
+    isEmailOverLimit ||
+    isMessageOverLimit ||
+    !nameValid ||
+    !messageValid ||
+    (emailTouched && !isEmailFormatValid);
 
   useEffect(() => {
     setIsClient(true);
@@ -75,6 +99,9 @@ export default function ContactPage() {
       setName("");
       setEmail("");
       setMessage("");
+      setEmailTouched(false);
+      setNameValid(true);
+      setMessageValid(true);
     } catch (err: any) {
       setError(err.message || "Error sending message. Please try again.");
     } finally {
@@ -99,27 +126,39 @@ export default function ContactPage() {
           <SecureTextInput
             value={name}
             onChange={setName}
+            onValidationChange={setNameValid}
             label="Name"
             placeholder="Your name"
             required
-            maxLength={100}
+            maxLength={NAME_MAX_LENGTH}
             showCharCount={false}
           />
 
-          <SecureTextInput
-            value={email}
-            onChange={setEmail}
-            label="Email"
-            placeholder="you@example.com"
-            type="email"
-            required
-            maxLength={200}
-            showCharCount={false}
-          />
+          <div>
+            <SecureTextInput
+              value={email}
+              onChange={(val) => {
+                setEmail(val);
+                if (!emailTouched && val.trim().length > 0) setEmailTouched(true);
+              }}
+              label="Email"
+              placeholder="you@example.com"
+              type="email"
+              required
+              maxLength={EMAIL_MAX_LENGTH}
+              showCharCount={false}
+            />
+            {emailTouched && !isEmailFormatValid && (
+              <p className="mt-1 text-xs text-amber-600">
+                Please enter a valid email address (e.g. name@example.com)
+              </p>
+            )}
+          </div>
 
           <SecureTextarea
             value={message}
             onChange={setMessage}
+            onValidationChange={setMessageValid}
             label="Message"
             placeholder="Describe what happened, what you expected, or any feedback you have..."
             required
@@ -147,7 +186,7 @@ export default function ContactPage() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading || rateLimit.isRateLimited}
+            disabled={isFormDisabled}
             className="btn-primary"
           >
             {rateLimit.isRateLimited
