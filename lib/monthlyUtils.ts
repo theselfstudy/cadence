@@ -6,6 +6,18 @@ import type { StoredEntry, WeekStartDay, CyclePhase } from "@/types";
 import { getLocalDateString } from "./dateUtils";
 
 // ============================================
+// HELPERS
+// ============================================
+
+/** Parse "heavy @ 4:44 PM" into { level: "heavy", startTime: "4:44 PM" } */
+export function parseFlowValue(flow: string | null): { level: string; startTime: string | null } {
+  if (!flow) return { level: '', startTime: null };
+  const match = flow.match(/^(.+?)\s*@\s*(.+)$/);
+  if (match) return { level: match[1].trim(), startTime: match[2].trim() };
+  return { level: flow, startTime: null };
+}
+
+// ============================================
 // TYPES
 // ============================================
 
@@ -403,6 +415,8 @@ export interface CycleMonthData {
   flowDays: number;
   phaseDistribution: Record<string, number>;
   flowDistribution: Record<string, number>;
+  /** First flow start time found in the month (parsed from "heavy @ time") */
+  flowStartTime: string | null;
 }
 
 export interface MedicineMonthData {
@@ -657,11 +671,12 @@ export function compareMonths(
   // ===== CYCLE =====
   const buildCycleData = (entries: StoredEntry[]): CycleMonthData => {
     const daysWithData = new Set<string>();
-    
+
     // Track unique dates per phase (for accurate day counting)
     const dateToPhase: Record<string, string> = {};
     const dateToFlow: Record<string, string> = {};
-    
+    let firstFlowStartTime: string | null = null;
+
     // Priority order for phases when multiple logged on same day
     // Menstrual > Ovulation > Follicular > Luteal > Not Sure
     const phasePriority: Record<string, number> = {
@@ -685,25 +700,30 @@ export function compareMonths(
       }
       if (entry.periodFlow) {
         daysWithData.add(entry.date);
+        const parsed = parseFlowValue(entry.periodFlow);
         // Keep the first flow logged for the day (or could use heaviest)
         if (!dateToFlow[entry.date]) {
-          dateToFlow[entry.date] = entry.periodFlow;
+          dateToFlow[entry.date] = parsed.level;
+        }
+        // Capture first flow start time found
+        if (!firstFlowStartTime && parsed.startTime) {
+          firstFlowStartTime = parsed.startTime;
         }
       }
     }
-    
+
     // Count phases by unique dates
     const phaseDistribution: Record<string, number> = {};
     for (const phase of Object.values(dateToPhase)) {
       phaseDistribution[phase] = (phaseDistribution[phase] || 0) + 1;
     }
-    
-    // Count flows by unique dates
+
+    // Count flows by unique dates (uses parsed level, not raw value)
     const flowDistribution: Record<string, number> = {};
     for (const flow of Object.values(dateToFlow)) {
       flowDistribution[flow] = (flowDistribution[flow] || 0) + 1;
     }
-    
+
     // Count period days as unique dates with menstrual phase
     const periodDays = Object.values(dateToPhase).filter(phase => phase === "menstrual").length;
 
@@ -723,6 +743,7 @@ export function compareMonths(
       flowDays: Object.keys(dateToFlow).length, // Unique days with flow logged
       phaseDistribution,
       flowDistribution,
+      flowStartTime: firstFlowStartTime,
     };
   };
 
@@ -1125,11 +1146,12 @@ export function detectCycleBoundaries(entries: StoredEntry[]): DetectedCycle[] {
   
   for (const entry of entries) {
     if (entry.periodFlow) {
+      const parsed = parseFlowValue(entry.periodFlow);
       const existingFlow = dateToFlow[entry.date];
       const existingPriority = existingFlow ? (flowPriority[existingFlow] || 0) : 0;
-      const newPriority = flowPriority[entry.periodFlow] || 0;
+      const newPriority = flowPriority[parsed.level] || 0;
       if (newPriority > existingPriority) {
-        dateToFlow[entry.date] = entry.periodFlow;
+        dateToFlow[entry.date] = parsed.level;
       }
       // Mark as period day
       periodDates.add(entry.date);

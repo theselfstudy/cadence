@@ -856,7 +856,10 @@ function SettingsPageContent() {
     if (success) {
       // Also restore saved filters from the sheet
       await savedFiltersLoadFromSheet(spreadsheetId, pendingAccessToken);
-      
+
+      // Mark restore as a successful sync so the status badge shows "Synced just now"
+      useSyncState.getState().completeSync(true);
+
       // Settings restored - now offer to import entries
       setPendingImportAccessToken(pendingAccessToken);
       setShowImportEntriesModal(true);

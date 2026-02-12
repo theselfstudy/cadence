@@ -171,8 +171,11 @@ export function SyncWithGoogleSheetsButton({
       return;
     }
 
+    // Fetch the sheet title so we don't default to "Restored Sheet"
+    const sheetTitle = await getSpreadsheetTitle(spreadsheetId, token);
+
     console.log("Restoring settings from sheet...");
-    const settingsSuccess = await loadSettingsFromSheet(spreadsheetId, token);
+    const settingsSuccess = await loadSettingsFromSheet(spreadsheetId, token, sheetTitle || undefined);
 
     if (settingsSuccess) {
       console.log("Settings restored successfully, loading filters and entries...");
@@ -184,6 +187,9 @@ export function SyncWithGoogleSheetsButton({
       // Import entries from the sheet
       const entriesResult = await importEntriesFromSheet(token);
       console.log("Entries import result:", entriesResult);
+
+      // Mark the restore as a successful sync so the status badge shows "Synced just now"
+      useSyncState.getState().completeSync(true);
 
       // Small delay to ensure localStorage writes are complete before navigation
       // This prevents race conditions where the page navigates before Zustand persist finishes

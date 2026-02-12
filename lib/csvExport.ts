@@ -54,6 +54,21 @@ function formatTime(timeString: string, format: TimeFormat): string {
 }
 
 /**
+ * Parses a time string (12h or 24h) to total minutes for sorting
+ */
+function parseTimeToMinutes(timeStr: string): number {
+  if (!timeStr) return 0;
+  const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (!match) return 0;
+  let hour = parseInt(match[1], 10);
+  const min = parseInt(match[2], 10);
+  const meridian = match[3]?.toUpperCase();
+  if (meridian === "PM" && hour < 12) hour += 12;
+  if (meridian === "AM" && hour === 12) hour = 0;
+  return hour * 60 + min;
+}
+
+/**
  * Calculates duration between two time strings in minutes
  */
 function calculateDurationMinutes(startTime: string, endTime: string): number | null {
@@ -149,21 +164,68 @@ function getCyclePhaseLabel(phase: string | null): string {
  */
 function getFlowLabel(flow: string | null): string {
   if (!flow) return "";
+  // Handle embedded time format: "heavy @ 4:44 PM"
+  const atMatch = flow.match(/^(.+?)\s*@\s*(.+)$/);
+  if (atMatch) {
+    const level = atMatch[1].trim();
+    const time = atMatch[2].trim();
+    const found = FLOW_LEVELS.find(f => f.value === level);
+    return `${found ? found.label : level} @ ${time}`;
+  }
   const found = FLOW_LEVELS.find(f => f.value === flow);
   return found ? found.label : flow;
 }
 
 /**
- * Formats product usage for CSV
+ * Formats product usage for CSV using custom product name lookup
  */
-function formatProductUsage(products: StoredEntry["productUsage"]): string {
+function formatProductUsage(
+  products: StoredEntry["productUsage"],
+  customProducts: Record<string, { id: string; name: string }[]>
+): string {
   if (!products || products.length === 0) return "";
-  
+
+  const typeLabels: Record<string, string> = {
+    pad: "Pad",
+    tampon: "Tampon",
+    cup: "Cup",
+    disc: "Disc",
+    liner: "Liner",
+    "period-underwear": "Period Underwear",
+    other: "Other",
+  };
+
   return products.map(p => {
-    let label = p.productType;
-    if (p.size) label += ` (${p.size})`;
-    if (p.customProductId) label += ` [Custom: ${p.customProductId}]`;
-    return label;
+    let customProduct: { id: string; name: string } | undefined;
+
+    if (p.customProductId) {
+      // Try the specific product type category first
+      if (customProducts[p.productType]) {
+        customProduct = customProducts[p.productType].find(
+          cp => cp.id === p.customProductId
+        );
+      }
+      // If not found, search all categories
+      if (!customProduct) {
+        for (const prods of Object.values(customProducts)) {
+          const found = prods.find(cp => cp.id === p.customProductId);
+          if (found) { customProduct = found; break; }
+        }
+      }
+    }
+
+    const formattedType = typeLabels[p.productType] ||
+      p.productType.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+    if (customProduct) {
+      return `${customProduct.name} (${formattedType})`;
+    }
+
+    // Filter out invalid size values
+    const validSize = p.size && !["yes", "true", "false", "no"].includes(p.size.toLowerCase())
+      ? p.size : null;
+
+    return validSize ? `${formattedType} (${validSize})` : formattedType;
   }).join("; ");
 }
 
@@ -200,6 +262,8 @@ interface ExportOptions {
   includePeriod: boolean;
   includeStool: boolean;
   includeMedicine: boolean;
+  /** Custom products from settings for name lookup */
+  customProducts: Record<string, { id: string; name: string }[]>;
 }
 
 /**
@@ -301,7 +365,7 @@ function buildColumns(entries: StoredEntry[], options: ExportOptions): CSVColumn
     columns.push(
       { header: "Cycle Phase", getValue: (e) => getCyclePhaseLabel(e.cyclePhase) },
       { header: "Flow Level", getValue: (e) => getFlowLabel(e.periodFlow) },
-      { header: "Products Used", getValue: (e) => formatProductUsage(e.productUsage) },
+      { header: "Products Used", getValue: (e, opts) => formatProductUsage(e.productUsage, opts.customProducts) },
     );
     
     // Period-specific symptoms (dynamic)
@@ -391,12 +455,15 @@ export function entriesToCSV(
     includePeriod: options.includePeriod ?? true,
     includeStool: options.includeStool ?? true,
     includeMedicine: options.includeMedicine ?? true,
+    customProducts: options.customProducts ?? {},
   };
   
-  // Sort entries by date (oldest first for CSV)
-  const sortedEntries = [...entries].sort((a, b) => 
-    new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
+  // Sort entries chronologically: by date (oldest first), then by start time
+  const sortedEntries = [...entries].sort((a, b) => {
+    const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime);
+  });
   
   // Build columns based on what's actually in the data
   const columns = buildColumns(sortedEntries, fullOptions);

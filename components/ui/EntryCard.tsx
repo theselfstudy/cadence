@@ -38,11 +38,17 @@ export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardP
           <p className="font-semibold text-app-charcoal">{formatDate(entry.date)}</p>
           {/* Time and Duration */}
           <p className="text-sm text-app-gray">
-            {formatTimeForDisplay(entry.startTime, timeFormat)} → {formatTimeForDisplay(entry.endTime, timeFormat)}
-            <span className="mx-2">·</span>
-            <span className="text-app-teal font-medium">
-              {calculateDuration(entry.startTime, entry.endTime)}
-            </span>
+            {entry.startTime === entry.endTime ? (
+              formatTimeForDisplay(entry.startTime, timeFormat)
+            ) : (
+              <>
+                {formatTimeForDisplay(entry.startTime, timeFormat)} → {formatTimeForDisplay(entry.endTime, timeFormat)}
+                <span className="mx-2">·</span>
+                <span className="text-app-teal font-medium">
+                  {calculateDuration(entry.startTime, entry.endTime)}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <button
@@ -193,9 +199,17 @@ export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardP
                   {entry.cyclePhase && entry.periodFlow && (
                     <span className="text-app-gray"> · </span>
                   )}
-                  {entry.periodFlow && (
-                    <span className="text-app-gray capitalize">{entry.periodFlow} flow</span>
-                  )}
+                  {entry.periodFlow && (() => {
+                    const parsed = parseFlowValue(entry.periodFlow);
+                    return (
+                      <span className="text-app-gray capitalize">
+                        {parsed.level} flow
+                        {parsed.startTime && (
+                          <span> @ {formatTimeForDisplay(parsed.startTime, timeFormat)}</span>
+                        )}
+                      </span>
+                    );
+                  })()}
                 </p>
               )}
               
@@ -227,7 +241,7 @@ export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardP
                     key={idx}
                     className="text-xs bg-app-green/10 text-app-charcoal px-2 py-1 rounded"
                   >
-                    {log.medicineName}{log.dosage ? ` (${log.dosage})` : ""}
+                    {log.medicineName}{log.dosage ? ` (${log.dosage})` : ""}{log.time ? ` @ ${formatTimeForDisplay(`${log.time.hour}:${log.time.minute.toString().padStart(2, '0')}${log.time.period ? ` ${log.time.period}` : ''}`, timeFormat)}` : ""}
                   </span>
                 ))}
               </div>
@@ -265,6 +279,14 @@ function Section({ title, icon, children }: { title: string; icon: string; child
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+/** Parse "heavy @ 4:44 PM" into { level: "heavy", startTime: "4:44 PM" } */
+function parseFlowValue(flow: string | null): { level: string; startTime: string | null } {
+  if (!flow) return { level: '', startTime: null };
+  const match = flow.match(/^(.+?)\s*@\s*(.+)$/);
+  if (match) return { level: match[1].trim(), startTime: match[2].trim() };
+  return { level: flow, startTime: null };
+}
 
 function formatDate(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);

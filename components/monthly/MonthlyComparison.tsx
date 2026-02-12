@@ -515,15 +515,21 @@ export function MonthlyComparison({
               thisMonth={
                 <div className="space-y-1">
                   {/* <StatRow label="Phase" value={formatPhase(comparison.cycle.thisMonth.dominantPhase)} /> */}
-                  <StatRow label="Period days" value={comparison.cycle.thisMonth.daysLogged} />
+                  {/* <StatRow label="Period days" value={comparison.cycle.thisMonth.daysLogged} /> */}
                   <StatRow label="Flow days" value={comparison.cycle.thisMonth.flowDays} />
+                  {(comparison.cycle.thisMonth.flowStartTime || comparison.cycle.lastMonth.flowStartTime) && (
+                    <StatRow label="Flow start" value={comparison.cycle.thisMonth.flowStartTime ?? "—"} />
+                  )}
                 </div>
               }
               lastMonth={
                 <div className="space-y-1">
                   {/* <StatRow label="Phase" value={formatPhase(comparison.cycle.lastMonth.dominantPhase)} /> */}
-                  <StatRow label="Period days" value={comparison.cycle.lastMonth.daysLogged} />
+                  {/* <StatRow label="Period days" value={comparison.cycle.lastMonth.daysLogged} /> */}
                   <StatRow label="Flow days" value={comparison.cycle.lastMonth.flowDays} />
+                  {(comparison.cycle.thisMonth.flowStartTime || comparison.cycle.lastMonth.flowStartTime) && (
+                    <StatRow label="Flow start" value={comparison.cycle.lastMonth.flowStartTime ?? "—"} />
+                  )}
                 </div>
               }
                             change={

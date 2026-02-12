@@ -210,6 +210,20 @@ export default function HistoryPage() {
   const hasMoreEntries = visibleCount < filteredEntries.length;
   const remainingCount = filteredEntries.length - visibleCount;
   
+  // Today's date string for max attribute on date inputs
+  const todayStr = useMemo(() => getLocalDateString(), []);
+
+  // Validate custom date range (start must not be after end)
+  const isDateRangeInvalid = dateRangeFilter === "custom" &&
+    customRange.start !== "" &&
+    customRange.end !== "" &&
+    customRange.start > customRange.end;
+
+  // Check if either custom date is in the future (iOS Safari ignores max attribute)
+  const hasFutureDateError = dateRangeFilter === "custom" &&
+    ((customRange.start !== "" && customRange.start > todayStr) ||
+     (customRange.end !== "" && customRange.end > todayStr));
+
   // Calculate stats for filtered entries
   const stats = useMemo(() => calculateSummaryStats(filteredEntries), [filteredEntries]);
   
@@ -223,6 +237,7 @@ export default function HistoryPage() {
       includePeriod: settings.periodTracking.enabled,
       includeStool: settings.stoolTracking.enabled,
       includeMedicine: settings.medicineTracking.enabled,
+      customProducts: settings.periodTracking.productTracking?.customProducts ?? {},
     });
   };
   
@@ -327,7 +342,7 @@ export default function HistoryPage() {
             {/* Export CSV Button */}
             <button
               onClick={handleExport}
-              disabled={filteredEntries.length === 0}
+              disabled={filteredEntries.length === 0 || isDateRangeInvalid || hasFutureDateError}
               className="
                 flex items-center gap-2
                 px-3 py-2 text-sm rounded-lg transition-colors
@@ -335,7 +350,7 @@ export default function HistoryPage() {
                 hover:bg-app-teal/70
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
-              title="Export filtered entries to CSV"
+              title={isDateRangeInvalid ? "Fix date range to export" : hasFutureDateError ? "Dates cannot be in the future" : "Export filtered entries to CSV"}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -348,25 +363,51 @@ export default function HistoryPage() {
         
         {/* Custom Date Range Picker */}
         {dateRangeFilter === "custom" && (
-          <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-app-border">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-app-gray">From:</label>
-              <input
-                type="date"
-                value={customRange.start}
-                onChange={(e) => setCustomRange({ ...customRange, start: e.target.value })}
-                className="px-3 py-1.5 text-sm border border-app-border rounded-lg focus:outline-none focus:ring-2 focus:ring-app-teal"
-              />
+          <div className="mt-4 pt-4 border-t border-app-border">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-app-gray">From:</label>
+                <input
+                  type="date"
+                  value={customRange.start}
+                  max={todayStr}
+                  onChange={(e) => setCustomRange({ ...customRange, start: e.target.value })}
+                  className="px-3 py-1.5 text-sm border border-app-border rounded-lg focus:outline-none focus:ring-2 focus:ring-app-teal"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-app-gray">To:</label>
+                <input
+                  type="date"
+                  value={customRange.end}
+                  max={todayStr}
+                  onChange={(e) => setCustomRange({ ...customRange, end: e.target.value })}
+                  className="px-3 py-1.5 text-sm border border-app-border rounded-lg focus:outline-none focus:ring-2 focus:ring-app-teal"
+                />
+              </div>
+              {(customRange.start || customRange.end) && (
+                <button
+                  onClick={() => {
+                    setCustomRange({ start: "", end: "" });
+                    setDateRangeFilter("all");
+                  }}
+                  className="px-3 py-1.5 text-sm text-app-red hover:text-app-red/80 hover:bg-app-red/10 rounded-lg transition-colors"
+                  title="Clear dates and show all entries"
+                >
+                  Clear Dates
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-app-gray">To:</label>
-              <input
-                type="date"
-                value={customRange.end}
-                onChange={(e) => setCustomRange({ ...customRange, end: e.target.value })}
-                className="px-3 py-1.5 text-sm border border-app-border rounded-lg focus:outline-none focus:ring-2 focus:ring-app-teal"
-              />
-            </div>
+            {isDateRangeInvalid && (
+              <p className="mt-2 text-sm text-app-red">
+                Start date cannot be after end date. Please adjust your date range.
+              </p>
+            )}
+            {!isDateRangeInvalid && hasFutureDateError && (
+              <p className="mt-2 text-sm text-app-red">
+                Dates cannot be in the future.
+              </p>
+            )}
           </div>
         )}
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { StoredEntry } from "@/types";
 import type { DetectedCycle, CycleComparison } from "@/lib/monthlyUtils";
 import { formatPhase } from "@/lib/insightUtils";
+import { getLocalDateString } from "@/lib/dateUtils";
 import { useSettings } from "@/stores/useSettings";
 
 // ============================================
@@ -36,7 +37,7 @@ export function DetailedViewsSection({
 
   // Get entries for a specific cycle
   const getEntriesForCycle = (cycle: DetectedCycle): StoredEntry[] => {
-    const endDate = cycle.endDate || new Date().toISOString().split("T")[0];
+    const endDate = cycle.endDate || getLocalDateString();
     return entries.filter((e) => e.date >= cycle.startDate && e.date <= endDate);
   };
 
@@ -134,6 +135,18 @@ function CycleHistoryTab({
     return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   };
 
+  // Get the first flow start time from raw entries for a cycle
+  const getFlowStartTime = (cycle: DetectedCycle): string | null => {
+    const cycleEntries = getEntriesForCycle(cycle);
+    for (const entry of cycleEntries) {
+      if (entry.periodFlow) {
+        const parsed = parseFlowValue(entry.periodFlow);
+        if (parsed.startTime) return parsed.startTime;
+      }
+    }
+    return null;
+  };
+
   if (cycles.length === 0) {
     return (
       <div className="bg-app-cream/30 rounded-lg p-6 text-center">
@@ -175,26 +188,52 @@ function CycleHistoryTab({
       {/* Cycle Comparison (if available) */}
       {cycleComparison && cycleComparison.previousCycle && (
         <div className="bg-app-cream/50 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-app-charcoal mb-2">Current vs Previous Cycle</h4>
+          {/* <h4 className="text-sm font-medium text-app-charcoal mb-2">Current vs Previous Cycle</h4> */}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-xs text-app-gray mb-1">Current Cycle</p>
-              <p className="font-medium text-app-charcoal">
-                {cycleComparison.currentCycle?.isOngoing 
-                  ? "In progress" 
+              <h4 className="text-sm font-medium text-app-charcoal mb-2">Current Cycle</h4>
+              <p className="text-xs font-medium text-app-red">
+                {cycleComparison.currentCycle?.isOngoing
+                  ? "In progress"
                   : `${cycleComparison.currentCycle?.length} days`}
               </p>
+              {cycleComparison.currentCycle && (
+                <p className="text-xs text-app-gray">
+                  <span className="text-app-gray/70">Started:</span>{" "}
+                  {formatDate(cycleComparison.currentCycle.startDate)}
+                  {(() => {
+                    const startTime = getFlowStartTime(cycleComparison.currentCycle!);
+                    return startTime ? ` @ ${startTime}` : null;
+                  })()}
+                </p>
+              )}
               <p className="text-xs text-app-gray">
-                {cycleComparison.currentCycle?.flowDays.length} flow day{cycleComparison.currentCycle?.flowDays.length !== 1 ? "s" : ""} logged
+                <span className="text-app-gray/70">Flow Days Logged:</span>{" "}{cycleComparison.previousCycle.flowDays.length}
               </p>
             </div>
             <div>
-              <p className="text-xs text-app-gray mb-1">Previous Cycle</p>
-              <p className="font-medium text-app-charcoal">
-                {cycleComparison.previousCycle.length} days
+              <h4 className="text-sm font-medium text-app-charcoal mb-2">Previous Cycle</h4>
+              <p className="text-xs font-medium text-app-charcoal/70">
+                <span className="text-app-gray/70">Cycle Length:</span>{" "} {cycleComparison.previousCycle.length} days
+              </p>
+              <p className="text-xs text-app-gray flex flex-wrap gap-x-4">
+                <span>
+                  <span className="text-app-gray/70">Started:</span>{" "}
+                  {formatDate(cycleComparison.previousCycle.startDate)}
+                  {(() => {
+                    const startTime = getFlowStartTime(cycleComparison.previousCycle!);
+                    return startTime ? ` @ ${startTime}` : null;
+                  })()}
+                </span>
+                {cycleComparison.previousCycle.endDate && (
+                  <span>
+                    <span className="text-app-gray/70">Ended:</span>{" "}
+                    {formatDate(cycleComparison.previousCycle.endDate)}
+                  </span>
+                )}
               </p>
               <p className="text-xs text-app-gray">
-                {cycleComparison.previousCycle.flowDays.length} flow day{cycleComparison.previousCycle.flowDays.length !== 1 ? "s" : ""} logged
+                <span className="text-app-gray/70">Flow Days Logged:</span>{" "}{cycleComparison.previousCycle.flowDays.length}
               </p>
             </div>
           </div>
@@ -285,7 +324,7 @@ function CycleCard({
 
   // Navigate to history with this cycle's date range pre-selected
   const handleExploreInHistory = () => {
-    const endDate = cycle.endDate || new Date().toISOString().split("T")[0];
+    const endDate = cycle.endDate || getLocalDateString();
     const params = new URLSearchParams({
       startDate: cycle.startDate,
       endDate: endDate,
@@ -336,27 +375,35 @@ function CycleCard({
   }, [entries]);
 
   // Collect ALL flow entries by date from raw entries (not deduplicated)
-  const flowByDate = useMemo(() => {
+  // Parse out flow levels and extract flow start time
+  const { flowByDate, firstFlowStartTime } = useMemo(() => {
     const flowMap = new Map<string, string[]>();
-    
+    let startTime: string | null = null;
+
     for (const entry of entries) {
       if (entry.periodFlow) {
+        const parsed = parseFlowValue(entry.periodFlow);
         if (!flowMap.has(entry.date)) {
           flowMap.set(entry.date, []);
         }
-        flowMap.get(entry.date)!.push(entry.periodFlow);
+        flowMap.get(entry.date)!.push(parsed.level);
+        if (!startTime && parsed.startTime) {
+          startTime = parsed.startTime;
+        }
       }
     }
-    
+
     // Sort each day's flows by intensity (heavy first)
     const flowOrder: Record<string, number> = { heavy: 0, medium: 1, light: 2, spotting: 3 };
     flowMap.forEach((flows) => {
       flows.sort((a, b) => (flowOrder[a] ?? 4) - (flowOrder[b] ?? 4));
     });
-    
+
     // Convert to sorted array of [date, flows[]]
-    return Array.from(flowMap.entries())
+    const sorted = Array.from(flowMap.entries())
       .sort(([dateA], [dateB]) => dateA.localeCompare(dateB));
+
+    return { flowByDate: sorted, firstFlowStartTime: startTime };
   }, [entries]);
 
   // Collect product usage for this cycle (deduplicated)
@@ -461,14 +508,19 @@ function CycleCard({
       {isExpanded && (
         <div className="px-4 pb-4 border-t border-app-border/50 pt-3 space-y-3">
           {/* Date range */}
-          <div className="text-sm">
-            <span className="text-app-gray">Started:</span>{" "}
-            <span className="text-app-charcoal">{formatDate(cycle.startDate)}</span>
+          <div className="text-sm flex flex-wrap gap-x-4">
+            <span>
+              <span className="text-app-gray">Started:</span>{" "}
+              <span className="text-app-charcoal">
+                {formatDate(cycle.startDate)}
+                {firstFlowStartTime && ` @ ${firstFlowStartTime}`}
+              </span>
+            </span>
             {cycle.endDate && (
-              <>
-                <span className="text-app-gray ml-3">Ended:</span>{" "}
+              <span>
+                <span className="text-app-gray">Ended:</span>{" "}
                 <span className="text-app-charcoal">{formatDate(cycle.endDate)}</span>
-              </>
+              </span>
             )}
           </div>
 
@@ -605,6 +657,14 @@ function CycleCard({
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+/** Parse "heavy @ 4:44 PM" into { level: "heavy", startTime: "4:44 PM" } */
+function parseFlowValue(flow: string | null): { level: string; startTime: string | null } {
+  if (!flow) return { level: '', startTime: null };
+  const match = flow.match(/^(.+?)\s*@\s*(.+)$/);
+  if (match) return { level: match[1].trim(), startTime: match[2].trim() };
+  return { level: flow, startTime: null };
+}
 
 /**
  * Format product name with custom product lookup

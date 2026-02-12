@@ -185,7 +185,14 @@ export function ReportSectionModal({
     customEndDate &&
     new Date(customStartDate) > new Date(customEndDate);
 
-  const isValid = selected.length > 0 && dateRange !== null && hasEntries;
+  // Check if either custom date is in the future (iOS Safari ignores max attribute)
+  const today = new Date().toISOString().split("T")[0];
+  const hasFutureDateError =
+    quickSelect === "custom" &&
+    ((customStartDate && customStartDate > today) ||
+     (customEndDate && customEndDate > today));
+
+  const isValid = selected.length > 0 && dateRange !== null && hasEntries && !hasFutureDateError;
 
   // If no sections are enabled, show a message
   if (enabledSections.length === 0) {
@@ -345,6 +352,15 @@ export function ReportSectionModal({
               </div>
             )}
 
+            {/* Future date error message */}
+            {!hasDateOrderError && hasFutureDateError && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-xs text-red-600 text-center">
+                  Dates cannot be in the future
+                </p>
+              </div>
+            )}
+
             {/* Date Range Display - only show if there are entries */}
             {dateRange && hasEntries && (
               <div className="mt-3 p-3 bg-app-cream/50 rounded-lg">
@@ -481,7 +497,9 @@ export function ReportSectionModal({
                 ? "Select at least one category to continue"
                 : hasDateOrderError
                   ? "Fix the date range to continue"
-                  : "Please select a valid date range"}
+                  : hasFutureDateError
+                    ? "Dates cannot be in the future"
+                    : "Please select a valid date range"}
             </p>
           )}
 

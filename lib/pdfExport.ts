@@ -82,7 +82,16 @@ interface CycleStats {
     endDate: string | null;
     lengthDays: number | null;
     averageFlow: string;
+    flowStartTimes: string[];
   }>;
+}
+
+/** Parse "heavy @ 4:44 PM" into { level: "heavy", startTime: "4:44 PM" } */
+function parseFlowValue(flow: string | null): { level: string; startTime: string | null } {
+  if (!flow) return { level: '', startTime: null };
+  const match = flow.match(/^(.+?)\s*@\s*(.+)$/);
+  if (match) return { level: match[1].trim(), startTime: match[2].trim() };
+  return { level: flow, startTime: null };
 }
 
 function analyzeCycleData(entries: StoredEntry[]): CycleStats {
@@ -98,8 +107,8 @@ function analyzeCycleData(entries: StoredEntry[]): CycleStats {
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
-  const cycles: Array<{ start: string; end: string; flows: string[] }> = [];
-  let currentCycle: { start: string; end: string; flows: string[] } | null = null;
+  const cycles: Array<{ start: string; end: string; flows: string[]; flowStartTimes: string[] }> = [];
+  let currentCycle: { start: string; end: string; flows: string[]; flowStartTimes: string[] } | null = null;
 
   sortedEntries.forEach((entry, index) => {
     const prevEntry = index > 0 ? sortedEntries[index - 1] : null;
@@ -107,18 +116,22 @@ function analyzeCycleData(entries: StoredEntry[]): CycleStats {
       ? calculateDaysDifference(prevEntry.date, entry.date)
       : 0;
 
+    const parsed = parseFlowValue(entry.periodFlow);
+
     // Start new cycle if no current cycle or if gap > 10 days
     if (!currentCycle || daysDiff > 10) {
       if (currentCycle) cycles.push(currentCycle);
       currentCycle = {
         start: entry.date,
         end: entry.date,
-        flows: entry.periodFlow ? [entry.periodFlow] : []
+        flows: parsed.level ? [parsed.level] : [],
+        flowStartTimes: parsed.startTime ? [parsed.startTime] : [],
       };
     } else {
       // Continue current cycle
       currentCycle.end = entry.date;
-      if (entry.periodFlow) currentCycle.flows.push(entry.periodFlow);
+      if (parsed.level) currentCycle.flows.push(parsed.level);
+      if (parsed.startTime) currentCycle.flowStartTimes.push(parsed.startTime);
     }
   });
 
@@ -144,6 +157,7 @@ function analyzeCycleData(entries: StoredEntry[]): CycleStats {
       endDate: cycle.end,
       lengthDays: index < cycles.length - 1 ? cycleLengths[index] : null,
       averageFlow: avgFlow,
+      flowStartTimes: cycle.flowStartTimes,
     };
   });
 
@@ -1112,12 +1126,15 @@ export async function generatePDFReport(options: PDFOptions): Promise<void> {
       doc.setFont("helvetica", "normal");
 
       cycleStats.periodDetails.forEach(detail => {
-        checkPageBreak(15);
+        checkPageBreak(20);
         addText(`• Cycle ${detail.cycleNumber}: Started ${new Date(detail.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`, 9, false, colors.text, 5);
+        const flowInfo = detail.flowStartTimes.length > 0
+          ? `Flow: ${detail.averageFlow} (started at ${detail.flowStartTimes[0]})`
+          : `Flow: ${detail.averageFlow}`;
         if (detail.lengthDays) {
-          addText(`  Length: ${detail.lengthDays} days, Flow: ${detail.averageFlow}`, 9, false, colors.gray, 5);
+          addText(`  Length: ${detail.lengthDays} days, ${flowInfo}`, 9, false, colors.gray, 5);
         } else {
-          addText(`  Flow: ${detail.averageFlow} (ongoing or last cycle)`, 9, false, colors.gray, 5);
+          addText(`  ${flowInfo} (ongoing or last cycle)`, 9, false, colors.gray, 5);
         }
       });
     }

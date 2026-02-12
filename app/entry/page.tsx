@@ -597,6 +597,9 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [hasStartTimeError, setHasStartTimeError] = useState(false);
   const [hasEndTimeError, setHasEndTimeError] = useState(false);
   const [hasMedicineTimeError, setHasMedicineTimeError] = useState(false);
+  const [logFlowStartTime, setLogFlowStartTime] = useState(false);
+  const [flowStartTime, setFlowStartTime] = useState<TimeValue>(getCurrentTime(is24Hour));
+  const [hasFlowStartTimeError, setHasFlowStartTimeError] = useState(false);
 
   // One-off custom symptoms (per-entry only, not persisted globally)
   const [oneOffSymptoms, setOneOffSymptoms] = useState<string[]>([]);
@@ -800,7 +803,9 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       symptomIntensities,
       periodSymptomIntensities,
       cyclePhase: safePeriodTracking.enabled ? cyclePhase : null,
-      periodFlow: isMenstrualPhase ? flowLevel : null,
+      periodFlow: isMenstrualPhase && flowLevel
+        ? (logFlowStartTime ? `${flowLevel} @ ${formatTimeToString(flowStartTime)}` : flowLevel)
+        : null,
       productUsage: isMenstrualPhase ? productUsage : [],
       stoolType: safeStoolTracking.enabled ? bristolType : null,
       stoolFeeling: safeStoolTracking.enabled ? postFeeling : null,
@@ -885,6 +890,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const resetForm = () => {
     setStartTime(getCurrentTime(is24Hour));
     setEndTime(getCurrentTime(is24Hour));
+    setLogFlowStartTime(false);
+    setFlowStartTime(getCurrentTime(is24Hour));
     setBristolType(null);
     setPostFeeling(null);
     setSelectedSymptoms([]);
@@ -953,7 +960,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       {/* Start Time Card */}
       <section className="card">
         <TimeInputSection
-          label="⏱️ Start Time"
+          label="Start Time"
           value={startTime}
           onChange={setStartTime}
           is24Hour={is24Hour}
@@ -1131,6 +1138,42 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Flow Start Time - Only during Menstrual phase when flow level selected */}
+          {isMenstrualPhase && flowLevel && (
+            <div className="pt-4 pb-4 border-t border-app-border">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-app-charcoal">
+                  Log flow start time?
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !logFlowStartTime;
+                    setLogFlowStartTime(next);
+                    if (!next) setHasFlowStartTimeError(false);
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    logFlowStartTime ? "bg-app-red" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      logFlowStartTime ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+              {logFlowStartTime && (
+                <FlowStartTimeInput
+                  value={flowStartTime}
+                  onChange={setFlowStartTime}
+                  is24Hour={is24Hour}
+                  onValidationChange={setHasFlowStartTimeError}
+                />
+              )}
             </div>
           )}
 
@@ -1385,7 +1428,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       {/* End Time Card */}
       <section className="card">
         <TimeInputSection
-          label="⏱️ End Time"
+          label="End Time"
           value={endTime}
           onChange={setEndTime}
           is24Hour={is24Hour}
@@ -1405,11 +1448,11 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isSubmitting || !!notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError || hasMedicineTimeError}
+          disabled={isSubmitting || !!notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError || hasMedicineTimeError || hasFlowStartTimeError}
           className={`w-full py-3 sm:py-4 rounded-lg font-semibold text-white transition-all text-sm sm:text-base ${
             isSubmitting
               ? "bg-app-teal/70 cursor-wait"
-              : notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError || hasMedicineTimeError
+              : notesWarning || notesExceedsLimit || hasMedicineDosageError || hasCustomDosageInputError || submitRateLimit.isRateLimited || hasStartTimeError || hasEndTimeError || hasMedicineTimeError || hasFlowStartTimeError
               ? "bg-app-gray cursor-not-allowed"
               : "bg-app-teal hover:bg-app-teal"
           }`}
@@ -1688,6 +1731,122 @@ function TimeInputSection({ label, value, onChange, is24Hour, onValidationChange
           {minuteError && (
             <p className="text-xs text-red-500">{minuteError}</p>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface FlowStartTimeInputProps {
+  value: TimeValue;
+  onChange: (value: TimeValue) => void;
+  is24Hour: boolean;
+  onValidationChange?: (hasError: boolean) => void;
+}
+
+function FlowStartTimeInput({ value, onChange, is24Hour, onValidationChange }: FlowStartTimeInputProps) {
+  const [editingInputs, setEditingInputs] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
+
+  const minHour = 0;
+  const maxHour = is24Hour ? 23 : 12;
+
+  useEffect(() => {
+    if (onValidationChange) {
+      const hasError = Object.values(errors).some((e) => e !== null);
+      onValidationChange(hasError);
+    }
+  }, [errors, onValidationChange]);
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 justify-center sm:justify-start">
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={
+            "hour" in editingInputs
+              ? editingInputs["hour"]
+              : value.hour.toString().padStart(2, "0")
+          }
+          onChange={(e) => {
+            const numericOnly = e.target.value.replace(/[^0-9]/g, "").slice(0, 2);
+            setEditingInputs((prev) => ({ ...prev, hour: numericOnly }));
+            const numValue = numericOnly === "" ? 0 : Number(numericOnly);
+            onChange({ ...value, hour: numValue });
+            if (numValue < minHour || numValue > maxHour) {
+              setErrors((prev) => ({ ...prev, hour: is24Hour ? "Hour must be 0-23" : "Hour must be 0-12" }));
+            } else {
+              setErrors((prev) => ({ ...prev, hour: null }));
+            }
+          }}
+          onFocus={(e) => {
+            setEditingInputs((prev) => ({ ...prev, hour: value.hour.toString() }));
+            setTimeout(() => e.target.select(), 0);
+          }}
+          onBlur={() => {
+            setEditingInputs((prev) => {
+              const { hour: _, ...rest } = prev;
+              void _;
+              return rest;
+            });
+          }}
+          className={`w-14 sm:w-16 px-2 py-2 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-sm ${
+            errors["hour"] ? "border-red-500 focus:ring-red-300" : "border-app-border focus:ring-app-taupe"
+          }`}
+        />
+        <span className="text-app-gray font-bold">:</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={
+            "minute" in editingInputs
+              ? editingInputs["minute"]
+              : value.minute.toString().padStart(2, "0")
+          }
+          onChange={(e) => {
+            const numericOnly = e.target.value.replace(/[^0-9]/g, "").slice(0, 2);
+            setEditingInputs((prev) => ({ ...prev, minute: numericOnly }));
+            const numValue = numericOnly === "" ? 0 : Number(numericOnly);
+            onChange({ ...value, minute: numValue });
+            if (numValue < 0 || numValue > 59) {
+              setErrors((prev) => ({ ...prev, minute: "Minutes must be 0-59" }));
+            } else {
+              setErrors((prev) => ({ ...prev, minute: null }));
+            }
+          }}
+          onFocus={(e) => {
+            setEditingInputs((prev) => ({ ...prev, minute: value.minute.toString() }));
+            setTimeout(() => e.target.select(), 0);
+          }}
+          onBlur={() => {
+            setEditingInputs((prev) => {
+              const { minute: _, ...rest } = prev;
+              void _;
+              return rest;
+            });
+          }}
+          className={`w-14 sm:w-16 px-2 py-2 rounded-lg border bg-app-white focus:outline-none focus:ring-2 text-center text-sm ${
+            errors["minute"] ? "border-red-500 focus:ring-red-300" : "border-app-border focus:ring-app-taupe"
+          }`}
+        />
+        {!is24Hour && (
+          <select
+            value={value.period}
+            onChange={(e) => onChange({ ...value, period: e.target.value as "AM" | "PM" })}
+            className="px-2 py-2 rounded-lg border border-app-border bg-app-white focus:outline-none focus:ring-2 focus:ring-app-taupe text-sm"
+          >
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+          </select>
+        )}
+      </div>
+      {(errors["hour"] || errors["minute"]) && (
+        <div className="mt-1 text-center sm:text-left">
+          {errors["hour"] && <p className="text-xs text-red-500">{errors["hour"]}</p>}
+          {errors["minute"] && <p className="text-xs text-red-500">{errors["minute"]}</p>}
         </div>
       )}
     </div>

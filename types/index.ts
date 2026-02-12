@@ -460,9 +460,9 @@ export interface StoredEntry {
   /** Cycle phase if period tracking enabled */
   cyclePhase: CyclePhase | null;
   
-  /** Period flow level if applicable */
+  /** Period flow level if applicable (may include start time as "heavy @ 4:44 PM") */
   periodFlow: string | null;
-  
+
   /** Product usage entries */
   productUsage: ProductUsageEntry[];
   

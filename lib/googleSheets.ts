@@ -708,6 +708,7 @@ export function buildCanonicalColumns(settings: UserSettings): SheetColumn[] {
         getValue: (entry) => entry.periodFlow ?? '',
       });
     }
+
   }
 
   // ─────────────────────────────────────────
@@ -1813,7 +1814,12 @@ export function parseSheetRowToEntry(
 
   // Parse period data
   const cyclePhase = (data['Cycle Phase'] || null) as StoredEntry['cyclePhase'];
-  const periodFlow = data['Period: Flow'] || null;
+  let periodFlow = data['Period: Flow'] || null;
+  // Backward compat: if old "Period: Flow Start Time" column exists, merge into periodFlow
+  const legacyFlowStartTime = data['Period: Flow Start Time'] || undefined;
+  if (legacyFlowStartTime && periodFlow && !periodFlow.includes('@')) {
+    periodFlow = `${periodFlow} @ ${legacyFlowStartTime}`;
+  }
 
   // Parse pain scale
   const painScale = (data['Pain Scale'] || 'simple') as StoredEntry['painScale'];

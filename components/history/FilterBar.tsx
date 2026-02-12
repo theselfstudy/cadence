@@ -318,7 +318,7 @@ export function FilterBar({
               shrink-0
             "
           >
-            Clear All
+            Clear
           </button>
         )}
       </div>      
