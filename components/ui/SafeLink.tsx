@@ -8,7 +8,7 @@ import { validateSettings } from '@/lib/settingsValidation';
 import { ComponentProps } from 'react';
 
 /** Paths that are always accessible, even during setup */
-const ALWAYS_ALLOWED_PATHS = ['/welcome', '/settings', '/tutorial', '/contact'];
+const ALWAYS_ALLOWED_PATHS = ['/welcome', '/tutorial', '/contact', '/faq'];
 
 /**
  * A Link component that enforces settings validation when leaving settings page

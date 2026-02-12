@@ -45,7 +45,7 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 bg-app-white border-b border-app-border">
-        <div className="max-w-4xl mx-auto px-4">
+        <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             {/* Left side: Hamburger + Logo */}
             <div className="flex items-center gap-3">
@@ -284,7 +284,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
           </ul>
           <div className="mt-3 pt-3 border-t border-app-border/50 flex items-center justify-center gap-2 px-4 py-1.5">
             <SafeLink
-              href="https://github.com/thecrimsonelephant/cadence-privacy/blob/main/FAQ.md"
+              href="/faq"
               onClick={onClose}
               className="text-sm text-app-charcoal/70 hover:text-app-charcoal hover:underline transition-colors"
             >
