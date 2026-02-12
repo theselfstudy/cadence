@@ -337,6 +337,38 @@ export function DashboardIcon({ className = "", isHovered = false }: { className
 }
 
 // =============================================================================
+// CONTACT ICON - Envelope with flap that lifts on hover
+// =============================================================================
+export function ContactIcon({ className = "", isHovered = false }: { className?: string; isHovered?: boolean }) {
+  return (
+    <>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`${iconSize} text-app-charcoal ${className}`}
+      >
+        {/* Envelope body */}
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        {/* Envelope flap - stays open on hover, closes when not */}
+        <path
+          d="M3 7l9 6 9-6"
+          className="contact-flap"
+          style={{
+            transformOrigin: "12px 7px",
+            transform: isHovered ? "scaleY(0.85) translateY(-1px)" : "scaleY(1)",
+            transition: "transform 0.25s ease-in-out",
+          }}
+        />
+      </svg>
+    </>
+  );
+}
+
+// =============================================================================
 // NEW ENTRY ICON - Plus that morphs into checkmark on hover
 // =============================================================================
 export function NewEntryIcon({ className = "", isHovered = false }: { className?: string; isHovered?: boolean }) {

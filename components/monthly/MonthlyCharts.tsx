@@ -1625,6 +1625,16 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
                           } ${isHovered && taken ? "bg-app-teal/20" : ""}`}
                           onMouseEnter={() => taken && setHoveredCell({ medicine: medicine.name, day })}
                           onMouseLeave={() => setHoveredCell(null)}
+                          onPointerDown={(e) => {
+                            if (e.pointerType === "touch" && taken) {
+                              e.preventDefault();
+                              setHoveredCell((prev) =>
+                                prev?.medicine === medicine.name && prev?.day === day
+                                  ? null
+                                  : { medicine: medicine.name, day }
+                              );
+                            }
+                          }}
                         >
                           {taken && (
                             <svg 
@@ -1740,7 +1750,7 @@ function MedicineLogsChart({ data }: MedicineLogsChartProps) {
           <svg className="w-3 h-3 text-app-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
-          <span>Medicine taken (hover for dosage)</span>
+          <span>Medicine taken (<span className="md:hidden">click</span><span className="hidden md:inline">hover</span> for dosage)</span>
         </div>
       </div>
     </div>

@@ -29,6 +29,7 @@ interface SyncTrackerStore {
   updateFiltersSyncTime: (timestamp: string) => void;
   dismissModalTemporarily: () => void;
   resetDismissal: () => void;
+  reset: () => void;
 
   // Computed getters
   getLastSuccessfulSyncAt: () => string | null;
@@ -76,6 +77,17 @@ export const useSyncTracker = create<SyncTrackerStore>()(
       // Reset dismissal flag (called on page load)
       resetDismissal: () => {
         set({ isModalDismissedTemporarily: false });
+      },
+
+      // Reset all state to defaults (clears both in-memory and persisted state)
+      reset: () => {
+        set({
+          lastEntrySyncAt: null,
+          lastSettingsSyncAt: null,
+          lastFiltersSyncAt: null,
+          isModalDismissedTemporarily: false,
+          modalShownCount: 0,
+        });
       },
 
       // Get the most recent sync timestamp across all types

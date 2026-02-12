@@ -1,0 +1,207 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { SecureTextInput, SecureTextarea } from "@/components/ui/SecureInput";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
+import { useRateLimit } from "@/hooks/useRateLimit";
+
+export default function ContactPage() {
+  const [isClient, setIsClient] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const rateLimit = useRateLimit({
+    maxRequests: 3,
+    windowMs: 60000,
+    key: "contact-form",
+    storageType: "localStorage",
+  });
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return <ContactSkeleton />;
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+
+    // Honeypot check
+    if (honeypot) return;
+
+    // Rate limit check
+    if (!rateLimit.attempt()) {
+      setError(
+        `Too many submissions. Please wait ${rateLimit.getFormattedTime()} before trying again.`
+      );
+      return;
+    }
+
+    // Basic validation
+    if (!name.trim() || !email.trim() || !message.trim()) {
+      setError("Please fill out all fields.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          message: message.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Something went wrong");
+      }
+
+      setShowSuccess(true);
+      setName("");
+      setEmail("");
+      setMessage("");
+    } catch (err: any) {
+      setError(err.message || "Error sending message. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-bold text-app-charcoal">Contact Us</h1>
+        <p className="text-app-gray mt-1">
+          Found a bug, have feedback, or just want to say hi? We&apos;d love to
+          hear from you.
+        </p>
+      </div>
+
+      {/* Form card */}
+      <div className="card p-6 max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <SecureTextInput
+            value={name}
+            onChange={setName}
+            label="Name"
+            placeholder="Your name"
+            required
+            maxLength={100}
+            showCharCount={false}
+          />
+
+          <SecureTextInput
+            value={email}
+            onChange={setEmail}
+            label="Email"
+            placeholder="you@example.com"
+            type="email"
+            required
+            maxLength={200}
+            showCharCount={false}
+          />
+
+          <SecureTextarea
+            value={message}
+            onChange={setMessage}
+            label="Message"
+            placeholder="Describe what happened, what you expected, or any feedback you have..."
+            required
+            rows={5}
+            showCharCount
+          />
+
+          {/* Honeypot — hidden from real users */}
+          <div className="hidden" aria-hidden="true">
+            <input
+              type="text"
+              name="honeypot"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
+          </div>
+
+          {/* Error message */}
+          {error && (
+            <p className="text-sm text-app-red">{error}</p>
+          )}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading || rateLimit.isRateLimited}
+            className="btn-primary"
+          >
+            {rateLimit.isRateLimited
+              ? `Wait ${rateLimit.getFormattedTime()}`
+              : "Send Message"}
+          </button>
+        </form>
+      </div>
+
+      {/* Sending overlay */}
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-app-charcoal/60 backdrop-blur-sm" />
+
+          <div className="relative bg-app-white rounded-2xl shadow-xl p-8 max-w-sm mx-4">
+            <div className="text-center">
+              <AnimatedLogo size="md" className="mb-4" spinning />
+
+              <h2 className="text-xl font-bold text-app-charcoal mb-2">
+                Sending Message
+              </h2>
+              <p className="text-sm text-app-gray">
+                Delivering your message, just a moment...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success modal */}
+      <SuccessModal
+        isOpen={showSuccess}
+        onClose={() => setShowSuccess(false)}
+        title="Message Sent!"
+        description="Thank you for reaching out. We'll review your message shortly."
+        buttonText="Done"
+      />
+    </div>
+  );
+}
+
+function ContactSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="h-8 w-40 bg-app-border rounded animate-pulse" />
+        <div className="h-4 w-72 bg-app-border rounded animate-pulse mt-2" />
+      </div>
+      <div className="card p-6 max-w-2xl space-y-5">
+        <div className="h-10 w-full bg-app-border rounded-lg animate-pulse" />
+        <div className="h-10 w-full bg-app-border rounded-lg animate-pulse" />
+        <div className="h-28 w-full bg-app-border rounded-lg animate-pulse" />
+        <div className="h-12 w-36 bg-app-border rounded-app animate-pulse" />
+      </div>
+    </div>
+  );
+}

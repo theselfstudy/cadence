@@ -25,6 +25,7 @@ import type { PainScaleType, Medicine } from "@/types";
 import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useEntries } from "@/stores/useEntries";
 import { useSyncState } from "@/stores/useSyncState";
+import { useSyncTracker } from "@/stores/useSyncTracker";
 import { startSync } from "@/lib/syncEngine";
 
 import {
@@ -58,11 +59,13 @@ const MAX_MEDICINES = 15;
  * @param includeEntries - If true, also clears the entries cache (default: false)
  */
 function clearAllCadenceStorage(includeEntries: boolean = false): void {
+  // Reset sync tracker via Zustand (clears both in-memory and persisted state)
+  useSyncTracker.getState().reset();
+
   // Known Cadence storage keys
   const keysToRemove = [
     "cadence-settings",
     "cadence-saved-filters",
-    "cadence-sync-tracker",
     "cadence-backup-prompt-dismissed",
   ];
 
@@ -110,11 +113,13 @@ function clearSettingsPreserveGoogleSheet(): void {
     }
   }
 
+  // Reset sync tracker via Zustand (clears both in-memory and persisted state)
+  useSyncTracker.getState().reset();
+
   // Clear settings-related storage (but not entries)
   const keysToRemove = [
     "cadence-settings",
     "cadence-saved-filters",
-    "cadence-sync-tracker",
     "cadence-backup-prompt-dismissed",
   ];
 
@@ -835,6 +840,7 @@ function SettingsPageContent() {
     }
 
     clearGoogleSheet();
+    // useSyncTracker.getState().reset();
     setSheetUrl("");
     setIsEditingSheet(false);
     setSheetUrlError(null);

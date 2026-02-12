@@ -4,6 +4,13 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSettings } from "@/stores/useSettings";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
+import {
+  WeeklyIcon,
+  MonthlyIcon,
+  AllInsightsIcon,
+  CycleInsightsIcon,
+  HistoryIcon,
+} from "@/components/dashboard/QuickNavIcons";
 
 /**
  * Tutorial steps configuration (consolidated from 12 to 6 steps)
@@ -746,15 +753,7 @@ function TutorialIllustration({ type, context, dynamicContent }: TutorialIllustr
         </div>
 
         {/* Insights grid - dynamic based on settings */}
-        <div className="grid grid-cols-2 gap-2">
-          <InsightCard title="Weekly View" icon="📅" />
-          <InsightCard title="Monthly View" icon="📊" />
-          <InsightCard title="All Insights" icon="💡" />
-          {context.periodTracking && (
-            <InsightCard title="Cycle Insights" icon="🌸" />
-          )}
-          <InsightCard title="History" icon="📋" />
-        </div>
+        <InsightsGrid showCycleInsights={context.periodTracking} />
 
         {/* Data hint */}
         <p className="text-xs text-app-gray text-center">
@@ -1096,19 +1095,85 @@ function FeatureCarousel({
 }
 
 // ============================================
-// Insight Card Component
+// Insights Grid & Card Components
 // ============================================
 
-interface InsightCardProps {
-  title: string;
-  icon: string;
+interface IconComponentProps {
+  className?: string;
+  isHovered?: boolean;
 }
 
-function InsightCard({ title, icon }: InsightCardProps) {
+const INSIGHT_ITEMS: Array<{
+  id: string;
+  title: string;
+  iconComponent: React.ComponentType<IconComponentProps>;
+  blurb: string;
+  cycleOnly?: boolean;
+}> = [
+  { id: "weekly", title: "Weekly View", iconComponent: WeeklyIcon, blurb: "Your past 7 days at a glance" },
+  { id: "monthly", title: "Monthly View", iconComponent: MonthlyIcon, blurb: "Track patterns across the full month" },
+  { id: "insights", title: "All Insights", iconComponent: AllInsightsIcon, blurb: "Trends and patterns in all your data" },
+  { id: "cycle", title: "Cycle Insights", iconComponent: CycleInsightsIcon, blurb: "Menstrual cycle analysis and trends", cycleOnly: true },
+  { id: "history", title: "History", iconComponent: HistoryIcon, blurb: "Browse and filter all past entries" },
+];
+
+function InsightsGrid({ showCycleInsights }: { showCycleInsights: boolean }) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const items = INSIGHT_ITEMS.filter((item) => !item.cycleOnly || showCycleInsights);
+
   return (
-    <div className="bg-white rounded-lg p-3 border border-app-border flex items-center gap-2">
-      <span className="text-lg">{icon}</span>
+    <div className="grid grid-cols-2 gap-2">
+      {items.map((item) => (
+        <InsightCard
+          key={item.id}
+          id={item.id}
+          title={item.title}
+          iconComponent={item.iconComponent}
+          blurb={item.blurb}
+          isActive={activeId === item.id}
+          onActivate={(id) => setActiveId(activeId === id ? null : id)}
+          onHover={(id) => setActiveId(id)}
+          onHoverEnd={() => setActiveId(null)}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface InsightCardProps {
+  id: string;
+  title: string;
+  iconComponent: React.ComponentType<IconComponentProps>;
+  blurb: string;
+  isActive: boolean;
+  onActivate: (id: string) => void;
+  onHover: (id: string) => void;
+  onHoverEnd: () => void;
+}
+
+function InsightCard({ id, title, iconComponent: IconComponent, blurb, isActive, onActivate, onHover, onHoverEnd }: InsightCardProps) {
+  return (
+    <div
+      className="relative bg-white rounded-lg p-3 border border-app-border flex items-center gap-2 cursor-pointer select-none transition-colors hover:border-app-teal/50"
+      onMouseEnter={() => onHover(id)}
+      onMouseLeave={onHoverEnd}
+      onPointerDown={(e) => {
+        if (e.pointerType === "touch") {
+          e.preventDefault();
+          onActivate(id);
+        }
+      }}
+    >
+      <IconComponent isHovered={isActive} />
       <span className="text-xs font-medium text-app-charcoal">{title}</span>
+
+      {/* Tooltip */}
+      {isActive && (
+        <div className="absolute left-1/2 -translate-x-1/2 -bottom-9 z-10 px-2.5 py-1.5 bg-app-charcoal text-white text-xs rounded-lg whitespace-nowrap shadow-lg animate-fadeIn">
+          {blurb}
+        </div>
+      )}
     </div>
   );
 }

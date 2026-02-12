@@ -16,6 +16,7 @@ import {
   SettingsIcon,
   DashboardIcon,
   NewEntryIcon,
+  ContactIcon,
 } from "@/components/dashboard/QuickNavIcons";
 
 /**
@@ -147,6 +148,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
   const settingsItems = [
     // { href: "/dashboard/settings-overview", label: "At a Glance" },
     { href: "/settings", label: "Settings" },
+    { href: "/contact", label: "Contact Us" },
   ];
 
   const NavLink = ({ href, label }: { href: string; label: string }) => {
@@ -319,6 +321,8 @@ function NavIcon({ label, isHovered = false, isActive = false }: { label: string
       );
     case "Settings":
       return <SettingsIcon isHovered={isHovered} className={activeClass} />;
+    case "Contact Us":
+      return <ContactIcon isHovered={isHovered} className={activeClass} />;
     default:
       return null;
   }
