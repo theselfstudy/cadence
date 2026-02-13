@@ -130,23 +130,16 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/dashboard", label: "Dashboard" },
   ];
 
-  const viewItems = [
+  const viewsAndInsightsItems = [
     { href: "/dashboard/weekly", label: "Weekly View" },
     { href: "/dashboard/monthly", label: "Monthly View" },
     { href: "/dashboard/history", label: "History View" },
-  ];
-
-  const insightItems = [
     { href: "/dashboard/allinsights", label: "All Insights" },
     ...(isPeriodTrackingEnabled ? [{ href: "/dashboard/cycleinsights", label: "Cycle Insights" }] : []),
   ];
 
-  const reportsItems = [
+  const toolsItems = [
     { href: "/dashboard/reports", label: "PDF Exports" },
-  ];
-
-  const settingsItems = [
-    // { href: "/dashboard/settings-overview", label: "At a Glance" },
     { href: "/settings", label: "Settings" },
     { href: "/contact", label: "Contact Us" },
   ];
@@ -233,24 +226,12 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Divider */}
           <div className="my-3 border-t border-app-border" />
 
-          {/* Views: Weekly, Monthly, History */}
+          {/* Views & Insights */}
           <p className="px-4 py-2 text-xs font-medium text-app-gray uppercase tracking-wider">
-            Views
+            Views & Insights
           </p>
           <ul className="space-y-1">
-            {viewItems.map((item) => (
-              <li key={item.href}>
-                <NavLink href={item.href} label={item.label} />
-              </li>
-            ))}
-          </ul>
-
-          {/* Insights: All Insights, Cycle Insights */}
-          <p className="px-4 py-2 pt-4 text-xs font-medium text-app-gray uppercase tracking-wider">
-            Insights
-          </p>
-          <ul className="space-y-1">
-            {insightItems.map((item) => (
+            {viewsAndInsightsItems.map((item) => (
               <li key={item.href}>
                 <NavLink href={item.href} label={item.label} />
               </li>
@@ -260,12 +241,12 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Divider */}
           <div className="my-3 border-t border-app-border" />
 
-          {/* Reports: PDF Exports */}
+          {/* Tools */}
           <p className="px-4 py-2 text-xs font-medium text-app-gray uppercase tracking-wider">
-            Reports
+            Tools
           </p>
           <ul className="space-y-1">
-            {reportsItems.map((item) => (
+            {toolsItems.map((item) => (
               <li key={item.href}>
                 <NavLink href={item.href} label={item.label} />
               </li>
@@ -273,16 +254,9 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
           </ul>
         </nav>
 
-        {/* Settings at Bottom */}
+        {/* Footer Links */}
         <div className="p-4 border-t border-app-border flex-shrink-0">
-          <ul className="space-y-1">
-            {settingsItems.map((item) => (
-              <li key={item.href}>
-                <NavLink href={item.href} label={item.label} />
-              </li>
-            ))}
-          </ul>
-          <div className="mt-3 pt-3 border-t border-app-border/50 flex items-center justify-center gap-2 px-4 py-1.5">
+          <div className="flex items-center justify-center gap-2 px-4 py-1.5">
             <SafeLink
               href="/faq"
               onClick={onClose}
@@ -292,11 +266,19 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
             </SafeLink>
             <span className="text-app-charcoal/40">&bull;</span>
             <SafeLink
+              href="/terms"
+              onClick={onClose}
+              className="text-sm text-app-charcoal/70 hover:text-app-charcoal hover:underline transition-colors"
+            >
+              Terms
+            </SafeLink>
+            <span className="text-app-charcoal/40">&bull;</span>
+            <SafeLink
               href="https://thecrimsonelephant.github.io/cadence-privacy/privacy.html"
               onClick={onClose}
               className="text-sm text-app-charcoal/70 hover:text-app-charcoal hover:underline transition-colors"
             >
-              Privacy Notice
+              Privacy
             </SafeLink>
           </div>
         </div>
