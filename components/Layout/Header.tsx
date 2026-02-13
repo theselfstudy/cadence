@@ -258,7 +258,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="p-4 border-t border-app-border flex-shrink-0">
           <div className="flex items-center justify-center gap-2 px-4 py-1.5">
             <SafeLink
-              href="/faq"
+              href="https://thecrimsonelephant.github.io/cadence-privacy/faq.html"
               onClick={onClose}
               className="text-sm text-app-charcoal/70 hover:text-app-charcoal hover:underline transition-colors"
             >
