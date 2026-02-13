@@ -27,14 +27,14 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Main Content Area */}
         <main className="flex-1">
-          <div className="max-w-5xl mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto px-4 py-6">
             {children}
           </div>
         </main>
 
         {/* Footer */}
         <footer className="border-t border-app-border bg-app-white">
-          <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="max-w-4xl mx-auto px-4 py-4">
             <p className="text-center text-sm text-app-gray">
               Learn your Cadence • Cadence by The Self Study
             </p>

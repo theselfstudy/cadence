@@ -266,7 +266,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
             </SafeLink>
             <span className="text-app-charcoal/40">&bull;</span>
             <SafeLink
-              href="/terms"
+              href="https://thecrimsonelephant.github.io/cadence-privacy/terms.html"
               onClick={onClose}
               className="text-sm text-app-charcoal/70 hover:text-app-charcoal hover:underline transition-colors"
             >
