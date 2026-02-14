@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { OnboardingMode } from "@/types";
 
 // =============================================================================
@@ -112,9 +113,9 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                   <p className="text-xs text-app-teal">
                     <strong>Already set up?</strong> If you&apos;re connecting a sheet with existing
                     Cadence data,{" "}
-                    <a href="/recover" className="underline font-semibold hover:text-app-teal-dark">
+                    <Link href="/recover" className="underline font-semibold hover:text-app-teal-dark">
                       restore your settings and entries here
-                    </a>.
+                    </Link>.
                   </p>
                 </div>
               </div>
