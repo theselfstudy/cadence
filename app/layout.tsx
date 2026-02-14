@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { Analytics } from "@vercel/analytics/react";
 import type { Viewport } from "next";
 import { Inter } from "next/font/google";
 import { AppShell } from "@/components/Layout/AppShell";
@@ -83,7 +82,6 @@ export default function RootLayout({
             onClose={() => setShowResumeModal(false)}
           />
         </GoogleOAuthProvider>
-        <Analytics />
       </body>
     </html>
   );

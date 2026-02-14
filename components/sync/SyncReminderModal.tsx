@@ -8,6 +8,7 @@ import { useSavedFilters } from "@/stores/useSavedFilters";
 import { useSyncTracker } from "@/stores/useSyncTracker";
 import { startSync } from "@/lib/syncEngine";
 import { isMobileDevice, triggerOAuthRedirect, setMobileSyncPending } from "@/lib/oauthHelpers";
+import { stripBasePath } from "@/lib/constants";
 
 // ============================================
 // Types
@@ -68,8 +69,8 @@ export function SyncReminderModal({ isOpen, onClose }: SyncReminderModalProps) {
     if (isMobileDevice()) {
       // Mobile: use redirect OAuth
       // Store sync intent before redirecting (avoids Zustand hydration race condition)
-      setMobileSyncPending(window.location.pathname, 'sync');
-      triggerOAuthRedirect(window.location.pathname);
+      setMobileSyncPending(stripBasePath(window.location.pathname), 'sync');
+      triggerOAuthRedirect(stripBasePath(window.location.pathname));
     } else {
       // Desktop: use popup OAuth
       googleLogin();

@@ -1,11 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    staleTimes: {
-      dynamic: 0,
-      static: 0,
-    },
-  },
+  output: 'export',
+  basePath: '/cadence',
+  trailingSlash: true,
+  images: { unoptimized: true },
 };
 
 export default nextConfig;

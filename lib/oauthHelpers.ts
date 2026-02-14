@@ -1,3 +1,5 @@
+import { BASE_PATH } from '@/lib/constants';
+
 const GOOGLE_CLIENT_ID =
   "7354676422-96g78e6tdfb2jp1akigsb80j9696339c.apps.googleusercontent.com";
 
@@ -15,7 +17,7 @@ export function isMobileDevice(): boolean {
  * Build Google OAuth redirect URL for mobile flow
  */
 export function buildGoogleOAuthRedirectUrl(returnUrl: string): string {
-  const redirectUri = `${window.location.origin}/oauth/callback`;
+  const redirectUri = `${window.location.origin}${BASE_PATH}/oauth/callback`;
   const state = btoa(JSON.stringify({ returnUrl }));
 
   return (

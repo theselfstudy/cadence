@@ -18,6 +18,7 @@ import {
   GOOGLE_SHEET_URL_PATTERN,
   PRODUCT_OPTIONS,
   MEDICINE_CATEGORIES,
+  withBasePath,
 } from "@/lib/constants";
 
 import type { PainScaleType, Medicine } from "@/types";
@@ -717,7 +718,7 @@ function SettingsPageContent() {
 
       // Clear all local storage including entries cache
       clearAllCadenceStorage(true);
-      window.location.href = "/welcome"; // Redirect to welcome page
+      window.location.href = withBasePath("/welcome"); // Redirect to welcome page
     },
     onError: () => {
       setOauthErrorAction("reset your settings");
@@ -757,7 +758,7 @@ function SettingsPageContent() {
 
       // Clear local storage but preserve Google Sheet connection
       clearSettingsPreserveGoogleSheet();
-      window.location.href = "/settings"; // Reload settings page to reinitialize stores
+      window.location.href = withBasePath("/settings"); // Reload settings page to reinitialize stores
     },
     onError: () => {
       setOauthErrorAction("reset your app settings");
@@ -2372,7 +2373,7 @@ function SettingsPageContent() {
           } else {
             // For local users: just clear localStorage
             clearAllCadenceStorage(false); // Keep entries cache
-            window.location.href = "/settings"; // Full reload to reinitialize stores
+            window.location.href = withBasePath("/settings"); // Full reload to reinitialize stores
           }
         }}
         title="Reset App Settings?"
@@ -2405,7 +2406,7 @@ function SettingsPageContent() {
         onConfirm={() => {
           setShowDeleteAllDataModal(false);
           clearAllCadenceStorage(true); // Include entries
-          window.location.href = "/welcome"; // Redirect to welcome page
+          window.location.href = withBasePath("/welcome"); // Redirect to welcome page
         }}
         firstModal={{
           title: "Delete All Data?",

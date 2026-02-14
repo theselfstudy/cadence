@@ -22,6 +22,7 @@ import {
   getMobileSyncPending,
   clearMobileSyncPending
 } from "@/lib/oauthHelpers";
+import { stripBasePath } from "@/lib/constants";
 
 // ============================================
 // Types
@@ -273,13 +274,13 @@ export function SyncWithGoogleSheetsButton({
     if (isMobileDevice()) {
       // Mobile: use redirect OAuth
       // Store sync intent in localStorage (avoids Zustand hydration race condition)
-      setMobileSyncPending(window.location.pathname, mode);
+      setMobileSyncPending(stripBasePath(window.location.pathname), mode);
 
       if (mode === "restore" && sheetUrl) {
         // Store sheet URL for after redirect
         localStorage.setItem('restore_pending_sheet_url', sheetUrl);
       }
-      triggerOAuthRedirect(window.location.pathname);
+      triggerOAuthRedirect(stripBasePath(window.location.pathname));
     } else {
       // Desktop: use popup OAuth
       googleLogin();

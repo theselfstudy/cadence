@@ -8,6 +8,7 @@ import {
   getSpreadsheetIdFromUrl,
 } from '@/lib/googleSheets';
 import { getOAuthToken, clearOAuthToken, triggerOAuthRedirect, setMobileSyncPending, isMobileDevice } from '@/lib/oauthHelpers';
+import { stripBasePath } from '@/lib/constants';
 
 export class SyncEngine {
   private accessToken: string;
@@ -264,10 +265,10 @@ export async function startSync(): Promise<void> {
   if (!token) {
     // Trigger OAuth - store sync intent for mobile (avoids Zustand hydration race)
     if (isMobileDevice()) {
-      setMobileSyncPending(window.location.pathname, 'sync');
+      setMobileSyncPending(stripBasePath(window.location.pathname), 'sync');
     }
-    useSyncState.getState().setPendingOAuthRedirect(true, window.location.pathname);
-    triggerOAuthRedirect(window.location.pathname);
+    useSyncState.getState().setPendingOAuthRedirect(true, stripBasePath(window.location.pathname));
+    triggerOAuthRedirect(stripBasePath(window.location.pathname));
     return;
   }
 
@@ -286,10 +287,10 @@ export async function resumeSync(): Promise<void> {
   if (!token) {
     // Need OAuth again - store sync intent for mobile (avoids Zustand hydration race)
     if (isMobileDevice()) {
-      setMobileSyncPending(window.location.pathname, 'sync');
+      setMobileSyncPending(stripBasePath(window.location.pathname), 'sync');
     }
-    useSyncState.getState().setPendingOAuthRedirect(true, window.location.pathname);
-    triggerOAuthRedirect(window.location.pathname);
+    useSyncState.getState().setPendingOAuthRedirect(true, stripBasePath(window.location.pathname));
+    triggerOAuthRedirect(stripBasePath(window.location.pathname));
     return;
   }
 

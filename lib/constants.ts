@@ -1,6 +1,25 @@
 import type { UserSettings, BristolType, NavItem, PostBowelFeeling, CyclePhase, ProductOption, MedicineCategory, } from "@/types";
 
 // ============================================
+// Base Path (GitHub Pages)
+// ============================================
+
+export const BASE_PATH = '/cadence';
+
+/** Prepend basePath to an absolute path for use with window.location (not needed for next/link or router.push) */
+export function withBasePath(path: string): string {
+  return `${BASE_PATH}${path}`;
+}
+
+/** Strip basePath from window.location.pathname to get the app-relative path */
+export function stripBasePath(pathname: string): string {
+  if (pathname.startsWith(BASE_PATH)) {
+    return pathname.slice(BASE_PATH.length) || '/';
+  }
+  return pathname;
+}
+
+// ============================================
 // Default Symptoms List
 // ============================================
 

@@ -79,21 +79,21 @@ export default function ContactPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/contact", {
+      const scriptUrl = process.env.NEXT_PUBLIC_GOOGLE_APPS_SCRIPT_URL;
+      if (!scriptUrl) {
+        throw new Error("Contact form is not configured");
+      }
+
+      await fetch(scriptUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
           message: message.trim(),
         }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Something went wrong");
-      }
 
       setShowSuccess(true);
       setName("");
