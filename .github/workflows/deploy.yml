@@ -29,9 +29,6 @@ jobs:
       - name: Add .nojekyll
         run: touch out/.nojekyll
 
-      - name: Add CNAME for custom domain
-        run: echo 'the-self-study.com' > out/CNAME
-
       - name: Deploy to public repo
         uses: JamesIves/github-pages-deploy-action@v4
         with:
