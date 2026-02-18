@@ -113,11 +113,11 @@ const PRIVACY_POINTS: PrivacyInfo[] = [
     label: "No Account",
     description: "Anonymous by default.",
   },
-  // {
-  //   icon: "🚫",
-  //   label: "No Tracking",
-  //   description: "No analytics or ads.",
-  // },
+  {
+    icon: "🚫",
+    label: "No Tracking",
+    description: "No analytics or ads.",
+  },
 ];
 
 // =============================================================================
