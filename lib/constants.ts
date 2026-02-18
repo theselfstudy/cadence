@@ -4,7 +4,7 @@ import type { UserSettings, BristolType, NavItem, PostBowelFeeling, CyclePhase, 
 // Base Path (GitHub Pages)
 // ============================================
 
-export const BASE_PATH = '';
+export const BASE_PATH = '/cadence';
 
 /** Prepend basePath to an absolute path for use with window.location (not needed for next/link or router.push) */
 export function withBasePath(path: string): string {
