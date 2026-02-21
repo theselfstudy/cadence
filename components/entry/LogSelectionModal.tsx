@@ -279,7 +279,7 @@ export function LogSelectionModal({
 
           {/* Cancel / Back to Home */}
           <Link
-            href="/"
+            href="/dashboard"
             className="block w-full py-3 rounded-xl text-center font-medium text-app-gray hover:text-app-charcoal hover:bg-app-cream transition-colors"
           >
             Back to Dashboard
