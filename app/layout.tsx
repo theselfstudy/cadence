@@ -73,6 +73,10 @@ export default function RootLayout({
 
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        <title>Cadence</title>
+        <meta name="description" content="Privacy-first, judgment-free body tracking" />
+      </head>
       <body className={`${inter.className} antialiased`}>
         <GoogleOAuthProvider clientId={googleClientId}>
           <GlobalSyncIndicator />
