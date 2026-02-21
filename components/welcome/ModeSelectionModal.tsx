@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { OnboardingMode } from "@/types";
 
 // =============================================================================
@@ -31,7 +31,7 @@ const UserIcon = () => (
 );
 
 const RefreshIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -45,17 +45,24 @@ const RefreshIcon = () => (
 // COMPONENT
 // =============================================================================
 
+type SelectedOption = "google-sheet" | "restore" | "anonymous";
+
 interface ModeSelectionModalProps {
   onSelect: (mode: OnboardingMode) => void;
   onCancel: () => void;
 }
 
 export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalProps) {
-  const [selectedMode, setSelectedMode] = useState<OnboardingMode | null>(null);
+  const [selectedOption, setSelectedOption] = useState<SelectedOption | null>(null);
+  const router = useRouter();
 
   const handleContinue = () => {
-    if (selectedMode) {
-      onSelect(selectedMode);
+    if (!selectedOption) return;
+
+    if (selectedOption === "restore") {
+      router.push("/recover");
+    } else {
+      onSelect(selectedOption);
     }
   };
 
@@ -74,10 +81,10 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
 
         {/* Mode Options */}
         <div className="space-y-3">
-          {/* Google Sheet Option */}
+          {/* New User - Google Sheet Option */}
           <label
             className={`block p-4 rounded-lg border-2 cursor-pointer transition-all ${
-              selectedMode === "google-sheet"
+              selectedOption === "google-sheet"
                 ? "border-app-green bg-app-green/5"
                 : "border-app-border hover:border-app-green/50"
             }`}
@@ -87,8 +94,8 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                 type="radio"
                 name="onboarding-mode"
                 value="google-sheet"
-                checked={selectedMode === "google-sheet"}
-                onChange={() => setSelectedMode("google-sheet")}
+                checked={selectedOption === "google-sheet"}
+                onChange={() => setSelectedOption("google-sheet")}
                 className="mt-1 w-4 h-4 text-app-green focus:ring-app-green"
               />
               <div className="flex-1">
@@ -97,27 +104,47 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                     <CloudIcon />
                   </span>
                   <span className="font-semibold text-app-charcoal">
-                    Signed In & Synced Mode
+                    New User - Signed In & Synced Mode
                   </span>
                 </div>
                 <p className="text-sm text-app-gray mt-1">
-                  Connect a Google Sheet to backup and sync your data across devices. 
+                  Connect a Google Sheet to backup and sync your data across devices.
                   Your settings and entries are saved securely to your own spreadsheet.
                 </p>
-                
-                {/* Recovery Note */}
-                <div className="mt-2 p-2 bg-app-teal/10 rounded-md flex items-start gap-2">
-                  <span className="text-app-teal mt-0.5">
+              </div>
+            </div>
+          </label>
+
+          {/* Existing User - Restore Option */}
+          <label
+            className={`block p-4 rounded-lg border-2 cursor-pointer transition-all ${
+              selectedOption === "restore"
+                ? "border-app-teal bg-app-teal/5"
+                : "border-app-border hover:border-app-teal/50"
+            }`}
+          >
+            <div className="flex items-start gap-4">
+              <input
+                type="radio"
+                name="onboarding-mode"
+                value="restore"
+                checked={selectedOption === "restore"}
+                onChange={() => setSelectedOption("restore")}
+                className="mt-1 w-4 h-4 text-app-teal focus:ring-app-teal"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-app-teal">
                     <RefreshIcon />
                   </span>
-                  <p className="text-xs text-app-teal">
-                    <strong>Already set up?</strong> If you&apos;re connecting a sheet with existing
-                    Cadence data,{" "}
-                    <Link href="/recover" className="underline font-semibold hover:text-app-teal-dark">
-                      restore your settings and entries here
-                    </Link>.
-                  </p>
+                  <span className="font-semibold text-app-charcoal">
+                    Existing User - Restore Data & Settings
+                  </span>
                 </div>
+                <p className="text-sm text-app-gray mt-1">
+                  Already set up? If you&apos;re connecting a sheet with existing
+                  Cadence data, restore your settings and entries here.
+                </p>
               </div>
             </div>
           </label>
@@ -125,7 +152,7 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
           {/* Anonymous Option */}
           <label
             className={`block p-4 rounded-lg border-2 cursor-pointer transition-all ${
-              selectedMode === "anonymous"
+              selectedOption === "anonymous"
                 ? "border-app-gray bg-app-gray/5"
                 : "border-app-border hover:border-app-gray/50"
             }`}
@@ -135,8 +162,8 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                 type="radio"
                 name="onboarding-mode"
                 value="anonymous"
-                checked={selectedMode === "anonymous"}
-                onChange={() => setSelectedMode("anonymous")}
+                checked={selectedOption === "anonymous"}
+                onChange={() => setSelectedOption("anonymous")}
                 className="mt-1 w-4 h-4 text-app-gray focus:ring-app-gray"
               />
               <div className="flex-1">
@@ -149,7 +176,7 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                   </span>
                 </div>
                 <p className="text-sm text-app-gray mt-1">
-                  Keep your data stored locally on this device only. 
+                  Keep your data stored locally on this device only.
                   No sign-in required. Get started quickly and privately.
                 </p>
                 <p className="text-xs text-app-gray/70 mt-2 italic">
@@ -171,14 +198,14 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
         <div className="flex flex-col gap-2">
           <button
             onClick={handleContinue}
-            disabled={!selectedMode}
+            disabled={!selectedOption}
             className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
-              selectedMode
+              selectedOption
                 ? "bg-app-green text-white hover:bg-app-green-dark"
                 : "bg-app-gray/30 text-app-gray cursor-not-allowed"
             }`}
           >
-            Continue to Settings
+            Continue
           </button>
           <button
             onClick={onCancel}
