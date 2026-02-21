@@ -36,7 +36,7 @@ export function AppShell({ children }: AppShellProps) {
         <footer className="border-t border-app-border bg-app-white">
           <div className="max-w-4xl mx-auto px-4 py-4">
             <p className="text-center text-sm text-app-gray">
-              Learn your Cadence • Cadence by The Self Study
+              Learn your Cadence • The Self Study
             </p>
           </div>
         </footer>
