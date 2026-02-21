@@ -145,6 +145,15 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                   Already set up? If you&apos;re connecting a sheet with existing
                   Cadence data, restore your settings and entries here.
                 </p>
+                <a
+                  href="https://the-self-study.com/cadence-privacy/faq.html#how-do-i-restore-my-stuff"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-app-teal underline hover:text-app-green mt-1 inline-block"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Learn how to here
+                </a>
               </div>
             </div>
           </label>

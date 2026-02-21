@@ -30,7 +30,22 @@ export default function RecoverPage() {
             Paste your Google Sheet URL below, then connect to restore all your settings.
             </p>
         </div>
-        
+
+        {/* Warning */}
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-xs text-amber-800">
+            <span className="font-semibold">Before you restore:</span> Make sure your Google Sheet is fully up to date with your current device&apos;s data. Sync from your existing device first to avoid missing any recent entries.{" "}
+            <a
+              href="https://the-self-study.com/cadence-privacy/faq.html#how-do-i-restore-my-stuff"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-amber-900"
+            >
+              Learn more
+            </a>
+          </p>
+        </div>
+
         {/* Google Sheet URL Input */}
         <div className="text-left">
           <SecureSheetURLInput
