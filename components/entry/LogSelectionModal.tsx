@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { LogSection } from "@/types";
 
 interface LogSelectionModalProps {
@@ -117,12 +118,12 @@ export function LogSelectionModal({
               You haven&apos;t enabled any tracking features yet. Head to Settings to
               configure what you&apos;d like to track.
             </p>
-            <a
+            <Link
               href="/settings"
               className="inline-block px-6 py-3 rounded-lg bg-app-green text-white font-semibold hover:opacity-90 transition-opacity"
             >
               Go to Settings
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -277,12 +278,12 @@ export function LogSelectionModal({
           </button>
 
           {/* Cancel / Back to Home */}
-          <a
+          <Link
             href="/"
             className="block w-full py-3 rounded-xl text-center font-medium text-app-gray hover:text-app-charcoal hover:bg-app-cream transition-colors"
           >
             Back to Dashboard
-          </a>
+          </Link>
         </div>
       </div>
     </div>
