@@ -601,6 +601,13 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [flowStartTime, setFlowStartTime] = useState<TimeValue>(getCurrentTime(is24Hour));
   const [hasFlowStartTimeError, setHasFlowStartTimeError] = useState(false);
 
+  // Easter egg: update end time when brick breaker game is closed
+  useEffect(() => {
+    const handleGameClosed = () => setEndTime(getCurrentTime(is24Hour));
+    window.addEventListener("cadence-game-closed", handleGameClosed);
+    return () => window.removeEventListener("cadence-game-closed", handleGameClosed);
+  }, [is24Hour]);
+
   // One-off custom symptoms (per-entry only, not persisted globally)
   const [oneOffSymptoms, setOneOffSymptoms] = useState<string[]>([]);
   const [oneOffSymptomInput, setOneOffSymptomInput] = useState("");

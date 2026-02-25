@@ -3,7 +3,7 @@
 import { SafeLink } from "@/components/ui/SafeLink";
 import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useCallback, lazy, Suspense } from "react";
 import { useSettings } from "@/stores/useSettings";
 import { useSetupGuard } from "@/stores/useSetupGuard";
 import { validateSettings } from "@/lib/settingsValidation";
@@ -20,6 +20,12 @@ import {
   NewEntryIcon,
   ContactIcon,
 } from "@/components/dashboard/QuickNavIcons";
+
+const BrickBreaker = lazy(() => import("@/components/ui/BrickBreaker"));
+
+// Easter egg: multi-tap logo to reveal hidden game
+const TAP_TARGET = 7;
+const TAP_WINDOW_MS = 3000;
 
 /**
  * Header component with hamburger menu and navigation
@@ -138,9 +144,55 @@ interface SidebarProps {
 function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { periodTracking } = useSettings();
-  
+
   // Check if period tracking is enabled
   const isPeriodTrackingEnabled = periodTracking?.enabled ?? false;
+
+  // Easter egg: multi-tap logo to launch brick breaker
+  const [showGame, setShowGame] = useState(false);
+  const [tapHint, setTapHint] = useState<string | null>(null);
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const TAP_HINTS: Record<number, string> = {
+    3: "Hmm? 🤔",
+    4: "Keep going...",
+    5: "Almost there! 🎮",
+    6: "One more!",
+  };
+
+  const handleLogoTap = useCallback(() => {
+    tapCountRef.current += 1;
+    const count = tapCountRef.current;
+
+    // Reset idle timer on each tap
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    tapTimerRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+      setTapHint(null);
+    }, TAP_WINDOW_MS);
+
+    // Show countdown hints
+    if (TAP_HINTS[count]) {
+      setTapHint(TAP_HINTS[count]);
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+      hintTimerRef.current = setTimeout(() => setTapHint(null), 1200);
+    }
+
+    if (count >= TAP_TARGET) {
+      tapCountRef.current = 0;
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+      // Flash launch message, then open game
+      setTapHint("Game time! 🎉");
+      setTimeout(() => {
+        setTapHint(null);
+        setShowGame(true);
+      }, 600);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Navigation groups
   const primaryItems = [
@@ -202,13 +254,24 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-app-border flex-shrink-0">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-app-border flex-shrink-0 relative">
+          <button
+            className="flex items-center gap-2 select-none"
+            onClick={handleLogoTap}
+            aria-label="Cadence logo"
+            type="button"
+          >
             <AnimatedLogo size="sm" hoverEffect />
             <span className="text-xl font-semibold text-app-charcoal">
               {APP_CONFIG.name}
             </span>
-          </div>
+          </button>
+          {/* Easter egg tap hint */}
+          {tapHint && (
+            <span className="absolute left-4 top-[52px] text-xs font-medium text-app-teal animate-slideUp whitespace-nowrap pointer-events-none">
+              {tapHint}
+            </span>
+          )}
           <button
             onClick={onClose}
             className="p-2 rounded-lg text-app-gray hover:text-app-charcoal hover:bg-app-cream transition-colors"
@@ -301,6 +364,13 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
         </div>
       </div>
+
+      {/* Easter egg: Brick Breaker game */}
+      {showGame && (
+        <Suspense fallback={null}>
+          <BrickBreaker onClose={() => setShowGame(false)} />
+        </Suspense>
+      )}
     </>
   );
 }
