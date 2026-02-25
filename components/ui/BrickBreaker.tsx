@@ -604,8 +604,8 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
       paddle.radius = Math.min(50, w * 0.1);
       paddle.y = h - 40;
 
-      // Adjust ball speed for screen size
-      ballRef.current.speed = Math.max(3, Math.min(5, h * 0.007));
+      // Adjust ball speed for screen size (higher floor on mobile)
+      ballRef.current.speed = Math.max(4, Math.min(5.5, h * 0.008));
       ballRef.current.radius = Math.max(4, Math.min(6, w * 0.012));
     };
 
