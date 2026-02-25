@@ -68,7 +68,7 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-app-white p-6 rounded-xl shadow-xl max-w-lg w-full space-y-6">
+      <div className="bg-app-white p-6 rounded-xl shadow-xl max-w-lg w-full space-y-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         {/* Header */}
         <div className="text-center">
           <h2 className="text-xl font-bold text-app-charcoal">
@@ -77,6 +77,14 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
           <p className="text-sm text-app-gray mt-2">
             Choose how you want to store your health data
           </p>
+          <a
+            href="https://the-self-study.com/cadence-privacy/faq.html#what-are-these-modes"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-app-teal underline hover:text-app-green mt-1 inline-block"
+          >
+            Learn about the modes here
+          </a>
         </div>
 
         {/* Mode Options */}
@@ -89,30 +97,31 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                 : "border-app-border hover:border-app-green/50"
             }`}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-center gap-4">
               <input
                 type="radio"
                 name="onboarding-mode"
                 value="google-sheet"
                 checked={selectedOption === "google-sheet"}
                 onChange={() => setSelectedOption("google-sheet")}
-                className="mt-1 w-4 h-4 text-app-green focus:ring-app-green"
+                className="w-4 h-4 text-app-green focus:ring-app-green"
               />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-app-green">
-                    <CloudIcon />
-                  </span>
-                  <span className="font-semibold text-app-charcoal">
-                    New User - Signed In & Synced Mode
-                  </span>
-                </div>
-                <p className="text-sm text-app-gray mt-1">
-                  Connect a Google Sheet to backup and sync your data across devices.
-                  Your settings and entries are saved securely to your own spreadsheet.
-                </p>
+              <div className="flex items-center gap-2">
+                <span className="text-app-green">
+                  <CloudIcon />
+                </span>
+                <span className="font-semibold text-app-charcoal leading-tight">
+                  New User<br />
+                  <span className="text-sm font-semibold text-app-gray">Signed In & Synced Mode</span>
+                </span>
               </div>
             </div>
+            {selectedOption === "google-sheet" && (
+              <p className="text-sm text-app-gray mt-3 ml-8">
+                Connect a Google Sheet to backup and sync your data across devices.
+                Your settings and entries are saved securely to your own spreadsheet.
+              </p>
+            )}
           </label>
 
           {/* Existing User - Restore Option */}
@@ -123,25 +132,28 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                 : "border-app-border hover:border-app-teal/50"
             }`}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-center gap-4">
               <input
                 type="radio"
                 name="onboarding-mode"
                 value="restore"
                 checked={selectedOption === "restore"}
                 onChange={() => setSelectedOption("restore")}
-                className="mt-1 w-4 h-4 text-app-teal focus:ring-app-teal"
+                className="w-4 h-4 text-app-teal focus:ring-app-teal"
               />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-app-teal">
-                    <RefreshIcon />
-                  </span>
-                  <span className="font-semibold text-app-charcoal">
-                    Existing User - Restore Data & Settings
-                  </span>
-                </div>
-                <p className="text-sm text-app-gray mt-1">
+              <div className="flex items-center gap-2">
+                <span className="text-app-teal">
+                  <RefreshIcon />
+                </span>
+                <span className="font-semibold text-app-charcoal leading-tight">
+                  Existing User<br />
+                  <span className="text-sm font-semibold text-app-gray">Restore Data & Settings</span>
+                </span>
+              </div>
+            </div>
+            {selectedOption === "restore" && (
+              <div className="mt-3 ml-8">
+                <p className="text-sm text-app-gray">
                   Already set up? If you&apos;re connecting a sheet with existing
                   Cadence data, restore your settings and entries here.
                 </p>
@@ -155,7 +167,7 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                   Learn how to here
                 </a>
               </div>
-            </div>
+            )}
           </label>
 
           {/* Anonymous Option */}
@@ -166,25 +178,27 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                 : "border-app-border hover:border-app-gray/50"
             }`}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-center gap-4">
               <input
                 type="radio"
                 name="onboarding-mode"
                 value="anonymous"
                 checked={selectedOption === "anonymous"}
                 onChange={() => setSelectedOption("anonymous")}
-                className="mt-1 w-4 h-4 text-app-gray focus:ring-app-gray"
+                className="w-4 h-4 text-app-gray focus:ring-app-gray"
               />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-app-gray">
-                    <UserIcon />
-                  </span>
-                  <span className="font-semibold text-app-charcoal">
-                    Anonymous Mode
-                  </span>
-                </div>
-                <p className="text-sm text-app-gray mt-1">
+              <div className="flex items-center gap-2">
+                <span className="text-app-gray">
+                  <UserIcon />
+                </span>
+                <span className="font-semibold text-app-charcoal">
+                  Anonymous Mode
+                </span>
+              </div>
+            </div>
+            {selectedOption === "anonymous" && (
+              <div className="mt-3 ml-8">
+                <p className="text-sm text-app-gray">
                   Keep your data stored locally on this device only.
                   No sign-in required. Get started quickly and privately.
                 </p>
@@ -192,14 +206,14 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
                   You can connect a Google Sheet later anytime.
                 </p>
               </div>
-            </div>
+            )}
           </label>
         </div>
 
         {/* Info Note */}
         <div className="p-3 bg-app-cream rounded-lg border border-app-border">
           <p className="text-xs text-app-gray">
-            💡 You can change this later in Settings. Both modes let you track the same health data.
+            💡 You can change this later in Settings. All modes let you log the same health data.
           </p>
         </div>
 

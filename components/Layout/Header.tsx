@@ -5,6 +5,8 @@ import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSettings } from "@/stores/useSettings";
+import { useSetupGuard } from "@/stores/useSetupGuard";
+import { validateSettings } from "@/lib/settingsValidation";
 import { APP_CONFIG } from "@/lib/constants";
 import {
   WeeklyIcon,
@@ -32,6 +34,22 @@ export function Header() {
   // Trigger animation and navigate with tiny delay for animation to start
   const handleSettingsTouchEnd = (e: React.TouchEvent) => {
     e.preventDefault(); // Prevent the delayed click event
+
+    // Block navigation to settings if setup isn't complete
+    const state = useSettings.getState();
+    if (!state.setupComplete) {
+      const validation = validateSettings({
+        symptoms: state.symptoms,
+        periodTracking: state.periodTracking,
+        medicineTracking: state.medicineTracking,
+        stoolTracking: state.stoolTracking,
+      });
+      if (!validation.isValid) {
+        useSetupGuard.getState().show();
+        return;
+      }
+    }
+
     setIsSettingsHovered(true); // Ensure animation triggers
     // Small delay lets animation start before navigation
     setTimeout(() => router.push("/settings"), 50);

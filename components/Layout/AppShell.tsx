@@ -66,7 +66,7 @@ export function AppShell({ children }: AppShellProps) {
                   Almost there!
                 </h2>
                 <p className="text-app-gray">
-                  Eager to get started? Head back to the welcome page and press the button to begin setting up your experience.
+                  Eager to get started? Head back to the welcome page and click "Get Started" to begin setting up your experience.
                 </p>
               </div>
               <div className="px-6 pb-6">
