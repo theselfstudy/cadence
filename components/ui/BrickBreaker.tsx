@@ -65,6 +65,7 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
   const [highScore, setHighScore] = useState(0);
   const [lives, setLives] = useState(3);
   const animFrameRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
 
   // Game objects stored in refs for the game loop
   const ballRef = useRef({
@@ -132,6 +133,7 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
 
   // Initialize / reset game
   const initGame = useCallback((canvasW: number, canvasH: number) => {
+    lastTimeRef.current = 0; // Reset delta-time tracking
     const paddle = paddleRef.current;
     paddle.x = canvasW / 2;
     paddle.y = canvasH - 40;
@@ -248,8 +250,12 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
     ctx.restore();
   }, []);
 
-  // Main game loop
-  const gameLoop = useCallback((ctx: CanvasRenderingContext2D) => {
+  // Main game loop — uses delta-time so speed is consistent regardless of frame rate
+  const gameLoop = useCallback((ctx: CanvasRenderingContext2D, timestamp: number) => {
+    // Delta-time: scale all movement by how much time actually passed vs target 60fps
+    const dt = lastTimeRef.current ? Math.min((timestamp - lastTimeRef.current) / 16.667, 3) : 1;
+    lastTimeRef.current = timestamp;
+
     const { w: canvasW, h: canvasH } = canvasSizeRef.current;
     const ball = ballRef.current;
     const paddle = paddleRef.current;
@@ -265,7 +271,7 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
 
     // Move paddle toward mouse/touch
     const targetX = Math.max(paddle.radius, Math.min(canvasW - paddle.radius, mouseXRef.current));
-    paddle.x += (targetX - paddle.x) * 0.15;
+    paddle.x += (targetX - paddle.x) * (1 - Math.pow(0.85, dt));
 
     // Ball attached to paddle
     if (ballAttachedRef.current) {
@@ -283,7 +289,7 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
 
       // Handle curving state (heart rolling smoothly along the C-paddle arc)
       if (ball.curving) {
-        ball.curveProgress += 1 / ball.curveDuration;
+        ball.curveProgress += dt / ball.curveDuration;
 
         if (ball.curveProgress >= 1) {
           // Finished curving — launch off the rim!
@@ -324,9 +330,9 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
           ball.y = paddleCenterY + Math.sin(currentAngle) * curveRadius;
         }
       } else {
-        // Normal ball movement
-        ball.x += ball.vx;
-        ball.y += ball.vy;
+        // Normal ball movement (scaled by delta-time)
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
 
         // Wall collisions (left, right, top)
         if (ball.x - ball.radius <= 0) {
@@ -480,10 +486,10 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
     // Draw particles
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.05; // gravity
-      p.life -= 0.02;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 0.05 * dt; // gravity
+      p.life -= 0.02 * dt;
 
       if (p.life <= 0) {
         particles.splice(i, 1);
@@ -531,7 +537,7 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
       ctx.fillText("Tap to launch", canvasW / 2, canvasH - 80);
     }
 
-    animFrameRef.current = requestAnimationFrame(() => gameLoop(ctx));
+    animFrameRef.current = requestAnimationFrame((t) => gameLoop(ctx, t));
   }, [drawPaddle, drawHeart, spawnParticles, resetBall]);
 
   // Draw overlay text helper
@@ -615,7 +621,7 @@ export function BrickBreaker({ onClose }: BrickBreakerProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    animFrameRef.current = requestAnimationFrame(() => gameLoop(ctx));
+    animFrameRef.current = requestAnimationFrame((t) => gameLoop(ctx, t));
 
     window.addEventListener("resize", resize);
 
