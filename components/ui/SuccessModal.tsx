@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 
 // ============================================
 // Success Modal
@@ -24,6 +24,8 @@ interface SuccessModalProps {
   onSecondaryClick?: () => void;
   /** Optional auto-close after X milliseconds */
   autoCloseMs?: number;
+  /** Optional custom button to replace the default button(s) */
+  customButton?: ReactNode;
 }
 
 export function SuccessModal({
@@ -36,6 +38,7 @@ export function SuccessModal({
   secondaryButtonText,
   onSecondaryClick,
   autoCloseMs,
+  customButton,
 }: SuccessModalProps) {
   // Auto-close functionality
   useEffect(() => {
@@ -112,14 +115,17 @@ export function SuccessModal({
 
           {/* Buttons */}
           <div className="px-6 pb-6">
-            {hasSecondaryButton ? (
+            {customButton ? (
+              // Custom button provided by caller
+              customButton
+            ) : hasSecondaryButton ? (
               // Two buttons: stacked on mobile, side-by-side on larger screens
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
                   onClick={onSecondaryClick}
-                  className="flex-1 px-4 py-3 rounded-xl border-2 border-app-border 
-                           text-app-charcoal font-medium hover:bg-app-cream 
+                  className="flex-1 px-4 py-3 rounded-xl border-2 border-app-border
+                           text-app-charcoal font-medium hover:bg-app-cream
                            transition-colors order-2 sm:order-1"
                 >
                   {secondaryButtonText}
@@ -127,8 +133,8 @@ export function SuccessModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 px-4 py-3 rounded-xl bg-[#3F592E] text-white 
-                           font-medium hover:bg-[#3F592E]/90 transition-colors 
+                  className="flex-1 px-4 py-3 rounded-xl bg-[#3F592E] text-white
+                           font-medium hover:bg-[#3F592E]/90 transition-colors
                            order-1 sm:order-2"
                 >
                   {buttonText}
@@ -139,7 +145,7 @@ export function SuccessModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full px-4 py-3 rounded-xl bg-[#3F592E] text-white 
+                className="w-full px-4 py-3 rounded-xl bg-[#3F592E] text-white
                          font-medium hover:bg-[#3F592E]/90 transition-colors"
               >
                 {buttonText}

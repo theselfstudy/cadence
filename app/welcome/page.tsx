@@ -166,7 +166,7 @@ export default function WelcomePage() {
 
       <div className="min-h-[70vh] flex flex-col items-center text-center px-4 py-8">
         {/* Logo */}
-        <div className="mb-8">
+        <div className="mb-4">
           <AnimatedLogo size="lg" className="mb-4" />
           <h1 className="text-3xl font-bold text-app-charcoal">
             Welcome to Cadence
@@ -174,15 +174,18 @@ export default function WelcomePage() {
         </div>
 
         {/* Description */}
-        <p className="max-w-md text-lg text-app-gray mb-10">
+        <p className="max-w-md text-lg text-app-gray mb-5">
           A highly customizable personal health tracker for symptoms,
           cycles, and long-term insights.
+          <p className="max-w-md text-sm text-app-gray mt-4">
+            Scroll down and click to get started.
+          </p>
         </p>
 
         {/* Features */}
         <section className="w-full max-w-2xl mb-10">
           <h2 className="text-sm font-semibold text-app-gray uppercase tracking-wide mb-4">
-            What You Can Do
+            What You Can Do With Cadence
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {FEATURES.map((feature) => (

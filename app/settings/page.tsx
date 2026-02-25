@@ -41,6 +41,7 @@ import {
   ImportEntriesModal,
 } from "@/components/settings";
 import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
+import { AnimatedLogo } from "@/components/ui/AnimatedLogo";
 
 
 // =============================================================================
@@ -263,8 +264,8 @@ function SettingsPageContent() {
 
   const importEntriesFromSheet = useEntries((state) => state.importEntriesFromSheet);
 
-  // Get sync state for disabling actions during sync
-  const { syncInProgress } = useSyncState();
+  // Get sync state for disabling actions during sync and showing progress
+  const { syncInProgress, currentPhase } = useSyncState();
 
   // Saved filters store
   const savedFiltersLoadFromSheet = useSavedFilters((state) => state.loadFromSheet);
@@ -331,12 +332,18 @@ function SettingsPageContent() {
   const [oauthRetryFn, setOauthRetryFn] = useState<(() => void) | null>(null);
   // Success modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successModalConfig, setSuccessModalConfig] = useState({
+  const [successModalConfig, setSuccessModalConfig] = useState<{
+    title: string;
+    description: string;
+    secondaryText: string;
+    showSyncButton?: boolean;
+  }>({
     title: "",
     description: "",
     secondaryText: "",
   });
   const [navigateAfterSuccess, setNavigateAfterSuccess] = useState<string | null>(null);
+  const [showSyncLoadingOverlay, setShowSyncLoadingOverlay] = useState(false);
   const [showImportEntriesModal, setShowImportEntriesModal] = useState(false);
   const [pendingImportAccessToken, setPendingImportAccessToken] = useState<string | null>(null);
 
@@ -462,6 +469,20 @@ function SettingsPageContent() {
       setShowValidationErrors(false);
     }
   }, [showValidationErrors, settingsValidation.isValid]);
+
+  // Track sync progress when the sync-button success modal is open
+  // Show loading overlay when sync starts, dismiss everything when sync completes
+  useEffect(() => {
+    if (!showSuccessModal || !successModalConfig.showSyncButton) return;
+
+    if (syncInProgress) {
+      setShowSyncLoadingOverlay(true);
+    } else if (showSyncLoadingOverlay) {
+      // Sync just finished — dismiss everything
+      setShowSyncLoadingOverlay(false);
+      setShowSuccessModal(false);
+    }
+  }, [syncInProgress, showSuccessModal, successModalConfig.showSyncButton, showSyncLoadingOverlay]);
 
   // Handle highlight query param - scroll to and highlight the section
   useEffect(() => {
@@ -797,8 +818,9 @@ function SettingsPageContent() {
     // Show success modal
     setSuccessModalConfig({
       title: "Google Sheet Connected!",
-      description: "Sheet connected and is not yet synced",
-      secondaryText: "Find any '🔄 Sync with Google Sheets' button to push your local data and pull from the sheet.",
+      description: "Sheet connected and is not yet synced.",
+      secondaryText: "Click the button below to complete the process and push your data into your Google Sheet.",
+      showSyncButton: true,
     });
     setShowSuccessModal(true);
   };
@@ -2359,7 +2381,65 @@ function SettingsPageContent() {
           setShowSuccessModal(false);
           setNavigateAfterSuccess(null);
         } : undefined}
+        customButton={successModalConfig.showSyncButton ? (
+          <SyncWithGoogleSheetsButton
+            variant="primary"
+            className="w-full [&>button]:w-full"
+          />
+        ) : undefined}
       />
+
+      {/* Sync loading overlay — shown when syncing from the success modal */}
+      {showSyncLoadingOverlay && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-app-charcoal/60 backdrop-blur-sm" />
+          <div className="relative bg-app-white rounded-2xl shadow-xl p-8 max-w-sm mx-4">
+            <div className="text-center">
+              <AnimatedLogo size="md" className="mb-4" spinning />
+              <h2 className="text-xl font-bold text-app-charcoal mb-2">
+                Syncing Your Data
+              </h2>
+              <div className="text-sm text-app-gray space-y-1">
+                {(() => {
+                  const phase = currentPhase.phase;
+                  const progress = currentPhase.progress;
+                  const done = (label: string) => (
+                    <p className="text-app-green">&#10003; {label}</p>
+                  );
+                  const active = (label: string) => (
+                    <p className="text-app-charcoal font-medium">{label}</p>
+                  );
+                  const pending = (label: string) => (
+                    <p className="text-app-gray/50">{label}</p>
+                  );
+
+                  const entriesLabel = progress.entriesTotal > 0
+                    ? `Pushing entries (${progress.entriesSynced}/${progress.entriesTotal})`
+                    : "Pushing entries...";
+
+                  switch (phase) {
+                    case 'verify':
+                      return <p>Verifying connection...</p>;
+                    case 'push-entries':
+                      return <>{active(entriesLabel)}{pending("Pushing settings...")}{pending("Pushing filters...")}</>;
+                    case 'push-settings':
+                      return <>{done(`Entries pushed (${progress.entriesTotal})`)}{active("Pushing settings...")}{pending("Pushing filters...")}</>;
+                    case 'push-filters':
+                      return <>{done(`Entries pushed (${progress.entriesTotal})`)}{done("Settings pushed")}{active("Pushing filters...")}</>;
+                    case 'pull-entries':
+                    case 'pull-settings':
+                    case 'pull-filters':
+                    case 'finalize':
+                      return <>{done(`Entries pushed (${progress.entriesTotal})`)}{done("Settings pushed")}{done("Filters pushed")}{active("Finalizing...")}</>;
+                    default:
+                      return <p>Starting sync...</p>;
+                  }
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reset App Settings Modal */}
       <AdvancedOptionsModal

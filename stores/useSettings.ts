@@ -78,6 +78,11 @@ export const useSettings = create<SettingsStore>()(
               )
             });
           }
+
+          // Reset sync tracker so stale timestamps from a previous sheet
+          // don't trigger the 48-hour sync reminder on a fresh connection
+          const { useSyncTracker } = await import('./useSyncTracker');
+          useSyncTracker.getState().reset();
         }
 
         set({

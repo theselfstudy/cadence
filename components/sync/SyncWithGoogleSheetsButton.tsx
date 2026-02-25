@@ -95,6 +95,7 @@ export function SyncWithGoogleSheetsButton({
   const [showOAuthError, setShowOAuthError] = useState(false);
   const [showSheetDisconnected, setShowSheetDisconnected] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [restorePhase, setRestorePhase] = useState<'connecting' | 'settings' | 'filters' | 'entries' | 'finalizing'>('connecting');
 
   // Store hooks
   const { isGoogleSheetConnected, loadSettingsFromSheet, googleSheet, setGoogleSheet } = useSettings();
@@ -162,6 +163,7 @@ export function SyncWithGoogleSheetsButton({
 
   // Perform the actual restore operation
   const performRestore = async (url: string, token: string) => {
+    setRestorePhase('connecting');
     setIsRestoring(true);
 
     const spreadsheetId = getSpreadsheetIdFromUrl(url);
@@ -175,20 +177,24 @@ export function SyncWithGoogleSheetsButton({
     // Fetch the sheet title so we don't default to "Restored Sheet"
     const sheetTitle = await getSpreadsheetTitle(spreadsheetId, token);
 
+    setRestorePhase('settings');
     console.log("Restoring settings from sheet...");
     const settingsSuccess = await loadSettingsFromSheet(spreadsheetId, token, sheetTitle || undefined);
 
     if (settingsSuccess) {
       console.log("Settings restored successfully, loading filters and entries...");
 
+      setRestorePhase('filters');
       // Load saved filters (may return false if no filters exist, which is OK)
       const filtersResult = await loadSavedFiltersFromSheet(spreadsheetId, token);
       console.log("Filters restore result:", filtersResult);
 
+      setRestorePhase('entries');
       // Import entries from the sheet
       const entriesResult = await importEntriesFromSheet(token);
       console.log("Entries import result:", entriesResult);
 
+      setRestorePhase('finalizing');
       // Mark the restore as a successful sync so the status badge shows "Synced just now"
       useSyncState.getState().completeSync(true);
 
@@ -402,7 +408,7 @@ export function SyncWithGoogleSheetsButton({
                 : "Push local changes and pull updates from Google Sheets"
             }
           >
-            <span className="flex items-center gap-2">
+            <span className="flex items-center justify-center gap-2">
               {Icon}
               {getButtonText()}
             </span>
@@ -459,9 +465,34 @@ export function SyncWithGoogleSheetsButton({
               <h2 className="text-xl font-bold text-app-charcoal mb-2">
                 Restoring Your Data
               </h2>
-              <p className="text-sm text-app-gray">
-                Loading your settings, filters, and entries...
-              </p>
+              <div className="text-sm text-app-gray space-y-1">
+                {(() => {
+                  const done = (label: string) => (
+                    <p className="text-app-green">&#10003; {label}</p>
+                  );
+                  const active = (label: string) => (
+                    <p className="text-app-charcoal font-medium">{label}</p>
+                  );
+                  const pending = (label: string) => (
+                    <p className="text-app-gray/50">{label}</p>
+                  );
+
+                  switch (restorePhase) {
+                    case 'connecting':
+                      return <p>Connecting to sheet...</p>;
+                    case 'settings':
+                      return <>{active("Restoring settings...")}{pending("Restoring filters...")}{pending("Restoring entries...")}</>;
+                    case 'filters':
+                      return <>{done("Settings restored")}{active("Restoring filters...")}{pending("Restoring entries...")}</>;
+                    case 'entries':
+                      return <>{done("Settings restored")}{done("Filters restored")}{active("Restoring entries...")}</>;
+                    case 'finalizing':
+                      return <>{done("Settings restored")}{done("Filters restored")}{done("Entries restored")}{active("Finalizing...")}</>;
+                    default:
+                      return <p>Starting restore...</p>;
+                  }
+                })()}
+              </div>
             </div>
           </div>
         </div>
