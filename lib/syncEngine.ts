@@ -212,11 +212,11 @@ export class SyncEngine {
       throw new Error('Invalid spreadsheet URL');
     }
 
-    // If the sheet name is missing, fetch it now. This covers:
-    // - New users whose initial title fetch failed during connect
-    // - Existing users whose name was never stored (retroactive silent fix)
+    // If the sheet name is missing or is the "Restored Sheet" placeholder, fetch the real
+    // title now. This covers new users, existing users who never had a name stored, and
+    // users who got the placeholder written in by a previous sync.
     let sheetName = googleSheet.name || undefined;
-    if (!sheetName) {
+    if (!sheetName || sheetName === 'Restored Sheet') {
       const fetchedTitle = await getSpreadsheetTitle(spreadsheetId, this.accessToken);
       sheetName = fetchedTitle || undefined;
     }
