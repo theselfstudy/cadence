@@ -6,6 +6,7 @@ import { useSyncTracker } from '@/stores/useSyncTracker';
 import {
   verifySheetConnection,
   getSpreadsheetIdFromUrl,
+  getSpreadsheetTitle,
 } from '@/lib/googleSheets';
 import { getOAuthToken, clearOAuthToken, triggerOAuthRedirect, setMobileSyncPending, isMobileDevice } from '@/lib/oauthHelpers';
 import { stripBasePath } from '@/lib/constants';
@@ -204,22 +205,35 @@ export class SyncEngine {
    * Phase 6: Pull settings from sheet
    */
   private async pullSettings(): Promise<void> {
-    const { loadSettingsFromSheet, googleSheet } = useSettings.getState();
+    const { loadSettingsFromSheet, setGoogleSheet, googleSheet } = useSettings.getState();
     const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet.url!);
 
     if (!spreadsheetId) {
       throw new Error('Invalid spreadsheet URL');
     }
 
+    // If the sheet name is missing, fetch it now. This covers:
+    // - New users whose initial title fetch failed during connect
+    // - Existing users whose name was never stored (retroactive silent fix)
+    let sheetName = googleSheet.name || undefined;
+    if (!sheetName) {
+      const fetchedTitle = await getSpreadsheetTitle(spreadsheetId, this.accessToken);
+      sheetName = fetchedTitle || undefined;
+    }
+
     const success = await loadSettingsFromSheet(
       spreadsheetId,
       this.accessToken,
-      googleSheet.name || undefined
+      sheetName
     );
 
-    // Settings sheet might not exist yet - this is OK
+    // Settings sheet might not exist yet (e.g. very first sync before push completes) - this is OK.
+    // If we fetched a name but couldn't load settings, persist the name so it isn't lost.
     if (!success) {
       console.log('Settings sheet does not exist yet');
+      if (sheetName && !googleSheet.name && googleSheet.url) {
+        setGoogleSheet(googleSheet.url, sheetName);
+      }
     }
   }
 
