@@ -7,6 +7,7 @@ import {
   verifySheetConnection,
   getSpreadsheetIdFromUrl,
   getSpreadsheetTitle,
+  hideOldMonthlyTabs,
 } from '@/lib/googleSheets';
 import { getOAuthToken, clearOAuthToken, triggerOAuthRedirect, setMobileSyncPending, isMobileDevice } from '@/lib/oauthHelpers';
 import { stripBasePath } from '@/lib/constants';
@@ -267,6 +268,14 @@ export class SyncEngine {
     syncTracker.updateEntrySyncTime(now);
     syncTracker.updateSettingsSyncTime(now);
     syncTracker.updateFiltersSyncTime(now);
+
+    // Hide old monthly tabs if we're 7+ days into the current month.
+    // Done here so it runs on every sync regardless of whether entries were pushed.
+    const { googleSheet } = useSettings.getState();
+    const spreadsheetId = getSpreadsheetIdFromUrl(googleSheet.url!);
+    if (spreadsheetId) {
+      await hideOldMonthlyTabs(spreadsheetId, this.accessToken);
+    }
   }
 }
 

@@ -194,16 +194,17 @@ export const useSettings = create<SettingsStore>()(
           const loadedSettings = JSON.parse(settingsJson);
           console.log("loadSettingsFromSheet: Parsed settings keys:", Object.keys(loadedSettings));
 
-          // If settings exist in a sheet, the user has clearly completed setup.
-          // Force these to true to prevent re-prompting setup/tutorial on recovery.
-          // This handles the case where settings were saved before these flags were set.
+          // If settings exist in a sheet with no flags (saved before these fields existed),
+          // default to true so returning users aren't re-prompted for setup/tutorial.
+          // If the flags are explicitly stored (e.g. false for a new user's first sync),
+          // respect the stored value so the tutorial flow is not skipped prematurely.
           const recoveredSettings = {
             ...loadedSettings,
-            setupComplete: true,
-            tutorialComplete: true,
+            setupComplete: loadedSettings.setupComplete ?? true,
+            tutorialComplete: loadedSettings.tutorialComplete ?? true,
           };
 
-          // Update the snapshot to reflect the corrected flags
+          // Update the snapshot to reflect the resolved flags
           const correctedSnapshot = JSON.stringify({
             timeFormat: recoveredSettings.timeFormat,
             weekStartDay: recoveredSettings.weekStartDay,
@@ -211,8 +212,8 @@ export const useSettings = create<SettingsStore>()(
             periodTracking: recoveredSettings.periodTracking,
             stoolTracking: recoveredSettings.stoolTracking,
             medicineTracking: recoveredSettings.medicineTracking,
-            setupComplete: true,
-            tutorialComplete: true,
+            setupComplete: recoveredSettings.setupComplete,
+            tutorialComplete: recoveredSettings.tutorialComplete,
           });
 
           set({

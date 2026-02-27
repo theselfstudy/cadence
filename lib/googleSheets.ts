@@ -1538,7 +1538,7 @@ export async function appendEntriesToSheet(
 
     // All succeeded
     entriesToSync.forEach(e => syncedIds.push(e.id));
-    
+
     return { success: true, syncedIds, skippedIds, failedIds };
   } catch (error) {
     console.error('Error in appendEntriesToSheet:', error);
