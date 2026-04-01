@@ -19,6 +19,12 @@ interface WarningModalProps {
   confirmButtonText?: string;
   /** Cancel button text (defaults to "Go Back") */
   cancelButtonText?: string;
+  /** Icon shown in the modal header — 'warning' (triangle) or 'pause' (bars). Defaults to 'warning'. */
+  iconVariant?: 'warning' | 'pause';
+  /** Color theme for the icon circle. Defaults to 'red'. */
+  iconColor?: 'red' | 'plumb';
+  /** Color theme for the confirm button. Defaults to 'plumb-to-red'. */
+  confirmButtonVariant?: 'plumb-to-red' | 'plumb-to-green';
 }
 
 export function WarningModal({
@@ -29,6 +35,9 @@ export function WarningModal({
   description,
   confirmButtonText = "Continue",
   cancelButtonText = "Go Back",
+  iconVariant = 'warning',
+  iconColor = 'red',
+  confirmButtonVariant = 'plumb-to-red',
 }: WarningModalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -60,21 +69,33 @@ export function WarningModal({
         >
           {/* Warning Icon */}
           <div className="pt-8 pb-4 flex justify-center">
-            <div className="w-16 h-16 rounded-full bg-app-red/10 flex items-center justify-center">
-              <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center">
-                <svg
-                  className="w-7 h-7 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={3}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${iconColor === 'plumb' ? 'bg-app-plumb/10' : 'bg-app-red/10'}`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${iconColor === 'plumb' ? 'bg-app-plumb/60' : 'bg-red-600'}`}>
+                {iconVariant === 'pause' ? (
+                  <svg
+                    className="w-7 h-7 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-7 h-7 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                )}
               </div>
             </div>
           </div>
@@ -107,9 +128,11 @@ export function WarningModal({
               <button
                 type="button"
                 onClick={onConfirm}
-                className="flex-1 px-4 py-3 rounded-xl bg-app-plumb text-white
-                         font-medium hover:bg-app-red transition-colors
-                         order-1 sm:order-2"
+                className={`flex-1 px-4 py-3 rounded-xl text-white font-medium transition-colors order-1 sm:order-2 ${
+                  confirmButtonVariant === 'plumb-to-green'
+                    ? 'bg-app-plumb hover:bg-app-green'
+                    : 'bg-app-plumb hover:bg-app-red'
+                }`}
               >
                 {confirmButtonText}
               </button>

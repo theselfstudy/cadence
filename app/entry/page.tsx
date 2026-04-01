@@ -600,6 +600,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
   const [logFlowStartTime, setLogFlowStartTime] = useState(false);
   const [flowStartTime, setFlowStartTime] = useState<TimeValue>(getCurrentTime(is24Hour));
   const [hasFlowStartTimeError, setHasFlowStartTimeError] = useState(false);
+  const [showIncompleteSectionsWarning, setShowIncompleteSectionsWarning] = useState(false);
+  const [showSectionBorders, setShowSectionBorders] = useState(false);
 
   // Easter egg: update end time when brick breaker game is closed
   useEffect(() => {
@@ -764,6 +766,41 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     return `${time.hour}:${time.minute.toString().padStart(2, '0')} ${time.period}`;
   };
 
+  // Helper to check if a selected section has no data filled in
+  const isSectionIncomplete = (section: LogSection): boolean => {
+    if (!selectedLogSections?.includes(section)) return false;
+    switch (section) {
+      case 'bowel':
+        return bristolType === null || postFeeling === null;
+      case 'period':
+        return cyclePhase === null;
+      case 'symptoms':
+        return selectedSymptoms.length === 0;
+      case 'medicine':
+        return loggedMedicines.length === 0;
+      default:
+        return false;
+    }
+  };
+
+  const hasIncompleteSections = (): boolean => {
+    return (['bowel', 'period', 'symptoms', 'medicine'] as LogSection[]).some(s =>
+      isSectionIncomplete(s)
+    );
+  };
+
+  const getIncompleteSectionLabels = (): string[] => {
+    const labels: Record<string, string> = {
+      bowel: 'Bowel Movement',
+      period: 'Cycle Log',
+      symptoms: 'General Symptoms',
+      medicine: 'Medicine Log',
+    };
+    return (['bowel', 'period', 'symptoms', 'medicine'] as LogSection[])
+      .filter(s => isSectionIncomplete(s))
+      .map(s => labels[s]);
+  };
+
   // Helper to check if the entry is empty (no selections made)
   const isEntryEmpty = (): boolean => {
     const hasSymptoms = selectedSymptoms.length > 0;
@@ -837,26 +874,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     setShowSuccessModal(true);
   };
 
-  const handleSubmit = async () => {
-    // Rate limit check first - attempt to record the click
-    if (!submitRateLimit.attempt()) {
-      alert(`Please wait ${submitRateLimit.getFormattedTime()} before submitting again.`);
-      return;
-    }
-
-    // Check if end time is earlier than start time
-    if (isEndTimeBeforeStartTime()) {
-      setShowTimeWarning(true);
-      return;
-    }
-
-    // Check if entry is empty
-    if (isEntryEmpty()) {
-      setShowEmptyWarning(true);
-      return;
-    }
-
-    // Validation
+  // Runs validations that happen after the incomplete-sections check, then submits
+  const continueSubmission = async () => {
     const notesCheck = isTextSafe(notes);
     if (!notesCheck.isSafe) {
       alert(notesCheck.reason || "Please remove any dangerous content from the notes field.");
@@ -883,14 +902,48 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       }
     }
 
-    // All validations passed, perform submission
     await performSubmission();
+  };
+
+  const handleSubmit = async () => {
+    // Rate limit check first - attempt to record the click
+    if (!submitRateLimit.attempt()) {
+      alert(`Please wait ${submitRateLimit.getFormattedTime()} before submitting again.`);
+      return;
+    }
+
+    // Check if end time is earlier than start time
+    if (isEndTimeBeforeStartTime()) {
+      setShowTimeWarning(true);
+      return;
+    }
+
+    // Check if entry is empty
+    if (isEntryEmpty()) {
+      setShowEmptyWarning(true);
+      return;
+    }
+
+    // Check if any selected sections are incomplete
+    if (hasIncompleteSections()) {
+      setShowSectionBorders(true);
+      setShowIncompleteSectionsWarning(true);
+      return;
+    }
+
+    await continueSubmission();
   };
 
   // Handle confirmation from empty warning modal
   const handleEmptyWarningConfirm = async () => {
     setShowEmptyWarning(false);
     await performSubmission();
+  };
+
+  // Handle "Continue Submission" from incomplete sections modal
+  const handleIncompleteSectionsConfirm = async () => {
+    setShowIncompleteSectionsWarning(false);
+    await continueSubmission();
   };
 
   // Reset form
@@ -915,6 +968,8 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
     setOneOffSymptomInputError(null);
     // Reset to show modal again for next entry
     setSelectedLogSections(null);
+    setShowSectionBorders(false);
+    setShowIncompleteSectionsWarning(false);
   };
 
   return (
@@ -977,7 +1032,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
       {/* Bristol Stool Scale - Conditional */}
       {safeStoolTracking.enabled && shouldShowSection("bowel") && (
-      <section className="card">
+      <section className={`card ${showSectionBorders && isSectionIncomplete('bowel') ? 'ring-2 ring-app-plumb' : ''}`}>
         <h2 className="text-lg font-semibold text-app-charcoal mb-4">
           🧻 Bristol Stool Scale
         </h2>
@@ -1063,7 +1118,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
       {/* Period Tracking - Conditional */}
       {safePeriodTracking.enabled && shouldShowSection("period") && (
-        <section className="card">
+        <section className={`card ${showSectionBorders && isSectionIncomplete('period') ? 'ring-2 ring-app-red' : ''}`}>
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             🌸 Cycle Log
           </h2>
@@ -1202,7 +1257,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
       {/* Symptoms Section */}
       {allSymptomsToShow.length > 0 && shouldShowSection("symptoms") && (
-        <section className="card">
+        <section className={`card ${showSectionBorders && isSectionIncomplete('symptoms') ? 'ring-2 ring-app-teal' : ''}`}>
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             🏷️ General Symptoms
           </h2>
@@ -1395,7 +1450,7 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
 
       {/* Medicine Log - Consolidated */}
       {safeMedicineTracking.enabled && safeMedicineTracking.medicines.length > 0 && shouldShowSection("medicine") && (
-        <section className="card">
+        <section className={`card ${showSectionBorders && isSectionIncomplete('medicine') ? 'ring-2 ring-app-green/50' : ''}`}>
           <h2 className="text-lg font-semibold text-app-charcoal mb-4">
             💊 Medicine Log
           </h2>
@@ -1542,6 +1597,20 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
       description="The end time you entered is earlier than the start time. Please correct the times to avoid errors in your log."
       confirmButtonText="Fix Times"
       cancelButtonText="Go Back"
+    />
+
+    {/* Incomplete Sections Warning Modal */}
+    <WarningModal
+      isOpen={showIncompleteSectionsWarning}
+      onClose={() => setShowIncompleteSectionsWarning(false)}
+      onConfirm={handleIncompleteSectionsConfirm}
+      title="Some Sections Look Incomplete"
+      description="It looks like you may have skipped some selections. Would you like to go back and fill them in, or continue submitting anyway?"
+      confirmButtonText="Continue Submission"
+      cancelButtonText="Go Back"
+      iconVariant="pause"
+      iconColor="plumb"
+      confirmButtonVariant="plumb-to-green"
     />
     </>
   );
