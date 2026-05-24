@@ -26,237 +26,210 @@ export function EntryCard({ entry, timeFormat, customProducts = {}, showDate = t
   const periodSymptomCount = Object.keys(entry.periodSymptomIntensities).length;
   const oneOffSymptomCount = entry.oneOffSymptoms?.length || 0;
   const medicineCount = entry.medicineLog.length;
-  const productCount = entry.productUsage?.length || 0;
 
   // Check if cycle phase is menstrual (for color coding)
   const isMenstrualPhase = entry.cyclePhase === "menstrual";
 
   return (
-    <div className="bg-app-cream/50 rounded-lg border border-app-border p-4">
-      {/* Header Row */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          {/* Date: Day, Month Day, Year */}
-          {showDate && <p className="font-semibold text-app-charcoal">{formatDate(entry.date)}</p>}
-          {/* Time and Duration */}
-          <p className={`text-sm ${showDate ? "text-app-gray" : "font-semibold text-app-charcoal"}`}>
-            {entry.startTime === entry.endTime ? (
-              formatTimeForDisplay(entry.startTime, timeFormat)
-            ) : (
-              <>
-                {formatTimeForDisplay(entry.startTime, timeFormat)} → {formatTimeForDisplay(entry.endTime, timeFormat)}
-                <span className="mx-2">·</span>
-                <span className="text-app-teal font-medium">
-                  {calculateDuration(entry.startTime, entry.endTime)}
-                </span>
-              </>
-            )}
-          </p>
-        </div>
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-app-gray hover:text-app-charcoal p-1"
-          aria-label={isExpanded ? "Collapse entry" : "Expand entry"}
-        >
+    <div className="bg-app-cream/50 rounded-lg border border-app-border">
+      {/* Clickable header + pills area */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full p-4 text-left"
+        aria-label={isExpanded ? "Collapse entry" : "Expand entry"}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            {showDate && <p className="font-semibold text-app-charcoal">{formatDate(entry.date)}</p>}
+            <p className={`text-sm ${showDate ? "text-app-gray" : "font-semibold text-app-charcoal"}`}>
+              {entry.startTime === entry.endTime ? (
+                formatTimeForDisplay(entry.startTime, timeFormat)
+              ) : (
+                <>
+                  {formatTimeForDisplay(entry.startTime, timeFormat)} → {formatTimeForDisplay(entry.endTime, timeFormat)}
+                  <span className="mx-2">·</span>
+                  <span className="text-app-teal font-medium">
+                    {calculateDuration(entry.startTime, entry.endTime)}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
           <svg
-            className={`w-5 h-5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            className={`w-5 h-5 text-app-gray transition-transform flex-shrink-0 mt-0.5 ${isExpanded ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
-        </button>
-      </div>
+        </div>
 
-      {/* Summary Pills Row */}
-      <div className="flex flex-wrap gap-2 mt-3">
-        {/* Period Symptoms - Red */}
-        {periodSymptomCount > 0 && (
-          <span className="text-xs bg-app-red/10 text-app-red px-2 py-1 rounded-full">
-            {periodSymptomCount} period symptom{periodSymptomCount !== 1 ? "s" : ""}
-          </span>
-        )}
-        
-        {/* General Symptoms - Teal */}
-        {generalSymptomCount > 0 && (
-          <span className="text-xs bg-app-teal/10 text-app-teal px-2 py-1 rounded-full">
-            {generalSymptomCount} symptom{generalSymptomCount !== 1 ? "s" : ""}
-          </span>
-        )}
-
-        {/* One-Off Symptoms - Plumb with border*/}
-        {oneOffSymptomCount > 0 && (
-          <span className="text-xs  border-app-plumb/30 bg-app-plumb/10 border-2 text-app-plumb px-2 py-1 rounded-full">
-            {oneOffSymptomCount} custom
-          </span>
-        )}
-
-        {/* Bristol Type - Plumb */}
-        {entry.stoolType && (
-          <span className="text-xs bg-app-plumb/10 text-app-plumb px-2 py-1 rounded-full">
-            Bristol {entry.stoolType}
-          </span>
-        )}
-        
-        {/* Cycle Phase - Red if menstrual, Teal otherwise */}
-        {entry.cyclePhase && (
-          <span className={`text-xs px-2 py-1 rounded-full capitalize ${
-            isMenstrualPhase 
-              ? "bg-app-red/10 text-app-red" 
-              : "bg-app-teal/10 text-app-teal"
-          }`}>
-            {entry.cyclePhase.replace("_", " ")}
-          </span>
-        )}
-        
-        {/* Medicines - Light Green */}
-        {medicineCount > 0 && (
-          <span className="text-xs bg-app-green/10 text-app-green px-2 py-1 rounded-full">
-            {medicineCount} medicine{medicineCount !== 1 ? "s" : ""}
-          </span>
-        )}
-        
-        {/* Has Notes - Gray */}
-        {entry.notes && (
-          <span className="text-xs bg-app-gray/10 text-app-gray px-2 py-1 rounded-full">
-            Has notes
-          </span>
-        )}
-      </div>
+        {/* Summary Pills Row */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          {periodSymptomCount > 0 && (
+            <span className="text-xs bg-app-red/10 text-app-red px-2 py-1 rounded-full">
+              {periodSymptomCount} period symptom{periodSymptomCount !== 1 ? "s" : ""}
+            </span>
+          )}
+          {generalSymptomCount > 0 && (
+            <span className="text-xs bg-app-teal/10 text-app-teal px-2 py-1 rounded-full">
+              {generalSymptomCount} symptom{generalSymptomCount !== 1 ? "s" : ""}
+            </span>
+          )}
+          {oneOffSymptomCount > 0 && (
+            <span className="text-xs border-app-plumb/30 bg-app-plumb/10 border-2 text-app-plumb px-2 py-1 rounded-full">
+              {oneOffSymptomCount} custom
+            </span>
+          )}
+          {entry.stoolType && (
+            <span className="text-xs bg-app-plumb/10 text-app-plumb px-2 py-1 rounded-full">
+              Bristol {entry.stoolType}
+            </span>
+          )}
+          {entry.cyclePhase && (
+            <span className={`text-xs px-2 py-1 rounded-full capitalize ${
+              isMenstrualPhase ? "bg-app-red/10 text-app-red" : "bg-app-teal/10 text-app-teal"
+            }`}>
+              {entry.cyclePhase.replace("_", " ")}
+            </span>
+          )}
+          {medicineCount > 0 && (
+            <span className="text-xs bg-app-green/10 text-app-green px-2 py-1 rounded-full">
+              {medicineCount} medicine{medicineCount !== 1 ? "s" : ""}
+            </span>
+          )}
+          {entry.notes && (
+            <span className="text-xs bg-app-gray/10 text-app-gray px-2 py-1 rounded-full">
+              Has notes
+            </span>
+          )}
+        </div>
+      </button>
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className="mt-4 pt-4 border-t border-app-border space-y-4">
-          {/* Symptoms Section */}
-          {(generalSymptomCount > 0 || periodSymptomCount > 0) && (
-            <Section title="Symptoms" icon="🏷️">
-              <div className="flex flex-wrap gap-1.5">
-                {/* Period Symptoms - Red */}
-                {Object.entries(entry.periodSymptomIntensities).map(([symptom, intensity]) => (
-                  <span
-                    key={`period-${symptom}`}
-                    className="text-xs bg-app-red/10 text-app-red px-2 py-1 rounded"
-                  >
-                    {symptom}{intensity !== null ? ` (${intensity})` : ""}
-                  </span>
-                ))}
-                {/* General Symptoms - Teal */}
-                {Object.entries(entry.symptomIntensities).map(([symptom, intensity]) => (
-                  <span
-                    key={`general-${symptom}`}
-                    className="text-xs bg-app-teal/10 text-app-teal px-2 py-1 rounded"
-                  >
-                    {symptom}{intensity !== null ? ` (${intensity})` : ""}
-                  </span>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* One-Off Symptoms Section */}
-          {oneOffSymptomCount > 0 && (
-            <Section title="One-Off Symptoms" icon="❖">
-              <div className="flex flex-wrap gap-1.5">
-                {entry.oneOffSymptoms?.map((symptom, idx) => (
-                  <span
-                    key={`oneoff-${idx}`}
-                    className="text-xs border-app-plumb/30 bg-app-plumb/10 border-2 text-app-plumb px-2 py-1 rounded"
-                  >
-                    {symptom}
-                  </span>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* Bowel Movement Section */}
-          {(entry.stoolType || entry.stoolFeeling) && (
-            <Section title="Bowel Movement" icon="🧻">
-              <p className="text-sm text-app-charcoal">
-                {entry.stoolType && (
-                  <>
-                    Type {entry.stoolType} - {BRISTOL_TYPES.find((b) => b.type === entry.stoolType)?.name || "Unknown"}
-                  </>
-                )}
-                {entry.stoolType && entry.stoolFeeling && (
-                  <span className="text-app-gray"> · </span>
-                )}
-                {entry.stoolFeeling && (
-                  <span className="text-app-gray">
-                    {POST_BOWEL_FEELINGS.find((f) => f.value === entry.stoolFeeling)?.label || entry.stoolFeeling}
-                  </span>
-                )}
-              </p>
-            </Section>
-          )}
-
-          {/* Cycle Section */}
-          {(entry.cyclePhase || entry.periodFlow || productCount > 0) && (
-            <Section title="Cycle" icon="🌸">
-              {/* Phase and Flow */}
-              {(entry.cyclePhase || entry.periodFlow) && (
-                <p className="text-sm text-app-charcoal">
-                  {entry.cyclePhase && CYCLE_PHASES.find((p) => p.value === entry.cyclePhase)?.label}
-                  {entry.cyclePhase && entry.periodFlow && (
-                    <span className="text-app-gray"> · </span>
-                  )}
-                  {entry.periodFlow && (() => {
-                    const parsed = parseFlowValue(entry.periodFlow);
-                    return (
-                      <span className="text-app-gray capitalize">
-                        {parsed.level} flow
-                        {parsed.startTime && (
-                          <span> @ {formatTimeForDisplay(parsed.startTime, timeFormat)}</span>
-                        )}
-                      </span>
-                    );
-                  })()}
-                </p>
-              )}
-              
-              {/* Products Used */}
-              {productCount > 0 && (
-                <div className="mt-2">
-                  <p className="text-xs text-app-gray mb-1.5">Products Used</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {entry.productUsage.map((product, idx) => (
-                      <span
-                        key={idx}
-                        className="text-xs bg-app-red/10 text-app-red px-2 py-1 rounded"
-                      >
-                        {formatProductName(product, customProducts)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Section>
-          )}
-
-          {/* Medicines Section */}
-          {medicineCount > 0 && (
-            <Section title="Medicines" icon="💊">
-              <div className="flex flex-wrap gap-1.5">
-                {entry.medicineLog.map((log, idx) => (
-                  <span
-                    key={idx}
-                    className="text-xs bg-app-green/10 text-app-charcoal px-2 py-1 rounded"
-                  >
-                    {log.medicineName}{log.dosage ? ` (${log.dosage})` : ""}{log.time ? ` @ ${formatTimeForDisplay(`${log.time.hour}:${log.time.minute.toString().padStart(2, '0')}${log.time.period ? ` ${log.time.period}` : ''}`, timeFormat)}` : ""}
-                  </span>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* Notes Section */}
-          {entry.notes && (
-            <Section title="Notes" icon="📝">
-              <p className="text-sm text-app-charcoal whitespace-pre-wrap">{entry.notes}</p>
-            </Section>
-          )}
+        <div className="px-4 pb-4 pt-4 border-t border-app-border">
+          <EntryDetailSections entry={entry} timeFormat={timeFormat} customProducts={customProducts} />
         </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// ENTRY DETAIL SECTIONS
+// Exported so DayCard (monthly page) can render details inline for single-entry days
+// ============================================
+
+interface EntryDetailSectionsProps {
+  entry: StoredEntry;
+  timeFormat: TimeFormat;
+  customProducts?: Record<string, { id: string; name: string }[]>;
+}
+
+export function EntryDetailSections({ entry, timeFormat, customProducts = {} }: EntryDetailSectionsProps) {
+  const generalSymptomCount = Object.keys(entry.symptomIntensities).length;
+  const periodSymptomCount = Object.keys(entry.periodSymptomIntensities).length;
+  const oneOffSymptomCount = entry.oneOffSymptoms?.length || 0;
+  const medicineCount = entry.medicineLog.length;
+  const productCount = entry.productUsage?.length || 0;
+
+  return (
+    <div className="space-y-4">
+      {(generalSymptomCount > 0 || periodSymptomCount > 0) && (
+        <Section title="Symptoms" icon="🏷️">
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(entry.periodSymptomIntensities).map(([symptom, intensity]) => (
+              <span key={`period-${symptom}`} className="text-xs bg-app-red/10 text-app-red px-2 py-1 rounded">
+                {symptom}{intensity !== null ? ` (${intensity})` : ""}
+              </span>
+            ))}
+            {Object.entries(entry.symptomIntensities).map(([symptom, intensity]) => (
+              <span key={`general-${symptom}`} className="text-xs bg-app-teal/10 text-app-teal px-2 py-1 rounded">
+                {symptom}{intensity !== null ? ` (${intensity})` : ""}
+              </span>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {oneOffSymptomCount > 0 && (
+        <Section title="One-Off Symptoms" icon="❖">
+          <div className="flex flex-wrap gap-1.5">
+            {entry.oneOffSymptoms?.map((symptom, idx) => (
+              <span key={`oneoff-${idx}`} className="text-xs border-app-plumb/30 bg-app-plumb/10 border-2 text-app-plumb px-2 py-1 rounded">
+                {symptom}
+              </span>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {(entry.stoolType || entry.stoolFeeling) && (
+        <Section title="Bowel Movement" icon="🧻">
+          <p className="text-sm text-app-charcoal">
+            {entry.stoolType && (
+              <>Type {entry.stoolType} - {BRISTOL_TYPES.find((b) => b.type === entry.stoolType)?.name || "Unknown"}</>
+            )}
+            {entry.stoolType && entry.stoolFeeling && <span className="text-app-gray"> · </span>}
+            {entry.stoolFeeling && (
+              <span className="text-app-gray">
+                {POST_BOWEL_FEELINGS.find((f) => f.value === entry.stoolFeeling)?.label || entry.stoolFeeling}
+              </span>
+            )}
+          </p>
+        </Section>
+      )}
+
+      {(entry.cyclePhase || entry.periodFlow || productCount > 0) && (
+        <Section title="Cycle" icon="🌸">
+          {(entry.cyclePhase || entry.periodFlow) && (
+            <p className="text-sm text-app-charcoal">
+              {entry.cyclePhase && CYCLE_PHASES.find((p) => p.value === entry.cyclePhase)?.label}
+              {entry.cyclePhase && entry.periodFlow && <span className="text-app-gray"> · </span>}
+              {entry.periodFlow && (() => {
+                const parsed = parseFlowValue(entry.periodFlow);
+                return (
+                  <span className="text-app-gray capitalize">
+                    {parsed.level} flow
+                    {parsed.startTime && <span> @ {formatTimeForDisplay(parsed.startTime, timeFormat)}</span>}
+                  </span>
+                );
+              })()}
+            </p>
+          )}
+          {productCount > 0 && (
+            <div className="mt-2">
+              <p className="text-xs text-app-gray mb-1.5">Products Used</p>
+              <div className="flex flex-wrap gap-1.5">
+                {entry.productUsage.map((product, idx) => (
+                  <span key={idx} className="text-xs bg-app-red/10 text-app-red px-2 py-1 rounded">
+                    {formatProductName(product, customProducts)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </Section>
+      )}
+
+      {medicineCount > 0 && (
+        <Section title="Medicines" icon="💊">
+          <div className="flex flex-wrap gap-1.5">
+            {entry.medicineLog.map((log, idx) => (
+              <span key={idx} className="text-xs bg-app-green/10 text-app-charcoal px-2 py-1 rounded">
+                {log.medicineName}{log.dosage ? ` (${log.dosage})` : ""}{log.time ? ` @ ${formatTimeForDisplay(`${log.time.hour}:${log.time.minute.toString().padStart(2, '0')}${log.time.period ? ` ${log.time.period}` : ''}`, timeFormat)}` : ""}
+              </span>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {entry.notes && (
+        <Section title="Notes" icon="📝">
+          <p className="text-sm text-app-charcoal whitespace-pre-wrap">{entry.notes}</p>
+        </Section>
       )}
     </div>
   );

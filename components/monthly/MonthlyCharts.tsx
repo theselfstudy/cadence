@@ -229,7 +229,7 @@ function BristolTrendChart({ data, weeksInMonth }: BristolTrendChartProps) {
       <div className="mb-4">
         <h4 className="text-sm font-medium text-app-charcoal">Bristol Weekly Trend</h4>
         <p className="text-xs text-app-gray mt-0.5">
-          Bowel movement patterns by week • Hover for details
+          Bowel movement patterns by week • Tap to expand
         </p>
       </div>
       {/* Summary stats */}
@@ -257,13 +257,12 @@ function BristolTrendChart({ data, weeksInMonth }: BristolTrendChartProps) {
             : 0;
 
           return (
-            <div 
+            <div
               key={index}
-              className={`p-3 rounded-lg border transition-all ${
+              className={`p-3 rounded-lg border transition-all cursor-pointer ${
                 isHovered ? "border-app-plumb bg-app-plumb/5" : "border-app-border"
               }`}
-              onMouseEnter={() => setHoveredWeek(index)}
-              onMouseLeave={() => setHoveredWeek(null)}
+              onClick={() => setHoveredWeek(isHovered ? null : index)}
             >
               {/* Week label */}
               <p className="text-sm font-medium text-app-charcoal mb-2">{week.label}</p>

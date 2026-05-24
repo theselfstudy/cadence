@@ -28,7 +28,7 @@ import {
 import { FilterBar } from "@/components/history";
 
 import type { StoredEntry, TimeFormat } from "@/types";
-import { EntryCard } from "@/components/ui/EntryCard";
+import { EntryCard, EntryDetailSections } from "@/components/ui/EntryCard";
 import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
 
 // ============================================
@@ -1133,6 +1133,8 @@ const CYCLE_PHASE_LABELS: Record<string, string> = {
 function DayCard({ date, entries, timeFormat, customProducts = {} }: DayCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const isSingle = entries.length === 1;
+
   const totalSymptoms = entries.reduce(
     (sum, e) =>
       sum +
@@ -1152,17 +1154,64 @@ function DayCard({ date, entries, timeFormat, customProducts = {} }: DayCardProp
 
   const hasPills = totalSymptoms > 0 || bristolCount > 0 || cyclePhaseLabel || medicineTaken > 0;
 
+  // Time display for single-entry header
+  const singleEntry = isSingle ? entries[0] : null;
+  const singleEntryTime = singleEntry
+    ? singleEntry.startTime === singleEntry.endTime
+      ? formatTimeForDisplay(singleEntry.startTime, timeFormat)
+      : `${formatTimeForDisplay(singleEntry.startTime, timeFormat)} → ${formatTimeForDisplay(singleEntry.endTime, timeFormat)} · ${calculateDuration(singleEntry.startTime, singleEntry.endTime)}`
+    : null;
+
+  const pills = hasPills && (
+    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+      {totalSymptoms > 0 && (
+        <span className="text-xs bg-app-teal/10 text-app-teal px-2 py-0.5 rounded-full whitespace-nowrap">
+          {totalSymptoms} symptom{totalSymptoms !== 1 ? "s" : ""}
+        </span>
+      )}
+      {bristolCount > 0 && (
+        <span className="text-xs bg-app-plumb/10 text-app-plumb px-2 py-0.5 rounded-full whitespace-nowrap">
+          Bristol ×{bristolCount}
+        </span>
+      )}
+      {cyclePhaseLabel && (
+        <span className="text-xs bg-app-red/10 text-app-red px-2 py-0.5 rounded-full whitespace-nowrap">
+          {cyclePhaseLabel}
+        </span>
+      )}
+      {medicineTaken > 0 && (
+        <span className="text-xs bg-app-green/10 text-app-green px-2 py-0.5 rounded-full whitespace-nowrap">
+          {medicineTaken} med{medicineTaken !== 1 ? "s" : ""}
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <div className="bg-app-cream/50 rounded-lg border border-app-border">
-      {/* Day Header */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-4 text-left"
-      >
+      <button onClick={() => setIsExpanded(!isExpanded)} className="w-full p-4 text-left">
         <div className="flex items-start justify-between">
-          <p className="font-semibold text-app-charcoal">{formatDate(date)}</p>
+          <div>
+            {/* Single entry: date + time on same line; multi: date only */}
+            {isSingle ? (
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <p className="font-semibold text-app-charcoal">{formatDate(date)}</p>
+                {singleEntryTime && (
+                  <span className="text-sm text-app-gray">{singleEntryTime}</span>
+                )}
+              </div>
+            ) : (
+              <p className="font-semibold text-app-charcoal">{formatDate(date)}</p>
+            )}
+            {pills}
+            {!isSingle && (
+              <p className="text-xs text-app-gray mt-1.5">
+                {entries.length} entries
+              </p>
+            )}
+          </div>
           <svg
-            className={`w-4 h-4 text-app-gray transition-transform flex-shrink-0 mt-0.5 ${isExpanded ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-app-gray transition-transform flex-shrink-0 mt-0.5 ml-2 ${isExpanded ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -1170,51 +1219,32 @@ function DayCard({ date, entries, timeFormat, customProducts = {} }: DayCardProp
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
-
-        {/* Summary pills — single row, underneath date */}
-        {hasPills && (
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            {totalSymptoms > 0 && (
-              <span className="text-xs bg-app-teal/10 text-app-teal px-2 py-0.5 rounded-full whitespace-nowrap">
-                {totalSymptoms} symptom{totalSymptoms !== 1 ? "s" : ""}
-              </span>
-            )}
-            {bristolCount > 0 && (
-              <span className="text-xs bg-app-plumb/10 text-app-plumb px-2 py-0.5 rounded-full whitespace-nowrap">
-                Bristol ×{bristolCount}
-              </span>
-            )}
-            {cyclePhaseLabel && (
-              <span className="text-xs bg-app-red/10 text-app-red px-2 py-0.5 rounded-full whitespace-nowrap">
-                {cyclePhaseLabel}
-              </span>
-            )}
-            {medicineTaken > 0 && (
-              <span className="text-xs bg-app-green/10 text-app-green px-2 py-0.5 rounded-full whitespace-nowrap">
-                {medicineTaken} med{medicineTaken !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-        )}
-
-        <p className="text-xs text-app-gray mt-1.5">
-          {entries.length} {entries.length === 1 ? "entry" : "entries"}
-        </p>
       </button>
 
-      {/* Entries */}
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-3 border-t border-app-border pt-3">
-          {entries.map((entry) => (
-            <EntryCard
-              key={entry.id}
-              entry={entry}
+        isSingle ? (
+          /* Single entry: render detail sections inline — no nested sub-card */
+          <div className="px-4 pb-4 pt-4 border-t border-app-border">
+            <EntryDetailSections
+              entry={entries[0]}
               timeFormat={timeFormat}
               customProducts={customProducts}
-              showDate={false}
             />
-          ))}
-        </div>
+          </div>
+        ) : (
+          /* Multi entry: show individual EntryCards with time as header */
+          <div className="px-4 pb-4 space-y-3 border-t border-app-border pt-3">
+            {entries.map((entry) => (
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                timeFormat={timeFormat}
+                customProducts={customProducts}
+                showDate={false}
+              />
+            ))}
+          </div>
+        )
       )}
     </div>
   );
