@@ -648,16 +648,11 @@ export default function MonthlyPage() {
                 onClearFilters={clearAllFiltersAndDays}
               />
             ) : viewMode === "cards" ? (
-              <div className="space-y-3">
-                {filteredEntries.map((entry) => (
-                  <EntryCard 
-                    key={entry.id} 
-                    entry={entry} 
-                    timeFormat={timeFormat}
-                    customProducts={settings.periodTracking.productTracking?.customProducts}
-                  />
-                ))}
-              </div>
+              <DayCardList
+                entries={filteredEntries}
+                timeFormat={timeFormat}
+                customProducts={settings.periodTracking.productTracking?.customProducts}
+              />
             ) : (
               <EntryTable entries={filteredEntries} timeFormat={timeFormat} />
             )}
@@ -1080,6 +1075,147 @@ function EntryTable({ entries, timeFormat }: EntryTableProps) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ============================================
+// DAY CARD (groups all entries for one date)
+// ============================================
+
+interface DayCardListProps {
+  entries: StoredEntry[];
+  timeFormat: TimeFormat;
+  customProducts?: Record<string, { id: string; name: string }[]>;
+}
+
+function DayCardList({ entries, timeFormat, customProducts }: DayCardListProps) {
+  // Group entries by date, sorted most-recent first
+  const groups = useMemo(() => {
+    const map: Record<string, StoredEntry[]> = {};
+    for (const entry of entries) {
+      if (!map[entry.date]) map[entry.date] = [];
+      map[entry.date].push(entry);
+    }
+    return Object.entries(map).sort(([a], [b]) => b.localeCompare(a));
+  }, [entries]);
+
+  return (
+    <div className="space-y-3">
+      {groups.map(([date, dayEntries]) => (
+        <DayCard
+          key={date}
+          date={date}
+          entries={dayEntries}
+          timeFormat={timeFormat}
+          customProducts={customProducts}
+        />
+      ))}
+    </div>
+  );
+}
+
+interface DayCardProps {
+  date: string;
+  entries: StoredEntry[];
+  timeFormat: TimeFormat;
+  customProducts?: Record<string, { id: string; name: string }[]>;
+}
+
+const CYCLE_PHASE_LABELS: Record<string, string> = {
+  menstrual: "Menstrual",
+  follicular: "Follicular",
+  ovulation: "Ovulation",
+  luteal: "Luteal",
+  not_sure: "Not Sure",
+};
+
+function DayCard({ date, entries, timeFormat, customProducts = {} }: DayCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const totalSymptoms = entries.reduce(
+    (sum, e) =>
+      sum +
+      Object.keys(e.symptomIntensities).length +
+      Object.keys(e.periodSymptomIntensities).length +
+      (e.oneOffSymptoms?.length || 0),
+    0
+  );
+  const bristolCount = entries.filter((e) => e.stoolType).length;
+  const medicineTaken = entries.reduce((sum, e) => sum + e.medicineLog.length, 0);
+
+  // Most recent entry's cycle phase (sort by startTime descending)
+  const cyclePhase = [...entries]
+    .sort((a, b) => b.startTime.localeCompare(a.startTime))
+    .find((e) => e.cyclePhase)?.cyclePhase ?? null;
+  const cyclePhaseLabel = cyclePhase ? (CYCLE_PHASE_LABELS[cyclePhase] ?? cyclePhase) : null;
+
+  const hasPills = totalSymptoms > 0 || bristolCount > 0 || cyclePhaseLabel || medicineTaken > 0;
+
+  return (
+    <div className="bg-app-cream/50 rounded-lg border border-app-border">
+      {/* Day Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full p-4 text-left"
+      >
+        <div className="flex items-start justify-between">
+          <p className="font-semibold text-app-charcoal">{formatDate(date)}</p>
+          <svg
+            className={`w-4 h-4 text-app-gray transition-transform flex-shrink-0 mt-0.5 ${isExpanded ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+
+        {/* Summary pills — single row, underneath date */}
+        {hasPills && (
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {totalSymptoms > 0 && (
+              <span className="text-xs bg-app-teal/10 text-app-teal px-2 py-0.5 rounded-full whitespace-nowrap">
+                {totalSymptoms} symptom{totalSymptoms !== 1 ? "s" : ""}
+              </span>
+            )}
+            {bristolCount > 0 && (
+              <span className="text-xs bg-app-plumb/10 text-app-plumb px-2 py-0.5 rounded-full whitespace-nowrap">
+                Bristol ×{bristolCount}
+              </span>
+            )}
+            {cyclePhaseLabel && (
+              <span className="text-xs bg-app-red/10 text-app-red px-2 py-0.5 rounded-full whitespace-nowrap">
+                {cyclePhaseLabel}
+              </span>
+            )}
+            {medicineTaken > 0 && (
+              <span className="text-xs bg-app-green/10 text-app-green px-2 py-0.5 rounded-full whitespace-nowrap">
+                {medicineTaken} med{medicineTaken !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        )}
+
+        <p className="text-xs text-app-gray mt-1.5">
+          {entries.length} {entries.length === 1 ? "entry" : "entries"}
+        </p>
+      </button>
+
+      {/* Entries */}
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-app-border pt-3">
+          {entries.map((entry) => (
+            <EntryCard
+              key={entry.id}
+              entry={entry}
+              timeFormat={timeFormat}
+              customProducts={customProducts}
+              showDate={false}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

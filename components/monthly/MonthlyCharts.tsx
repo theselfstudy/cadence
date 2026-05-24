@@ -265,13 +265,8 @@ function BristolTrendChart({ data, weeksInMonth }: BristolTrendChartProps) {
               onMouseEnter={() => setHoveredWeek(index)}
               onMouseLeave={() => setHoveredWeek(null)}
             >
-              {/* Week label and count */}
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-app-charcoal">{week.label}</p>
-                <p className="text-sm text-app-plumb font-medium">
-                  {weekData.totalBMs} BM{weekData.totalBMs !== 1 ? "s" : ""}
-                </p>
-              </div>
+              {/* Week label */}
+              <p className="text-sm font-medium text-app-charcoal mb-2">{week.label}</p>
 
               {/* Progress bar */}
               <div className="h-6 bg-app-border/30 rounded-lg relative overflow-hidden">
@@ -286,16 +281,30 @@ function BristolTrendChart({ data, weeksInMonth }: BristolTrendChartProps) {
                 {weekData.totalBMs - weekData.normalRangeCount > 0 && (
                   <div
                     className="absolute top-0 bottom-0 bg-app-plumb/60 transition-all"
-                    style={{ 
+                    style={{
                       left: `${(weekData.normalRangeCount / maxBMs) * 100}%`,
-                      width: `${((weekData.totalBMs - weekData.normalRangeCount) / maxBMs) * 100}%` 
+                      width: `${((weekData.totalBMs - weekData.normalRangeCount) / maxBMs) * 100}%`
                     }}
                   />
                 )}
-                {/* Count label */}
-                {weekData.totalBMs > 0 && barWidth > 15 && (
-                  <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-app-charcoal">
-                    {weekData.totalBMs}
+                {/* Per-segment count labels */}
+                {weekData.normalRangeCount > 0 && (weekData.normalRangeCount / maxBMs) * 100 > 12 && (
+                  <span
+                    className="absolute top-0 bottom-0 flex items-center justify-center text-xs font-semibold text-white"
+                    style={{ left: 0, width: `${(weekData.normalRangeCount / maxBMs) * 100}%` }}
+                  >
+                    {weekData.normalRangeCount}
+                  </span>
+                )}
+                {weekData.totalBMs - weekData.normalRangeCount > 0 && ((weekData.totalBMs - weekData.normalRangeCount) / maxBMs) * 100 > 12 && (
+                  <span
+                    className="absolute top-0 bottom-0 flex items-center justify-center text-xs font-semibold text-white"
+                    style={{
+                      left: `${(weekData.normalRangeCount / maxBMs) * 100}%`,
+                      width: `${((weekData.totalBMs - weekData.normalRangeCount) / maxBMs) * 100}%`,
+                    }}
+                  >
+                    {weekData.totalBMs - weekData.normalRangeCount}
                   </span>
                 )}
               </div>

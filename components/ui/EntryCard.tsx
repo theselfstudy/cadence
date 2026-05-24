@@ -14,9 +14,11 @@ interface EntryCardProps {
   timeFormat: TimeFormat;
   /** Custom products from settings for name lookup */
   customProducts?: Record<string, { id: string; name: string }[]>;
+  /** Hide the date header (used inside DayCard where date is shown by the parent) */
+  showDate?: boolean;
 }
 
-export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardProps) {
+export function EntryCard({ entry, timeFormat, customProducts = {}, showDate = true }: EntryCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Count symptoms
@@ -35,9 +37,9 @@ export function EntryCard({ entry, timeFormat, customProducts = {} }: EntryCardP
       <div className="flex items-start justify-between gap-4">
         <div>
           {/* Date: Day, Month Day, Year */}
-          <p className="font-semibold text-app-charcoal">{formatDate(entry.date)}</p>
+          {showDate && <p className="font-semibold text-app-charcoal">{formatDate(entry.date)}</p>}
           {/* Time and Duration */}
-          <p className="text-sm text-app-gray">
+          <p className={`text-sm ${showDate ? "text-app-gray" : "font-semibold text-app-charcoal"}`}>
             {entry.startTime === entry.endTime ? (
               formatTimeForDisplay(entry.startTime, timeFormat)
             ) : (
