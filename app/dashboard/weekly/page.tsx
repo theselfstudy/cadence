@@ -661,16 +661,11 @@ export default function WeeklyPage() {
                 onClearFilters={handleClearAllFilters}
               />
             ) : viewMode === "cards" ? (
-              <div className="space-y-3">
-                {filteredEntries.map((entry) => (
-                  <EntryCard 
-                    key={entry.id} 
-                    entry={entry} 
-                    timeFormat={timeFormat}
-                    customProducts={settings.periodTracking.productTracking?.customProducts}
-                  />
-                ))}
-              </div>
+              <EntryCard
+                entries={filteredEntries}
+                timeFormat={timeFormat}
+                customProducts={settings.periodTracking.productTracking?.customProducts}
+              />
             ) : (
               <EntryTable entries={filteredEntries} timeFormat={timeFormat} />
             )}
@@ -837,17 +832,6 @@ function WeeklyPageSkeleton() {
 // UTILITY FUNCTIONS
 // ============================================
 
-function formatDate(dateStr: string): string {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 function formatWeekStart(date: Date): string {
   return date.toLocaleDateString("en-US", {
     month: "short",
@@ -890,28 +874,3 @@ function formatTimeForDisplay(timeStr: string, format: TimeFormat): string {
   return `${hour}:${minute} AM`;
 }
 
-function calculateDuration(startTime: string, endTime: string): string {
-  if (!startTime || !endTime) return "—";
-
-  const [startHour, startMin] = startTime.split(":").map(Number);
-  const [endHour, endMin] = endTime.split(":").map(Number);
-
-  let startTotal = startHour * 60 + startMin;
-  let endTotal = endHour * 60 + endMin;
-
-  // Handle crossing midnight
-  if (endTotal < startTotal) {
-    endTotal += 24 * 60;
-  }
-
-  const duration = endTotal - startTotal;
-
-  if (duration < 60) {
-    return `${duration}m`;
-  }
-
-  const hours = Math.floor(duration / 60);
-  const mins = duration % 60;
-
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}

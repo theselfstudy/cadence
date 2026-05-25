@@ -539,14 +539,11 @@ export default function HistoryPage() {
               />
             ) : viewMode === "cards" ? (
               <div className="space-y-3">
-                {visibleEntries.map((entry) => (
-                  <EntryCard
-                    key={entry.id}
-                    entry={entry}
-                    timeFormat={timeFormat}
-                    customProducts={settings.periodTracking.productTracking?.customProducts}
-                  />
-                ))}
+                <EntryCard
+                  entries={visibleEntries}
+                  timeFormat={timeFormat}
+                  customProducts={settings.periodTracking.productTracking?.customProducts}
+                />
 
                 {/* Load More Button */}
                 {hasMoreEntries && (

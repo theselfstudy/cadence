@@ -73,16 +73,11 @@ export function EntriesSection({ entries }: EntriesSectionProps) {
       </div>
 
       {/* Entry cards */}
-      <div className="space-y-2">
-        {visibleEntries.map((entry) => (
-          <EntryCard
-            key={entry.id}
-            entry={entry}
-            timeFormat={timeFormat}
-            customProducts={customProducts}
-          />
-        ))}
-      </div>
+      <EntryCard
+        entries={visibleEntries}
+        timeFormat={timeFormat}
+        customProducts={customProducts}
+      />
 
       {/* Load more button */}
       {hasMore && (

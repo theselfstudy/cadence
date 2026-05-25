@@ -28,7 +28,7 @@ import {
 import { FilterBar } from "@/components/history";
 
 import type { StoredEntry, TimeFormat } from "@/types";
-import { EntryCard, EntryDetailSections } from "@/components/ui/EntryCard";
+import { EntryCard } from "@/components/ui/EntryCard";
 import { SyncWithGoogleSheetsButton, SyncStatusBadge } from "@/components/sync";
 
 // ============================================
@@ -648,7 +648,7 @@ export default function MonthlyPage() {
                 onClearFilters={clearAllFiltersAndDays}
               />
             ) : viewMode === "cards" ? (
-              <DayCardList
+              <EntryCard
                 entries={filteredEntries}
                 timeFormat={timeFormat}
                 customProducts={settings.periodTracking.productTracking?.customProducts}
@@ -1079,176 +1079,6 @@ function EntryTable({ entries, timeFormat }: EntryTableProps) {
   );
 }
 
-// ============================================
-// DAY CARD (groups all entries for one date)
-// ============================================
-
-interface DayCardListProps {
-  entries: StoredEntry[];
-  timeFormat: TimeFormat;
-  customProducts?: Record<string, { id: string; name: string }[]>;
-}
-
-function DayCardList({ entries, timeFormat, customProducts }: DayCardListProps) {
-  // Group entries by date, sorted most-recent first
-  const groups = useMemo(() => {
-    const map: Record<string, StoredEntry[]> = {};
-    for (const entry of entries) {
-      if (!map[entry.date]) map[entry.date] = [];
-      map[entry.date].push(entry);
-    }
-    return Object.entries(map).sort(([a], [b]) => b.localeCompare(a));
-  }, [entries]);
-
-  return (
-    <div className="space-y-3">
-      {groups.map(([date, dayEntries]) => (
-        <DayCard
-          key={date}
-          date={date}
-          entries={dayEntries}
-          timeFormat={timeFormat}
-          customProducts={customProducts}
-        />
-      ))}
-    </div>
-  );
-}
-
-interface DayCardProps {
-  date: string;
-  entries: StoredEntry[];
-  timeFormat: TimeFormat;
-  customProducts?: Record<string, { id: string; name: string }[]>;
-}
-
-const CYCLE_PHASE_LABELS: Record<string, string> = {
-  menstrual: "Menstrual",
-  follicular: "Follicular",
-  ovulation: "Ovulation",
-  luteal: "Luteal",
-  not_sure: "Not Sure",
-};
-
-function DayCard({ date, entries, timeFormat, customProducts = {} }: DayCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const isSingle = entries.length === 1;
-
-  const totalSymptoms = entries.reduce(
-    (sum, e) =>
-      sum +
-      Object.keys(e.symptomIntensities).length +
-      Object.keys(e.periodSymptomIntensities).length +
-      (e.oneOffSymptoms?.length || 0),
-    0
-  );
-  const bristolCount = entries.filter((e) => e.stoolType).length;
-  const medicineTaken = entries.reduce((sum, e) => sum + e.medicineLog.length, 0);
-
-  // Most recent entry's cycle phase (sort by startTime descending)
-  const cyclePhase = [...entries]
-    .sort((a, b) => b.startTime.localeCompare(a.startTime))
-    .find((e) => e.cyclePhase)?.cyclePhase ?? null;
-  const cyclePhaseLabel = cyclePhase ? (CYCLE_PHASE_LABELS[cyclePhase] ?? cyclePhase) : null;
-
-  const hasPills = totalSymptoms > 0 || bristolCount > 0 || cyclePhaseLabel || medicineTaken > 0;
-
-  // Time display for single-entry header
-  const singleEntry = isSingle ? entries[0] : null;
-  const singleEntryTime = singleEntry
-    ? singleEntry.startTime === singleEntry.endTime
-      ? formatTimeForDisplay(singleEntry.startTime, timeFormat)
-      : `${formatTimeForDisplay(singleEntry.startTime, timeFormat)} → ${formatTimeForDisplay(singleEntry.endTime, timeFormat)} · ${calculateDuration(singleEntry.startTime, singleEntry.endTime)}`
-    : null;
-
-  const pills = hasPills && (
-    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-      {totalSymptoms > 0 && (
-        <span className="text-xs bg-app-teal/10 text-app-teal px-2 py-0.5 rounded-full whitespace-nowrap">
-          {totalSymptoms} symptom{totalSymptoms !== 1 ? "s" : ""}
-        </span>
-      )}
-      {bristolCount > 0 && (
-        <span className="text-xs bg-app-plumb/10 text-app-plumb px-2 py-0.5 rounded-full whitespace-nowrap">
-          Bristol ×{bristolCount}
-        </span>
-      )}
-      {cyclePhaseLabel && (
-        <span className="text-xs bg-app-red/10 text-app-red px-2 py-0.5 rounded-full whitespace-nowrap">
-          {cyclePhaseLabel}
-        </span>
-      )}
-      {medicineTaken > 0 && (
-        <span className="text-xs bg-app-green/10 text-app-green px-2 py-0.5 rounded-full whitespace-nowrap">
-          {medicineTaken} med{medicineTaken !== 1 ? "s" : ""}
-        </span>
-      )}
-    </div>
-  );
-
-  return (
-    <div className="bg-app-cream/50 rounded-lg border border-app-border">
-      <button onClick={() => setIsExpanded(!isExpanded)} className="w-full p-4 text-left">
-        <div className="flex items-start justify-between">
-          <div>
-            {/* Single entry: date + time on same line; multi: date only */}
-            {isSingle ? (
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <p className="font-semibold text-app-charcoal">{formatDate(date)}</p>
-                {singleEntryTime && (
-                  <span className="text-sm text-app-gray">{singleEntryTime}</span>
-                )}
-              </div>
-            ) : (
-              <p className="font-semibold text-app-charcoal">{formatDate(date)}</p>
-            )}
-            {pills}
-            {!isSingle && (
-              <p className="text-xs text-app-gray mt-1.5">
-                {entries.length} entries
-              </p>
-            )}
-          </div>
-          <svg
-            className={`w-4 h-4 text-app-gray transition-transform flex-shrink-0 mt-0.5 ml-2 ${isExpanded ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </button>
-
-      {isExpanded && (
-        isSingle ? (
-          /* Single entry: render detail sections inline — no nested sub-card */
-          <div className="px-4 pb-4 pt-4 border-t border-app-border">
-            <EntryDetailSections
-              entry={entries[0]}
-              timeFormat={timeFormat}
-              customProducts={customProducts}
-            />
-          </div>
-        ) : (
-          /* Multi entry: show individual EntryCards with time as header */
-          <div className="px-4 pb-4 space-y-3 border-t border-app-border pt-3">
-            {entries.map((entry) => (
-              <EntryCard
-                key={entry.id}
-                entry={entry}
-                timeFormat={timeFormat}
-                customProducts={customProducts}
-                showDate={false}
-              />
-            ))}
-          </div>
-        )
-      )}
-    </div>
-  );
-}
 
 // ============================================
 // EMPTY STATES
@@ -1311,17 +1141,6 @@ function MonthlyPageSkeleton() {
 // UTILITY FUNCTIONS
 // ============================================
 
-function formatDate(dateStr: string): string {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 function formatDateShort(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
@@ -1357,28 +1176,3 @@ function formatTimeForDisplay(timeStr: string, format: TimeFormat): string {
   return `${hour}:${minute} AM`;
 }
 
-function calculateDuration(startTime: string, endTime: string): string {
-  if (!startTime || !endTime) return "—";
-
-  const [startHour, startMin] = startTime.split(":").map(Number);
-  const [endHour, endMin] = endTime.split(":").map(Number);
-
-  let startTotal = startHour * 60 + startMin;
-  let endTotal = endHour * 60 + endMin;
-
-  // Handle crossing midnight
-  if (endTotal < startTotal) {
-    endTotal += 24 * 60;
-  }
-
-  const duration = endTotal - startTotal;
-
-  if (duration < 60) {
-    return `${duration}m`;
-  }
-
-  const hours = Math.floor(duration / 60);
-  const mins = duration % 60;
-
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
