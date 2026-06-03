@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSettings } from "@/stores/useSettings";
 import { useEntries } from "@/stores/useEntries";
 import type { MedicineCategory, LogSection } from "@/types";
@@ -9,6 +9,8 @@ import { LogSelectionModal, SegmentedIntensityBar } from "@/components/entry";
 import { SuccessModal } from "@/components/ui/SuccessModal";
 import { WarningModal } from "@/components/ui/WarningModal";
 import { getLocalDateString } from '@/lib/dateUtils';
+import { detectCycleBoundaries } from '@/lib/monthlyUtils';
+import { calculateThisCycleData } from '@/lib/insightUtils';
 import { useButtonRateLimit } from '@/hooks/useRateLimit';
 import { SecureTextarea, SecureTextInput } from '@/components/ui/SecureInput';
 import { sanitizeText, isTextSafe } from '@/lib/inputSecurity';
@@ -485,7 +487,7 @@ function ConsolidatedMedicineLog({
 export default function EntryPage() {
   const router = useRouter();
   const { timeFormat, symptoms, periodTracking, stoolTracking, medicineTracking, isGoogleSheetConnected } = useSettings();
-  const { addEntry } = useEntries();
+  const { addEntry, entries } = useEntries();
   const is24Hour = timeFormat === "24h";
 
   // Rate limiting: Allow 5 submissions per minute
@@ -526,6 +528,34 @@ export default function EntryPage() {
   const safeStoolTracking = stoolTracking ?? { enabled: false };
   const intensityEnabled = safeSymptoms.intensityTracking?.enabled ?? false;
   const painScaleType = safeSymptoms.intensityTracking?.scaleType ?? "simple";
+
+  const PERIOD_NOTICE_DISMISS_KEY = 'cadence-period-notice-dismissed';
+  const [isPeriodNoticeDismissed, setIsPeriodNoticeDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(PERIOD_NOTICE_DISMISS_KEY) === getLocalDateString();
+  });
+  const dismissPeriodNotice = () => {
+    localStorage.setItem(PERIOD_NOTICE_DISMISS_KEY, getLocalDateString());
+    setIsPeriodNoticeDismissed(true);
+  };
+
+  const periodPrediction = useMemo(() => {
+    if (!safePeriodTracking.enabled) return null;
+    const allCycles = detectCycleBoundaries(entries);
+    const completeCycles = allCycles.filter(c => !c.isOngoing && c.length !== null);
+    if (completeCycles.length < 6) return null;
+    const currentCycle = allCycles.find(c => c.isOngoing) ?? null;
+    if (!currentCycle) return null;
+    const cycleData = calculateThisCycleData(currentCycle, allCycles, entries);
+    if (!cycleData?.periodTypicallyStarts || !cycleData?.daysUntilPeriodEstimate) return null;
+    const [daysUntilMin, daysUntilMax] = cycleData.daysUntilPeriodEstimate;
+    const { dayRange, confidence } = cycleData.periodTypicallyStarts;
+    if (confidence < 0.7) return null;
+    const daysOverdue = Math.max(0, cycleData.cycleDay - dayRange[1]);
+    if (daysOverdue > 7) return null; // too far past max, back off
+    if (daysOverdue === 0 && daysUntilMin > 7) return null; // too far ahead
+    return { daysUntilMin, daysUntilMax };
+  }, [entries, safePeriodTracking.enabled]);
 
   const [loggedMedicines, setLoggedMedicines] = useState<MedicineLogEntry[]>([]);
 
@@ -1141,6 +1171,32 @@ const safeMedicineTracking = medicineTracking ?? { enabled: false, medicines: []
                 </a>
               </span>
             </div>
+
+            {/* Period prediction hint - only when confidence is high, period is within 7 days, not yet started, and not dismissed today */}
+            {periodPrediction !== null && !isPeriodNoticeDismissed && cyclePhase !== "menstrual" && (
+              <div className="flex items-start justify-between sm:justify-start gap-3 mb-3 border-l-2 border-app-red/40 pl-3 py-0.5">
+                <p className="text-sm text-app-gray leading-snug">
+                  {periodPrediction.daysUntilMin > 0 ? (
+                    <>Your period may start in the next{" "}
+                    <span className="font-medium text-app-charcoal">
+                      {periodPrediction.daysUntilMin}–{periodPrediction.daysUntilMax} days
+                    </span>.</>
+                  ) : (
+                    <>Your period could start{" "}
+                    <span className="font-medium text-app-charcoal">any day now</span>.</>
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={dismissPeriodNotice}
+                  className="text-app-gray/40 hover:text-app-gray transition-colors flex-shrink-0 leading-none pt-0.5"
+                  aria-label="Dismiss period prediction"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2">
               {CYCLE_PHASES.map((phase) => {
                 const isSelected = cyclePhase === phase.value;

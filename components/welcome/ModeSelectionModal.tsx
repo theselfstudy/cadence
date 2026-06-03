@@ -54,6 +54,7 @@ interface ModeSelectionModalProps {
 
 export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalProps) {
   const [selectedOption, setSelectedOption] = useState<SelectedOption | null>(null);
+  const [showAnonymousWarning, setShowAnonymousWarning] = useState(false);
   const router = useRouter();
 
   const handleContinue = () => {
@@ -61,6 +62,8 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
 
     if (selectedOption === "restore") {
       router.push("/recover");
+    } else if (selectedOption === "anonymous") {
+      setShowAnonymousWarning(true);
     } else {
       onSelect(selectedOption);
     }
@@ -69,6 +72,66 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-app-white p-6 rounded-xl shadow-xl max-w-lg w-full space-y-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
+        {showAnonymousWarning ? (
+          /* ── Anonymous mode warning ── */
+          <>
+            <div className="text-center space-y-1">
+              <span className="text-3xl block">⚠️</span>
+              <h2 className="text-xl font-bold text-app-charcoal">
+                Before you continue
+              </h2>
+              <p className="text-sm text-app-gray">
+                Keeping data on this device only comes with real limitations.
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-app-cream border border-app-border p-4 space-y-3">
+              <ul className="space-y-3">
+                {[
+                  "Using incognito or private browsing? Your health data will be permanently gone when the session ends with no way to recover it.",
+                  "Clearing your browser history, site data, or cache can silently delete all your entries and settings.",
+                  "Your data won't follow you to another browser or device.",
+                  "If you lose access to this device or browser, there is no backup and no recovery path.",
+                  "You can connect a Google Sheet in Settings at any time. Your existing entries will sync up when you do. But until then, there is no backup.",
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="mt-0.5 shrink-0 text-app-plumb">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                      </svg>
+                    </span>
+                    <p className="text-xs text-app-gray leading-relaxed">{item}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <p className="text-xs text-app-gray/70 text-center leading-relaxed">
+              If any of this gives you pause, go back and choose{" "}
+              <span className="font-medium text-app-charcoal">Signed In &amp; Synced Mode</span>{" "}
+              to keep your health data safe.
+            </p>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => onSelect("anonymous")}
+                className="w-full py-3 px-4 rounded-lg font-semibold bg-app-gray/80 text-white hover:bg-app-gray transition-colors"
+              >
+                I understand, continue without backup
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAnonymousWarning(false)}
+                className="w-full py-2 px-4 text-sm text-app-gray hover:text-app-charcoal transition-colors"
+              >
+                Go back
+              </button>
+            </div>
+          </>
+        ) : (
+          /* ── Main selection view ── */
+          <>
         {/* Header */}
         <div className="text-center">
           <h2 className="text-xl font-bold text-app-charcoal">
@@ -237,6 +300,8 @@ export function ModeSelectionModal({ onSelect, onCancel }: ModeSelectionModalPro
             Go Back
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

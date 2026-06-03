@@ -174,12 +174,12 @@ export default function WelcomePage() {
         </div>
 
         {/* Description */}
-        <p className="max-w-md text-lg text-app-gray mb-5">
+        <p className="max-w-md text-lg text-app-gray mb-2">
           A highly customizable personal health tracker for symptoms,
           cycles, and long-term insights.
-          <p className="max-w-md text-sm text-app-gray mt-4">
-            Scroll down and click to get started.
-          </p>
+        </p>
+        <p className="max-w-md text-sm text-app-gray mb-5 mt-2">
+          Scroll down and click to get started.
         </p>
 
         {/* Features */}
